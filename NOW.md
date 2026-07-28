@@ -10,7 +10,32 @@ If this file disagrees with a spec doc, the spec doc wins and this file is stale
 
 ## Status
 
-Pre-code. No source files, no package.json, no build, no git repository. Tier 1 documentation plus DESIGN.md.
+The kernel runs. V1 landed the engine and the two property tests that guard it. There is no act 1 content and no interface yet, so there is nothing a player could touch, but the machine that would run them exists and is tested.
+
+## Build state
+
+| Log | What it built | Status |
+| --- | --- | --- |
+| V1 | The engine kernel: constants, seeded PRNG, pools, reactions, tick, loop, conservation and determinism tests | Done 2026-07-28 |
+| V2 | Act 1 content: glucose uptake, glycolysis, the NAD+ pool, lactate fermentation | Not started |
+| V3 | The first interface | Not started |
+
+## What the kernel does
+
+`src/sim/`, headless, no UI, no content.
+
+    constants.ts    docs/SIMULATION.md Part 6, literal types, each pointing at the part that decided it
+    prng.ts         mulberry32, state exposed for the save, seed 1 reference sequence frozen in a test
+    pools.ts        Float64Array amounts, frozen id-to-index map, flat conserved weight matrix
+    reactions.ts    Michaelis-Menten and Hill, integer exponents by repeated multiplication
+    tick.ts         two-phase update, proportional shortfall scaling, SAFE_VALUE_CEILING tripwire
+    loop.ts         fixed timestep accumulator, catch-up cap, excess routed to pendingOfflineMs
+    hash.ts         FNV-1a over the canonical state form
+    harness.ts      `npm run sim`, three scenarios over the synthetic fixture
+
+65 tests. Conservation holds to 1.964e-13 relative across randomized runs, against a 1e-9 tolerance. The canonical determinism hash is `172f83fb`. `Math.random`, `Math.pow`, `Math.exp`, `Math.log` and `Date.now` fail lint inside `src/sim/`, so hard rules 4 and 5 are mechanism rather than discipline.
+
+Not built, deliberately: offline progress, saves and migrations, any content, any interface.
 
 ## What exists
 
@@ -28,6 +53,8 @@ Pre-code. No source files, no package.json, no build, no git repository. Tier 1 
     docs/ECONOMY.md        not written, deliberate, needs a prototype first
     docs/CONTENT_STYLE.md  not written, deliberate, written last
 
+    UPDATELOGV1.md         the kernel build log, five stages, all reported
+
 Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system-20260728/`. `preview-cartoon.html` is the current direction. `preview.html` is a rejected earlier direction kept for comparison.
 
 ## Settled 2026-07-28
@@ -42,35 +69,37 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Blocking
 
-1. **No git repository.** Roughly 110KB of specification with no history. The `/complete-updatelog` workflow commits and pushes per stage, so it cannot run until this exists.
-2. **Five timeline dates are unsourced.** ~4.0 Ga, ~2.7 Ga, ~2.0 to 1.5 Ga and ~1.6 Ga currently violate hard rule 1. A sourcing pass on docs/SCIENCE.md is drafted and pending.
-3. **Act 2 has no iron-sulfur target in the player's pathway.** docs/PROGRESSION.md line 63 targets ROS damage at Fe-S enzymes, but no glycolytic enzyme has an Fe-S cluster and the TCA cycle does not unlock until act 3. Likely correct targets are pyruvate:ferredoxin oxidoreductase and ferredoxin. Needs a docs/SCIENCE.md entry and a docs/PROGRESSION.md correction. Part of the same pending sourcing pass.
+1. **Five timeline dates are unsourced.** ~4.0 Ga, ~2.7 Ga, ~2.0 to 1.5 Ga and ~1.6 Ga currently violate hard rule 1. A sourcing pass on docs/SCIENCE.md is drafted and pending.
+2. **Act 2 has no iron-sulfur target in the player's pathway.** docs/PROGRESSION.md line 63 targets ROS damage at Fe-S enzymes, but no glycolytic enzyme has an Fe-S cluster and the TCA cycle does not unlock until act 3. Likely correct targets are pyruvate:ferredoxin oxidoreductase and ferredoxin. Needs a docs/SCIENCE.md entry and a docs/PROGRESSION.md correction. Part of the same pending sourcing pass.
 
 ## Open, not blocking
 
 - **Working title is still TBD.** docs/BRIEF.md line 4 says so and no naming shortlist exists. The wordmark is drawn as `krebs`, but the Krebs cycle unlocks roughly four hours in and does not exist during act 1.
-- **Cross-document paths are broken.** Every doc references `docs/SCIENCE.md` and similar, but the files sit at the repository root. Roughly 25 dead references including CLAUDE.md's own index. Either move the files into `docs/` or rewrite the references.
-- **No release gate for the Needs source badge.** The badge is specified in DESIGN.md but nothing enforces it. A build check that fails on any surviving Needs source turns hard rule 1 from discipline into mechanism.
-- `STEADY_EPSILON` and `STEADY_WINDOW` are marked tune during prototype in docs/SIMULATION.md Part 6.
+- **No release gate for the Needs source badge.** The badge is specified in DESIGN.md but nothing enforces it. A build check that fails on any surviving Needs source turns hard rule 1 from discipline into mechanism. The ESLint determinism rule from V1 is the model: the same trick works here.
+- **Two undisclosed simplifications in the kinetics.** A multi-substrate reaction takes the minimum of its per-substrate saturation terms rather than a real bi-bi rate law, and one kinetics descriptor per reaction means one Km shared across all of its substrates. Both are game decisions, both are defensible, neither is written down. They need a docs/SCIENCE.md entry or a docs/ECONOMY.md divergence row. docs/SCIENCE.md Part 1 requires the methodology to be disclosed in-game, so this is a real obligation rather than tidiness.
+- `STEADY_EPSILON` and `STEADY_WINDOW` shipped in V1 as unvalidated placeholders, 1e-6 and 20. docs/SIMULATION.md Part 6 marks them tune during prototype and no measurement exists yet. The offline progress log validates them, and that measurement is the first thing it has to do.
 
 ## Next, in order
 
-1. `git init` and commit everything as it stands.
-2. Land the docs/SCIENCE.md sourcing pass. Blocking items 2 and 3 both resolve here.
-3. `/updatelog` for the vertical slice, in a fresh session.
+1. Land the docs/SCIENCE.md sourcing pass. Both blocking items resolve here, and V2 needs the act 1 numbers to be citable before it can put any of them on screen.
+2. V2, act 1 content. Glucose uptake, glycolysis, the NAD+ pool and lactate fermentation, from docs/SCIENCE.md Part 2 and docs/PROGRESSION.md act 1.
+
+The ordering matters. docs/SIMULATION.md line 90 asked for the conservation test before act 1 content, and V1 delivered it, so the moment real biology lands it is guarded.
 
 ## The vertical slice
 
 Scope is fixed by docs/BRIEF.md line 110 and should not grow: tick loop, one pool, glycolysis, the NAD+ constraint, fermentation, no UI polish.
 
-docs/SIMULATION.md already decides everything this needs, so the stages are implementation rather than design. In scope: fixed timestep accumulator, pools, Michaelis-Menten flux, two-phase update, negative pool proportional scaling, seeded PRNG, the conservation property test and the determinism test.
+Done in V1: fixed timestep accumulator, pools, Michaelis-Menten flux, two-phase update, negative pool proportional scaling, seeded PRNG, the conservation property test and the determinism test.
+
+Left for V2: glycolysis, the NAD+ constraint, fermentation.
 
 Out of scope for the slice: saves, offline progress, the design system, the timeline, the beast.
-
-Order note: docs/SIMULATION.md line 90 says the conservation test should exist before act 1 content does.
 
 ## Why the UI waits
 
 The slice exists to answer two questions from docs/BRIEF.md. Whether saturating kinetics feel like a game, and whether the NAD+ wall reads as interesting rather than annoying.
 
 DESIGN.md specifies a lot of interface that has never been tested against a running simulation. If the NAD+ wall reads as annoying, some of those decisions change. Build the thing that answers the question, then dress it.
+
+V1 does not answer either question, and was not meant to. The kernel has no NAD+ and no glucose in it. `npm run sim` is the only way to look at it and it prints numbers to a console. V2 is the first log that can say anything about how any of this feels.

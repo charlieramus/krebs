@@ -705,7 +705,170 @@ determinism hash, and the NOW.md diff summary.
 
 ## Stage 5 Report
 
-_Pending._
+**src/sim/__tests__/fixtures/toyPathway.ts.** Three reactions, eight pools:
+
+```
+  r1:  A + 2 X + 2 P  ->  2 B + 2 Y     forward, reduces the carrier
+  r2:  B              ->  C + G + P     forward, splits the carbon
+  r3:  Y + C          ->  X + D         recycling, reoxidises the carrier
+```
+
+X and Y are the two states of one small fixed carrier pool, and r3 is the ceiling
+on everything upstream of it. That is the structural requirement: a small fixed
+recycling pool gating throughput, which is the shape the offline steady-state work
+in a later log has to settle against.
+
+Carbon is carried at four different counts, 6, 3, 2 and 1, rather than at one
+count throughout. That was deliberate and it earns its keep: with a single carbon
+count a dropped stoichiometric coefficient can cancel out and leave the total
+unchanged, so the conservation test would pass a bug it was built to catch. Every
+reaction balances carbon, phosphate and redox independently, and the arithmetic
+for all three is written out in the file header.
+
+The file opens with `THIS IS NOT BIOLOGY. NOTHING HERE MAY BE CITED.` It is not
+glycolysis, every number in it is invented, and it lives in `__tests__/` so it
+cannot ship. Hard rule 1 is not in play, and the comment is there so nobody later
+concludes otherwise.
+
+`createToyPathway(options)` takes initial-level, Vmax, Km and seed overrides, which
+is what lets the conservation test randomize configurations without a second copy
+of the pathway.
+
+**The harness now imports the fixture** rather than keeping its own copy, which
+is the item stage 4's report flagged. Three scenarios are now three sets of Vmax
+overrides on one pathway, so the thing being looked at and the thing being
+guarded cannot drift apart.
+
+**src/sim/__tests__/conservation.test.ts.** Six tests. The default configuration
+over 5000 ticks; 200 randomized configurations at 500 ticks each with initial
+levels from 0 to 2000, Vmax spanning two orders either side of the fixture
+defaults, and Km an order either side; 100 shortfall-forcing configurations; a
+case with every pool scarce at once so reactions are scaled by factors from more
+than one pool; 50 runs asserting non-negativity every tick; and a measurement run.
+
+Zero is included as a legitimate starting level on purpose, at 15% probability.
+Randomization is seeded, because a failure that cannot be reproduced is not
+actionable.
+
+The shortfall test asserts `sawShortfall` at the end. If none of its
+configurations actually tripped the guard, the test would be asserting nothing
+about the code path it exists to cover, and it would fail rather than pass
+quietly.
+
+**Tolerance: 1e-9, relative, per quantity.** The reasoning, which is in the file
+as well as here:
+
+The floor is float noise. Explicit Euler over N ticks does O(N) rounded additions
+per pool and the error accumulates. The worst relative drift measured anywhere in
+this suite is **1.964e-13**, produced by the last test in the file, which runs 60
+configurations for 4000 ticks each and prints the worst it saw. 1e-9 is between
+three and four orders of magnitude above that.
+
+The ceiling is what a real leak looks like. Conservation bugs are not subtle in
+magnitude. Clamping a pool at zero, dropping a coefficient, writing a product to
+the wrong index, or scaling a reaction's substrates without its products each
+destroy or manufacture an O(1) share of one reaction's throughput. Over hundreds
+of ticks throughput is comparable to the totals themselves, so any of them shows
+as relative drift of 1e-3 or worse. There is no mechanism in this kernel that
+leaks at 1e-8. The gap between 1e-13 noise and 1e-3 leaks is six orders wide and
+1e-9 sits in the middle of it.
+
+Relative rather than absolute, because carbon totals in the tens of thousands and
+redox in the thousands would otherwise be held to wildly different standards.
+
+The measurement test asserts the observed worst stays below `tolerance / 1000`.
+That is the headroom claim made into an assertion: if drift ever climbs toward the
+tolerance, the argument above has stopped being true and needs redoing rather than
+the tolerance being loosened.
+
+**src/sim/hash.ts, an addition.** The state hash is simulation code, not test
+code. It has to obey the same determinism rules as everything else in `src/sim/`
+and it is what CI will compare, so it lives with the kernel and the ESLint rule
+covers it.
+
+FNV-1a, 32 bit, over the canonical string form: pool amounts in registry order
+tagged with their ids, then the tick count, then the PRNG algorithm, seed and
+state. Fixed order, arrays only, no object-key iteration. Ids are included so a
+state with a pool removed cannot collide with one that has a different value in
+the same position.
+
+Floats serialise via `String(value)`, which produces the shortest decimal that
+parses back to the same float64, so the round-trip is exact. Negative zero is
+spelled out as `-0` rather than stringifying to `0`, because a pool at -0 is a
+real difference in state and the hash should see it. Both properties are tested:
+one test parses every pool back out of the encoded form and asserts bit equality,
+another asserts 0 and -0 hash differently.
+
+**src/sim/__tests__/determinism.test.ts.** Ten tests. Same seed and script run
+twice produce the same hash. Three different seeds produce three different hashes.
+
+The input script consumes the PRNG, toggling one PRNG-selected reaction every 50
+ticks, which is the shape unlocks and enzyme damage take in the real game. That
+matters: without it, the seed would reach the hash only through the RNG state
+field, so "different seeds produce different hashes" would be satisfied by the
+hash reading the seed and ignoring the simulation entirely. Two further tests
+close the same hole from the other side, asserting the hash changes after one
+extra tick and after a single pool moves by one ulp.
+
+FNV-1a is checked against the published 32-bit reference vectors for `""`, `"a"`
+and `"foobar"`, so a drift in the hash implementation is caught without needing a
+simulation at all.
+
+**Canonical determinism hash: `172f83fb`.**
+
+Fixture: `createToyPathway({ seed: 20260728 })`, 1200 ticks, toggling one
+PRNG-selected reaction every 50 ticks. Frozen as an assertion, not just reported,
+so CI and later logs have a known-good value. A change to it means the kernel's
+arithmetic changed, which may well be correct but is never incidental.
+
+**Coherence pass.** typecheck, lint, build and the full suite all clean. Read
+through `src/sim/` as a whole and swept it for the specific hazards:
+
+- No `Math.random`, `Math.pow`, `Math.exp` or `Math.log` anywhere. Every textual
+  hit is a comment explaining why they are banned.
+- No `Date.now`, no `new Date`, no `performance.now`. Wall-clock time enters only
+  as an argument to `loop.advance`.
+- No object-key iteration in flux computation. One `Object.keys` exists in the
+  whole kernel, in the `PoolRegistry` constructor where the conserved-weight
+  matrix is built, which is construction and not the hot path. It is commented as
+  such.
+- No float accumulation of game time. `tickCount` is `+= 1` and the only
+  conversion to milliseconds is `elapsedMs` at the boundary.
+- No allocation inside `tick`. All working arrays are on the state object.
+
+Nothing needed fixing.
+
+**NOW.md.** All six required edits plus the build state table:
+
+- Line 13's "Pre-code. No source files, no package.json, no build, no git
+  repository." replaced with a status that says the kernel runs, and says plainly
+  that there is no content and no interface so there is nothing a player could
+  touch yet.
+- Blocking item 1, the missing git repository, removed. The remaining two
+  renumbered to 1 and 2. Neither was touched otherwise: the five unsourced
+  timeline dates and the act 2 Fe-S target are still open and still violate hard
+  rule 1.
+- "Cross-document paths are broken" removed from "Open, not blocking", resolved by
+  stage 1.
+- New "What the kernel does" section listing the eight files in `src/sim/` with
+  one line each, the test count, the conservation figure, the determinism hash and
+  the lint guard. Plus what is deliberately not built.
+- "Next, in order" is now the docs/SCIENCE.md sourcing pass then V2, with a note
+  on why that order. "The vertical slice" splits into what V1 did and what V2 has
+  left.
+- New `## Build state` table with a row per log: V1 done, V2 and V3 not started.
+  Later logs append.
+
+Two things added to "Open, not blocking" that were not in the stage list, because
+this log created them and leaving them only in a report would lose them: the
+`STEADY_EPSILON` and `STEADY_WINDOW` placeholders now say what they shipped as and
+what validates them, and the two undisclosed kinetics simplifications from stage 3
+are recorded as owing a docs/SCIENCE.md entry.
+
+**Verify.** `npm run typecheck` clean. `npm run lint` clean. `npm run build`
+clean, 29 modules, 193.37 kB raw and 60.74 kB gzipped. `npm test` **65 passed
+across 6 files** in 1.53s. Conservation tolerance 1e-9 relative against 1.964e-13
+observed. Canonical determinism hash `172f83fb`.
 
 ---
 

@@ -12,111 +12,45 @@
  *   npm run sim -- 1200 starved    the pathway that over-draws a pool
  *   npm run sim -- 1200 starved --verbose   with the per-second shortfall log
  *
- * The pathway below is synthetic. Pools are called A, B, C and so on, and every
- * number in it is invented. It is deliberately NOT glycolysis and carries no
+ * The pathway is the synthetic fixture the property tests run against, imported
+ * rather than copied so the thing being looked at and the thing being guarded
+ * cannot drift apart. It is deliberately NOT glycolysis and carries no
  * biological values, so nothing here can leak into player-facing text and
  * nothing here should ever be cited. Act 1 content arrives in V2.
  */
 
 import process from 'node:process';
-import { PoolRegistry, type PoolDefinition } from './pools';
-import { michaelisMenten, type Reaction } from './reactions';
-import { createPrng } from './prng';
-import { createSimulation, type SimulationState } from './state';
+import type { SimulationState } from './state';
 import { setShortfallLogging, tick } from './tick';
 import { elapsedMs } from './loop';
 import { TICK_SECONDS } from './constants';
+import { createToyPathway } from './__tests__/fixtures/toyPathway';
 
 export type Scenario = 'balanced' | 'throttled' | 'starved';
 
 /**
- * A synthetic pathway with a recycling carrier.
+ * Three scenarios over the one shared fixture, differing only in r1's and r3's
+ * kinetics. See the fixture for the pathway itself and its conservation
+ * bookkeeping.
  *
- *   r1:  A + 2 X + 2 P  ->  2 B + 2 Y      forward, reduces the carrier
- *   r2:  B              ->  C + P          forward, releases phosphate
- *   r3:  Y + C          ->  X + D          recycling, reoxidises the carrier
- *
- * X and Y are the two states of one small fixed carrier pool, so r3 is the
- * throughput ceiling for everything upstream of it. That is structurally the
- * shape act 1 has. It is not act 1.
- *
- * Every reaction balances all three conserved quantities, which is what makes
- * the conservation check meaningful:
- *
- *   r1  carbon 6 -> 6,  phosphate 2 -> 2,  redox 2 -> 2
- *   r2  carbon 3 -> 3,  phosphate 1 -> 1,  redox 0 -> 0
- *   r3  carbon 3 -> 3,  phosphate 0 -> 0,  redox 1 -> 1
+ * balanced   r3 reoxidises the carrier about as fast as r1 reduces it. The
+ *            system settles and nothing ever runs short. Fixture defaults.
+ * throttled  r3 is far too slow. X drains toward zero and the saturation curve
+ *            throttles r1 smoothly on the way down, so the carrier gates
+ *            throughput without any pool ever being over-drawn. The
+ *            well-behaved failure, and worth being able to see.
+ * starved    r1 is fast enough to demand more X in a single tick than the pool
+ *            holds. This is the case the proportional scaling guard exists for,
+ *            and the only one of the three that exercises it.
  */
 export function buildScenario(scenario: Scenario): SimulationState {
-  const definitions: readonly PoolDefinition[] = [
-    { id: 'A', label: 'six carbon, carries two redox', initial: 4000, conserved: { carbon: 6, redox: 2 } },
-    { id: 'B', label: 'three carbon, phosphorylated', initial: 0, conserved: { carbon: 3, phosphate: 1 } },
-    { id: 'C', label: 'three carbon', initial: 0, conserved: { carbon: 3 } },
-    { id: 'D', label: 'three carbon, reduced end product', initial: 0, conserved: { carbon: 3, redox: 1 } },
-    { id: 'P', label: 'free phosphate', initial: 400, conserved: { phosphate: 1 } },
-    { id: 'X', label: 'carrier, oxidised', initial: 10, conserved: {} },
-    { id: 'Y', label: 'carrier, reduced', initial: 0, conserved: { redox: 1 } },
-  ];
-
-  const pools = new PoolRegistry(definitions);
-  const at = (id: string): number => pools.indexOf(id);
-
-  // Three scenarios, differing only in r1's and r3's Vmax.
-  //
-  // balanced   r3 reoxidises the carrier about as fast as r1 reduces it. The
-  //            system settles and nothing ever runs short.
-  // throttled  r3 is far too slow. X drains toward zero and the saturation
-  //            curve throttles r1 smoothly on the way down, so the carrier
-  //            gates throughput without any pool ever being over-drawn. This
-  //            is the well-behaved case, and it is worth being able to see.
-  // starved    r1 is fast enough to demand more X in a single tick than the
-  //            pool holds. This is the case the proportional scaling guard
-  //            exists for, and the only one that exercises it.
-  const forwardVmax = scenario === 'starved' ? 400 : 20;
-  const forwardKm = scenario === 'starved' ? 1 : 5;
-  const recycleVmax = scenario === 'balanced' ? 40 : 0.4;
-
-  const reactions: readonly Reaction[] = [
-    {
-      id: 'r1',
-      substrates: [
-        { poolIndex: at('A'), coefficient: 1 },
-        { poolIndex: at('X'), coefficient: 2 },
-        { poolIndex: at('P'), coefficient: 2 },
-      ],
-      products: [
-        { poolIndex: at('B'), coefficient: 2 },
-        { poolIndex: at('Y'), coefficient: 2 },
-      ],
-      kinetics: michaelisMenten(forwardVmax, forwardKm),
-      enabled: true,
-    },
-    {
-      id: 'r2',
-      substrates: [{ poolIndex: at('B'), coefficient: 1 }],
-      products: [
-        { poolIndex: at('C'), coefficient: 1 },
-        { poolIndex: at('P'), coefficient: 1 },
-      ],
-      kinetics: michaelisMenten(60, 4),
-      enabled: true,
-    },
-    {
-      id: 'r3',
-      substrates: [
-        { poolIndex: at('Y'), coefficient: 1 },
-        { poolIndex: at('C'), coefficient: 1 },
-      ],
-      products: [
-        { poolIndex: at('X'), coefficient: 1 },
-        { poolIndex: at('D'), coefficient: 1 },
-      ],
-      kinetics: michaelisMenten(recycleVmax, 2),
-      enabled: true,
-    },
-  ];
-
-  return createSimulation(pools, reactions, createPrng(20260728));
+  if (scenario === 'throttled') {
+    return createToyPathway({ vmax: { r3: 0.4 } });
+  }
+  if (scenario === 'starved') {
+    return createToyPathway({ vmax: { r1: 400, r3: 0.4 }, km: { r1: 1 } });
+  }
+  return createToyPathway();
 }
 
 function pad(value: string, width: number): string {
