@@ -473,7 +473,171 @@ exactly 0 rather than below it.
 
 ## Stage 4 Report
 
-_Pending._
+**src/sim/state.ts, an addition the spec implies.** The spec requires the flux
+scratch array to be "allocated once at construction, not per tick", and
+construction needed somewhere to live. `SimulationState` holds the pools, the
+fixed-order reaction array, the PRNG, the integer `tickCount`, the diagnostics
+object and six scratch typed arrays: `fluxes`, `scales`, `demand`, `poolFactors`,
+`consumed`, `produced`, plus a `shortfallSeen` byte flag per pool. `tick`
+allocates nothing at all.
+
+**src/sim/dev.ts, also an addition.** Both dev-only guards in this stage need a
+flag that is a compile-time constant under Vite so the production bundle drops the
+branches, and that still resolves under Vitest and under a bare node run of the
+harness. `import.meta.env?.DEV ?? true`. Absent means unbundled means development,
+which is the safe default direction.
+
+**src/sim/tick.ts.** In the order the spec sets:
+
+(a) Every flux computed against the tick-start amounts into the pre-allocated
+`fluxes` array. (b) Demand accumulated per pool. (c) Proportional scaling, capped
+at four passes. Each pass recomputes demand from the current scale factors, takes
+`available / demanded` for every over-drawn pool, and folds the minimum applicable
+factor into each consuming reaction's scale. (d) All deltas applied. (e) Integer
+tick counter incremented.
+
+Deltas accumulate into separate `consumed` and `produced` arrays and land in one
+write per pool, rather than being subtracted reaction by reaction. Otherwise a
+pool's final value would depend on the order its consumers happen to sit in the
+reaction array, since `a - (d1 + d2)` and `(a - d1) - d2` are not the same in
+floating point. There is a test that runs the same pathway with the reaction array
+reversed and asserts the pool amounts are bit-identical after 200 ticks.
+
+Nothing is clamped anywhere. There is a test that a starved pool's consumer
+produces exactly the mass the pool lost, which is the assertion clamping fails:
+clamping the pool at zero without scaling its consumer manufactures product from
+nothing.
+
+**On the four-pass cap.** Hitting it is safe, not merely tolerable, and the reason
+is worth writing down. The factors from the final pass are still applied, every
+factor is at most 1, and applying them can only reduce demand, so stopping early
+cannot drive a pool negative. What is lost by stopping early is exactness, not
+safety: a pool may land slightly above zero rather than on it. In all three
+harness scenarios the cap was hit on 0 ticks.
+
+**On exactness, reported honestly rather than engineered around.** With a single
+consumer a starved pool lands on **exactly** zero, `toBe(0)`, because the factor
+is `available / demanded` and multiplying it back through the same expression
+round-trips. With two or more consumers the residual has to be split, and the sum
+of the split parts is within one ulp of the whole rather than equal to it, so the
+pool lands a fraction **above** zero. Measured: 4.44e-16 out of 3 units, which is
+one ulp, and on the non-negative side.
+
+The last ulp could be bought by handing the residual to whichever consumer sits
+last in the reaction array. Deliberately not done. It would privilege one reaction
+for no reason beyond array position, and one ulp of a pool is orders of magnitude
+below any tolerance the conservation test will use and far below anything the
+player can see. The test asserts the property that matters, non-negative and
+within one ulp, and the reasoning is in a comment in tick.ts rather than only
+here.
+
+**Shortfall diagnostics.** `shortfallTicks` counts per pool, once per pool per
+tick rather than once per scaling pass. The development log is throttled to once
+per pool per `TICK_RATE_HZ` ticks, so once per game-second, since per-tick logging
+at 20Hz makes the console useless and a useless console gets ignored, which
+defeats the point of surfacing a balance bug. Added `setShortfallLogging(enabled)`
+beyond the spec: the starved harness run emitted 60 warning lines that buried the
+report it was printing, and the test suite emitted thousands. The counters are
+always kept, only the text is silenced. `npm run sim -- 1200 starved --verbose`
+shows it.
+
+**SAFE_VALUE_CEILING.** Checked after deltas are applied, in development builds,
+throwing with the pool id and the tick number. It throws. Not softened to a
+warning. Tested.
+
+**src/sim/loop.ts.** The accumulator from Part 1. Elapsed milliseconds are an
+argument rather than something read here, because Part 5 puts `Date.now` outside
+simulation code and the ESLint rule from stage 1 enforces it in this directory.
+Whatever drives the loop reads the clock and passes the delta in. The fractional
+remainder is returned for interpolation and never reaches simulation state.
+
+Catch-up caps at `MAX_CATCHUP_TICKS`. The excess is not dropped: whole ticks'
+worth of it is added to `diagnostics.pendingOfflineMs` for the offline path to
+consume, with a comment naming docs/SIMULATION.md Part 3 as its owner. There is a
+test that feeds in one hour in a single call and asserts that simulated time plus
+pending offline time plus the leftover accumulator equals exactly what went in,
+so the "nothing is lost" claim is checked rather than asserted. Negative deltas
+credit zero, per Part 3 on clock tampering.
+
+Also exported `elapsedMs(state)`, the tick-count-to-milliseconds conversion, which
+is the boundary docs/SAVE_SCHEMA.md persists.
+
+**src/sim/harness.ts, `npm run sim`.** Run with `vite-node`, which ships with
+Vitest, so the harness and the app resolve modules identically. Three scenarios
+over one synthetic pathway, differing only in two Vmax values:
+
+```
+  r1:  A + 2 X + 2 P  ->  2 B + 2 Y      forward, reduces the carrier
+  r2:  B              ->  C + P          forward, releases phosphate
+  r3:  Y + C          ->  X + D          recycling, reoxidises the carrier
+```
+
+Every reaction balances carbon, phosphate and redox independently, which is what
+makes the printed conservation check mean anything. X and Y are two states of one
+small fixed carrier pool, so r3 is the ceiling on everything upstream. That is
+structurally act 1's shape without being act 1. Pools are A, B, C, D, P, X, Y and
+every number is invented. There is a comment at the top saying so.
+
+**Verify, `npm run sim` for 1200 ticks, balanced:**
+
+```
+  1200 ticks, 60.0 game-seconds, 60000 ms
+
+  pool           amount   short ticks   label
+  A         3366.072264             0   six carbon, carries two redox
+  B            2.172277             0   three carbon, phosphorylated
+  C            2.236492             0   three carbon
+  D         1263.446703             0   three carbon, reduced end product
+  P          397.827723             0   free phosphate
+  X            5.591231             0   carrier, oxidised
+  Y            4.408769             0   carrier, reduced
+
+  conservation
+    carbon     start 24000.0000   end 24000.0000   relative drift  3.259e-14
+    phosphate  start   400.0000   end   400.0000   relative drift -8.527e-16
+    redox      start  8000.0000   end  8000.0000   relative drift  3.251e-14
+
+  scaling pass cap hit on   0 ticks
+  pending offline ms        0
+```
+
+The carrier splits about 5.59 oxidised to 4.41 reduced and holds there, which is
+the system sitting in steady state. Nothing runs short.
+
+**Starved, 1200 ticks.** X short on **1198 of 1200 ticks**, everything else zero,
+scaling cap hit on 0 ticks, conservation drift 4.169e-14 relative on carbon and
+-1.421e-16 on phosphate. X ends at 0.016656 rather than 0 because r3 refills it
+within the same tick after r1 has drained it, which is correct: consumption takes
+the pool to zero and production then adds to it.
+
+**On confirming the exact-zero landing.** The first starved configuration I built
+never triggered the guard at all. Saturating kinetics throttle a reaction smoothly
+as its substrate approaches zero, so a slow recycling step starves the pathway
+without ever over-drawing it in a single tick. That case is genuinely worth
+seeing, so it is kept as a third scenario, `throttled`: X falls to 0.041971 and
+gates throughput with 0 shortfall ticks anywhere.
+
+Forcing the guard needs a consumer whose Vmax demands more in one tick than the
+pool holds, which is what the `starved` scenario now does. The exact-zero claim is
+confirmed in `src/sim/__tests__/tick.test.ts` rather than by eye, because the
+harness pool refills in-tick: one consumer, one pool, nothing producing it, and
+the pool is `toBe(0)` afterwards. Also asserted: not negative zero, and no pool
+goes negative across 5000 ticks of a deliberately unstable three-reaction cycle
+with Vmax values two to three orders of magnitude above the pool sizes.
+
+**src/sim/__tests__/tick.test.ts, an addition.** 17 tests. Two-phase update,
+reaction-order independence, exact-zero landing, proportional sharing between two
+consumers at a 3:1 demand ratio, the smaller-of-two-factors rule, non-negativity
+under stress, the integer tick counter, the ceiling assertion, disabled reactions,
+and six loop tests including the catch-up cap accounting.
+
+**Verify.** `npm test` 49 passed across 4 files. `npm run typecheck` clean.
+`npm run lint` clean. `npm run sim` output above.
+
+One thing to note for stage 5: the harness owns its synthetic pathway inline right
+now. Stage 5 creates the canonical fixture at
+`src/sim/__tests__/fixtures/toyPathway.ts`, and the harness should import that
+instead of keeping a second copy.
 
 ---
 
