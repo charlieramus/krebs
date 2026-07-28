@@ -315,7 +315,96 @@ SCIENCE.md or ECONOMY.md entry later.
 
 ## Stage 3 Report
 
-_Pending._
+**src/sim/pools.ts.** `PoolRegistry`, built from an ordered array of
+`PoolDefinition`. Each definition has an id, a label, an initial amount and a
+`conserved` map of quantity name to stoichiometric weight, so a three-carbon
+phosphorylated molecule is `{ carbon: 3, phosphate: 1 }`.
+
+Internals as specified: one `Float64Array` of amounts, a frozen
+`Record<string, number>` id-to-index map built at construction, `indexOf` for
+setup-time lookup. `indexOf` throws on an unknown id rather than returning -1,
+because a typo there is a wiring bug and -1 would quietly index nothing.
+
+The conserved weights are stored as a flat `Float64Array`, `quantities x pools`,
+indexed `q * count + i`, rather than as nested arrays or a map. Totalling a
+quantity is then one linear pass over contiguous memory with no object access at
+all. Object keys are iterated in exactly one place, the constructor, and never
+again.
+
+Quantity ordering is sorted rather than discovery-ordered, so two registries built
+from the same pools in different definition orders produce the same
+`conservedIds` and therefore the same flat layout. There is a test for it. This is
+a determinism concern, not a tidiness one.
+
+`ConservedId` is a plain `string` alias on purpose. A union of `'carbon' |
+'phosphate' | 'redox'` would push content knowledge into the kernel, and the
+kernel's whole premise is that it does not know what the state means.
+
+**src/sim/reactions.ts.** `Reaction` with an id, ordered `substrates` and
+`products` arrays of `{ poolIndex, coefficient }`, a kinetics descriptor and a
+mutable `enabled` flag. Both kinetics kinds built: `michaelisMenten(vmax, km)` and
+`hill(vmax, k, n)`, each a validating constructor rather than a bare object
+literal, so a bad Km or Vmax fails at startup instead of producing NaN flux 40
+minutes into a run.
+
+`hill` throws on a non-integer or sub-one n. Not floored. A silently floored 2.7
+is a balance value that no longer matches the doc it came from, which is worse
+than a crash at construction.
+
+`intPow` is a plain repeated-multiplication loop, not exponentiation by squaring.
+n is 1 to 4 in practice, so the multiply count does not matter, and the loop's
+operation order is trivially predictable, which does. `intPow(x, 1)` returns
+exactly x, which is what makes the n = 1 bit-equality hold.
+
+PFK-1 is the only Hill enzyme in the game and does not unlock until V2. The
+descriptor is built now as instructed.
+
+**Step 3, the modeling choice, flagged.** A multi-substrate reaction takes the
+**minimum** of its per-substrate saturation terms, not their product. This is a
+game decision, not biology. Real multi-substrate enzymes follow ordered or random
+bi-bi mechanisms whose rate laws are neither. The min was chosen because it keeps
+the limiting substrate legible: the player can point at one pool and say that is
+the bottleneck, which is the entire lesson act 1 exists to teach. The product
+would smear the constraint across every substrate and make the NAD+ wall
+unreadable.
+
+A second simplification rides along with it. One kinetics descriptor per reaction
+means one Km shared across every substrate, where a real enzyme has a separate Km
+per substrate.
+
+**Both of these need an entry in docs/SCIENCE.md, or a row in the
+docs/ECONOMY.md divergence table once that document exists.** docs/SCIENCE.md
+Part 1 sets the disclosed-simplification posture and requires the methodology to
+appear in-game. Neither choice is written down there yet, so as of this commit
+they are undisclosed simplifications, which is the specific thing that posture
+exists to prevent. Recorded in the file comment and asserted in a test so a
+change to the rule is a visible failure rather than a silent balance shift, but
+neither of those is the disclosure. The doc entry is still owed.
+
+**src/sim/__tests__/kinetics.test.ts.** 19 tests. All five required properties:
+zero flux at zero substrate, exactly `Vmax/2` at `S = Km` (`toBe`, not
+`toBeCloseTo`), asymptotic to Vmax without reaching it out to `Km * 1e12`,
+monotonic increasing across 400 sample points, and Hill at n = 1 equal to
+Michaelis-Menten to the bit across 1600 points plus a handful of awkward
+magnitudes including `Number.MIN_VALUE`. That last one is the off-by-one catch:
+an `intPow` running one iteration too many or too few still produces a plausible
+saturation curve, so an approximate comparison would pass it.
+
+Beyond the required set: Hill is steeper than Michaelis-Menten below K and
+flatter above it, which fails if n is silently doing nothing; the constructors
+reject bad n, Km, K and Vmax; a disabled reaction produces zero flux at any
+substrate level; the two-substrate minimum rule holds and is demonstrably not the
+product; and a reaction with no substrates runs at Vmax, which is the shape an
+environmental influx takes.
+
+**One addition beyond the stage spec: src/sim/__tests__/pools.test.ts,** 6 tests.
+Stage 5's conservation test asserts against `totalConserved`, so a bug in the
+weight matrix would let that test pass while mass leaked out of the simulation.
+Guarding the accounting directly rather than only through the thing it is meant to
+audit seemed worth 60 lines.
+
+**Verify.** `npm test` 32 passed across 3 files in 63ms, `npm run typecheck`
+clean, `npm run lint` clean.
 
 ---
 
