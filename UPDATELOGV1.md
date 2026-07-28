@@ -191,7 +191,78 @@ outputs for seed 1 so later logs have a reference sequence to check against.
 
 ## Stage 2 Report
 
-_Pending._
+**src/sim/constants.ts.** All nine Part 6 values transcribed as named `const`
+exports with literal types intact, so `TICK_MS` is the type `50` rather than
+`number` and a later widening shows up at every call site. Each one carries a
+one-line comment naming the part of docs/SIMULATION.md that decided it, because
+Part 6 line 204 says changing a value requires updating the doc with a reason and
+that only works if the code says which doc.
+
+One addition beyond Part 6, flagged rather than buried: `TICK_SECONDS`. It is
+written as `TICK_MS / 1000` rather than as the literal `0.05`, so it is derived
+rather than transcribed and cannot drift out of step with `TICK_MS`. It exists so
+that stage 4's integration does not divide by 1000 inline. The cost is that its
+type is `number` rather than a literal, which is the correct trade for a value that
+must follow another.
+
+**The two placeholders.** `STEADY_EPSILON = 1e-6` and `STEADY_WINDOW = 20`. Both
+comment blocks open with "UNVALIDATED PLACEHOLDER" and say explicitly that the
+number is not a decision and carries no justification, because Part 6 gives none
+and inventing one would be worse than the gap. They name the offline progress log,
+which is neither V1 nor V2, as the thing that validates them, and note that its
+first task is measuring settling against a real act 1 configuration. Also noted:
+do not cite either value anywhere player-facing.
+
+**src/sim/prng.ts.** Mulberry32. State is a single uint32 on a plain readable and
+writable field, no closure. The object matches docs/SAVE_SCHEMA.md `rng` field for
+field, `algorithm`, `seed` and `state`, so the save serialises it directly rather
+than through a translation layer that can lose the state. `algorithm` is the
+literal type `'mulberry32'` and `seed` is readonly. Saves are not in this log, but
+the shape is.
+
+Arithmetic is `>>>`, `<<`, `^`, `|`, `+`, `*` and `Math.imul` only. 2^32 is the
+literal `4294967296` in a named constant, not a `Math.pow` call.
+
+`next()` closes over the local `prng` binding rather than using `this`, so a
+destructured `next` still advances the generator it came from instead of throwing
+on an undefined receiver. There is a test for exactly that, because it is the kind
+of thing that works until someone writes `const { next } = rng`.
+
+Added `restorePrng(seed, state)` beyond the spec. Plain field assignment still
+works and is tested separately, but the save loader should have one obvious call
+rather than a two-step it can do half of. Restoring the seed and forgetting the
+state is precisely the bug docs/SAVE_SCHEMA.md line 164 says is most likely to be
+skipped.
+
+**src/sim/__tests__/prng.test.ts.** Seven tests, all four required properties plus
+three more. Same seed reproduces 1000 values. Different seeds diverge, and the
+assertion is that fewer than 5 of 1000 values collide rather than merely that the
+arrays differ, since a generator agreeing on 999 of 1000 would pass the weaker
+form. Range holds over 100,000 draws across five seeds including 0 and 0xffffffff.
+Save mid-sequence at draw 137, restore into a fresh instance, and the next 500
+values match exactly.
+
+The range test asserts on aggregated min, max and non-finite count rather than
+three `expect` calls per draw. Per-value assertions cost 2.06s of a 3.21s suite,
+which is a tax on every future change for no extra coverage. Now 10ms.
+
+**Reference sequence, seed 1, first five outputs:**
+
+```
+0.6270739405881613
+0.002735721180215478
+0.5274470399599522
+0.9810509674716741
+0.9683778982143849
+```
+
+Frozen as a test assertion, not just reported here, so a later log or a port of the
+generator has a known-good sequence to check against. If those five values ever
+change, the save format changed with them.
+
+**Verify.** `npm test` 7 passed in 10ms, `npm run lint` clean, `npm run typecheck`
+clean. The determinism guard is live over both new files and had nothing to say
+about them.
 
 ---
 
