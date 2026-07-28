@@ -6,7 +6,7 @@ Biological ground truth for the project. Every quantitative claim in player-faci
 
 This doc contains no game numbers. It describes reality. Tuned values live in docs/ECONOMY.md, and every place the game departs from what is written here gets recorded in the divergence table in that file.
 
-Stability note: this document changes only when the underlying science changes or an error is found. It does not get edited during balance passes. If a balance pass wants a different number, that number goes in ECONOMY.md with a divergence entry.
+Stability note: this document changes only when the underlying science changes or an error is found. It does not get edited during balance passes. If a balance pass wants a different number, that number goes in docs/ECONOMY.md with a divergence entry.
 
 ---
 
@@ -219,7 +219,7 @@ So the chain holds in three independent forms, and the act 2 crisis lands back o
 
 ### Damage and repair timescales
 
-Real numbers, useful for balance and for the divergence table when ECONOMY.md is written.
+Real numbers, useful for balance and for the divergence table when docs/ECONOMY.md is written.
 
 In fully aerated E. coli the steady-state hydrogen peroxide level is estimated at 20 to 50 nM and superoxide at roughly 0.2 nM. Given reaction rates with dehydratase and mononuclear metal centres on the order of 10^4 and 10^6 per molar per second respectively, vulnerable enzymes are predicted to be damaged roughly every thirty minutes. Cluster reassembly proceeds with a half-time of about five minutes, and remetallation of mononuclear enzymes may be faster.
 
@@ -229,7 +229,7 @@ Note that these are E. coli numbers, a facultative aerobe with a full defensive 
 
 ### Additional defenses worth adding to the act 2 unlock list
 
-The current list in PROGRESSION.md is not wrong but it is incomplete, and the omissions are the mechanically interesting ones.
+The current list in docs/PROGRESSION.md is not wrong but it is incomplete, and the omissions are the mechanically interesting ones.
 
 Manganese substitution. Replacing iron with manganese in mononuclear enzymes gives nearly the same activity without the tendency toward peroxide oxidation. E. coli activates manganese import under peroxide stress and lactic acid bacteria do it constitutively, accumulating millimolar intracellular manganese, which is a large part of why they tolerate the peroxide they themselves generate. This is a defense by substitution rather than by scavenging and it is a genuinely different mechanic.
 
@@ -481,7 +481,7 @@ What "widely accepted" is doing. Eukaryotic identity in the Proterozoic fossil r
 
 Older claims exist and are contested. Grypania from the Negaunee Formation was originally dated near 2.1 Ga and later redated to 1874 plus or minus 9 Ma, and its biological nature has been questioned. Fibro-radial bodies from the roughly 2.1 Ga Francevillian Group in Gabon are also disputed. Putative eukaryotic biomarkers reported from 2.7 Ga rocks were shown to be drilling contamination, the same contamination episode that dismantled the 2.7 Ga oxygenic photosynthesis date at stop 3.
 
-Metabolism test: fails as drafted, passes if reframed. "First eukaryote fossils" is a morphology stop. It gets on the timeline for cells looking a certain way, which is exactly what PILLARS.md rules out. Two available reframings both make it metabolic:
+Metabolism test: fails as drafted, passes if reframed. "First eukaryote fossils" is a morphology stop. It gets on the timeline for cells looking a certain way, which is exactly what docs/PILLARS.md rules out. Two available reframings both make it metabolic:
 
 Sterol biosynthesis. Brocks and colleagues reported in Nature in 2023 a class of steroid biomarkers, the protosterol biota, in the Barney Creek Formation dating to about 1.64 Ga, interpreted as the remains of stem-group eukaryotes. Sterol synthesis requires molecular oxygen, so this is a metabolic marker rather than a morphological one, and it ties the stop directly to the oxygen theme running through the whole game.
 
@@ -499,7 +499,7 @@ Placement is a problem. Its timing is at least as poorly constrained as oxygenic
 
 ## Stops considered and rejected
 
-Nitrogen fixation and methanogenesis are both metabolically important and both ancient, and both were considered. Neither connects to any pathway the player unlocks, so including them would mean adding content the game never uses. Left out under PILLARS.md scope discipline rather than for lack of significance.
+Nitrogen fixation and methanogenesis are both metabolically important and both ancient, and both were considered. Neither connects to any pathway the player unlocks, so including them would mean adding content the game never uses. Left out under docs/PILLARS.md scope discipline rather than for lack of significance.
 
 ---
 

@@ -74,7 +74,83 @@ step 6.
 
 ## Stage 1 Report
 
-_Pending._
+**Docs moved.** All eight moved with `git mv` so history follows: `docs/BRIEF.md`,
+`docs/PILLARS.md`, `docs/PROGRESSION.md`, `docs/SIMULATION.md`,
+`docs/SAVE_SCHEMA.md`, `docs/SCIENCE.md`, `docs/IDEAS.md`, `docs/MOCKUP.md`.
+`CLAUDE.md`, `DESIGN.md`, `NOW.md`, `README.md` and this file stayed at the root.
+
+**References rewritten: 50.** DESIGN.md 23, docs/SCIENCE.md 5, docs/SAVE_SCHEMA.md
+1, docs/PROGRESSION.md 1, NOW.md 20. One reference was added rather than rewritten,
+`docs/MOCKUP.md`, which the NOW.md file listing had never mentioned.
+
+CLAUDE.md needed zero changes. Its "Where things live" index and all 14 of its
+references already said `docs/`, which is the point NOW.md was making: every doc
+assumed a layout that did not exist. The move is the fix, not the rewrite.
+Same for docs/BRIEF.md, docs/PILLARS.md and docs/SIMULATION.md, whose
+cross-references were already `docs/`-prefixed and became correct on the move.
+
+The convention chosen and now applied uniformly is repository-root-relative, so a
+reference inside `docs/` still reads `docs/SCIENCE.md` rather than `SCIENCE.md`.
+That matches what the majority of the corpus already did and what CLAUDE.md's index
+uses. Verified afterwards that no bare reference to a moved doc survives anywhere in
+CLAUDE.md, DESIGN.md, NOW.md or docs/, and that nothing got double-prefixed to
+`docs/docs/`.
+
+UPDATELOGV1.md itself was deliberately left alone. CLAUDE.md says stage prompts are
+ephemeral build instructions rather than reference material, and stage 1 step 1
+names the pre-move paths as its own input. Rewriting the instructions mid-execution
+would make the log disagree with what it asked for.
+
+**Stack.** Vite 7, React 19, TypeScript 5.9, Tailwind 4 via `@tailwindcss/vite`,
+Vitest 3. Exactly the stack CLAUDE.md names, nothing else. No state library, no
+animation library, no big-number library, no router. 217 packages, production bundle
+193.37 kB raw and 60.74 kB gzipped, which is React and nothing much else.
+
+**tsconfig.** `strict`, `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`
+all on as specified, plus `noUnusedLocals`, `noUnusedParameters`,
+`noFallthroughCasesInSwitch` and `noImplicitOverride`. A comment on the strictness
+block records why `noUncheckedIndexedAccess` is worth its cost here, which is the
+`Float64Array`-indexed-by-computed-index pattern the pool registry is about to use.
+
+**Layout.** `src/sim/` with a README stating the hard rules that bind it,
+`src/sim/__tests__/`, `src/ui/` with a README explaining that UI lands in V3 and why.
+`src/App.tsx` is a placeholder that says so and renders one line of text.
+
+**The determinism guard.** `eslint.config.js`, `no-restricted-properties` plus
+`no-restricted-globals`, scoped to `src/sim/**` only, so UI code is unaffected. Each
+message names the rule it enforces. A comment block above the rules explains that
+these are load-bearing rather than stylistic, citing CLAUDE.md hard rules 4 and 5 and
+docs/SIMULATION.md Part 5, so the next person reads it as mechanism rather than noise.
+
+`no-restricted-globals` bans the whole `Date` global inside `src/sim/`, not just
+`Date.now`, so `new Date().getTime()` cannot route around it. The cost is that a
+`Date.now` call reports twice. That is acceptable.
+
+**Step 6, proof the rule fires.** Wrote `src/sim/__lintprobe.ts` calling all five
+banned things, ran `npm run lint`:
+
+```
+D:\Portfolio work\Development\krebs\src\sim\__lintprobe.ts
+  3:13  error  'Math.random' is restricted from being used. CLAUDE.md hard rule 4: use the seeded PRNG in src/sim/prng.ts. Determinism is a tested property   no-restricted-properties
+  4:13  error  'Math.pow' is restricted from being used. CLAUDE.md hard rule 5: Math.pow is implementation-approximated. Use repeated multiplication          no-restricted-properties
+  5:13  error  'Math.exp' is restricted from being used. CLAUDE.md hard rule 5: Math.exp is implementation-approximated and breaks cross-browser determinism  no-restricted-properties
+  6:13  error  'Math.log' is restricted from being used. CLAUDE.md hard rule 5: Math.log is implementation-approximated and breaks cross-browser determinism  no-restricted-properties
+  7:13  error  Unexpected use of 'Date'. docs/SIMULATION.md Part 5: wall-clock time enters only at the loop boundary, never inside sim code                   no-restricted-globals
+  7:13  error  'Date.now' is restricted from being used. docs/SIMULATION.md Part 5: wall-clock time enters only at the loop boundary, never inside sim code   no-restricted-properties
+
+✖ 6 problems (6 errors, 0 warnings)
+```
+
+Errors, not warnings, exit code 1. Probe file deleted.
+
+**Scripts.** `dev`, `build`, `test`, `lint`, `typecheck`. `build` runs `tsc --noEmit`
+before `vite build` so a type error fails the build rather than shipping.
+
+**Verify.** `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean,
+29 modules. `npm test` reports "No test files found" and exits 1, which is the
+expected zero-test state this stage anticipated. `--passWithNoTests` was deliberately
+not added: failing on an empty suite is the behaviour worth keeping once stage 2
+lands real tests, and stage 2 resolves it in the next commit.
 
 ---
 

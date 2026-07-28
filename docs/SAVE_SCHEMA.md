@@ -98,7 +98,7 @@ Illustrative rather than exhaustive. Field names are the contract, the structure
       },
 
       diagnostics: {
-        offlineFallbackCount: number,  // steady state not reached, see SIMULATION.md Part 3
+        offlineFallbackCount: number,  // steady state not reached, see docs/SIMULATION.md Part 3
         negativePoolScalingEvents: number
       },
 
