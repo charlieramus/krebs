@@ -62,6 +62,8 @@ Unlock order:
 
 Damage should target iron-sulfur cluster enzymes preferentially, which is both mechanistically correct and produces a legible failure pattern the player can reason about.
 
+Superseded 2026-07-28. The act 2 player has no TCA cycle and therefore no aconitase, and glycolysis contains no iron-sulfur enzymes, so as written this specifies damage to enzymes the player does not own. See SCIENCE.md Part 3, "Damage targets the act 2 player actually has", for the targets that do apply, for the distinction between ROS-mediated and direct oxygen damage which the unlock list above does not currently model, and for four additional defenses that belong in this list.
+
 The teaching beat: oxygen was a mass extinction before it was fuel. Aerobic respiration is not the obvious next step up a ladder, it is an opportunistic exploitation of a poison that life spent hundreds of millions of years learning to survive.
 
 Ends when the player is fully aerotolerant. They can now survive oxygen and still cannot use it.

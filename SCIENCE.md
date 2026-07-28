@@ -127,7 +127,9 @@ Both give a net of 2 ATP per glucose overall, which is the act 1 ceiling.
 
 Oxygenic photosynthesis in cyanobacteria began producing free oxygen well before it accumulated in the atmosphere. Early oxygen was absorbed by chemical sinks, most significantly dissolved ferrous iron in the oceans, which precipitated as iron oxides and produced the banded iron formations found throughout Archean rock.
 
-Atmospheric oxygen rose substantially around 2.4 to 2.45 billion years ago. Sources vary on whether to treat this as a relatively rapid event or a protracted transition spanning 2.4 to 2.0 billion years ago, and the game should give the range rather than a single date. Banded iron formations largely disappear from the record after roughly 2.4 billion years ago, which is the key line of evidence.
+Atmospheric oxygen rose substantially around 2.4 to 2.45 billion years ago. Sources vary on whether to treat this as a relatively rapid event or a protracted transition spanning 2.4 to 2.0 billion years ago, and the game should give the range rather than a single date.
+
+Correction, 2026-07-28. An earlier version of this document stated that banded iron formations largely disappear from the record after roughly 2.4 billion years ago. That is wrong. Deposition continues well past the GOE and iron formations do not largely disappear until roughly 1.85 to 1.8 billion years ago. See Part 6 for the corrected depositional window. The line of evidence that does mark the GOE is the disappearance of detrital uraninite and other redox-sensitive detrital minerals, together with the loss of mass-independent sulfur isotope fractionation, not the end of iron formation deposition.
 
 A downstream consequence worth including as flavor: oxygen displaced atmospheric methane, a strong greenhouse gas, and the resulting cooling is associated with the Huronian glaciation. The oxygen catastrophe also triggered an ice age.
 
@@ -149,7 +151,93 @@ There is no enzyme that detoxifies hydroxyl radical. It is too reactive. The onl
 
 ## Damage targets
 
-Superoxide preferentially attacks solvent-exposed iron-sulfur clusters in enzymes. Aconitase, a TCA cycle enzyme, is a classic target. Modeling ROS damage as preferentially hitting iron-sulfur enzymes is mechanistically correct and gives players a legible pattern to reason about.
+Superoxide preferentially attacks solvent-exposed iron-sulfur clusters in enzymes. Aconitase, a TCA cycle enzyme, is the classic textbook target.
+
+Aconitase is the wrong example for this game. It is a TCA enzyme and the player does not unlock the TCA cycle until act 3. The subsection below replaces it with targets the act 2 player actually owns.
+
+## Damage targets the act 2 player actually has
+
+This subsection exists because the general claim above, while correct, does not apply to an anaerobic fermenter running glycolysis. It was written after the act 2 unlock list was found to reference enzymes the player does not possess.
+
+### Two damage mechanisms, not one
+
+The single most important finding here, and the one that changes the act 2 design: reactive oxygen species and molecular oxygen are separate threats with separate targets, and antioxidant enzymes only address the first.
+
+Superoxide and hydrogen peroxide disrupt growth primarily by inactivating two enzyme classes. The first is cluster-dependent dehydratases carrying solvent-exposed [4Fe-4S] centres. The second is non-redox mononuclear iron enzymes, which are poisoned by mismetallation rather than cluster destruction. A third class, radical SAM enzymes with over-oxidizable peripheral clusters, is an active hypothesis rather than settled.
+
+Molecular oxygen itself inactivates a different set. In the model obligate anaerobe Bacteroides thetaiotaomicron, pyruvate:ferredoxin oxidoreductase and pyruvate:formate lyase both lose activity on aeration, and the rate of PFOR damage is unaffected by the level of superoxide or peroxide, establishing that oxygen itself is the agent. The cell cannot repair PFOR.
+
+The design consequence is direct and it is better than what the current unlock list implies. Superoxide dismutase and catalase are useless against the second mechanism. An act 2 that models only ROS damage lets the player buy two enzymes and declare victory. An act 2 that models both makes the player discover that some damage cannot be defended against at all, only routed around by replacing the vulnerable enzyme with a different chemistry. That is the actual reason obligate anaerobes are obligate, and it is stated in the literature as such: the physiological role of PFOR and PFL is to dispose of pyruvate without disturbing redox balance, and they do it with catalytic mechanisms that are intrinsically vulnerable to oxygen. The anaerobic competence and the oxygen sensitivity are the same property.
+
+### Iron-sulfur proteins an anaerobe of this period would have
+
+Verified as present and oxygen-labile:
+
+Pyruvate:ferredoxin oxidoreductase. Contains two [4Fe-4S] centres. Anaerobes rely on it for pyruvate decarboxylation where aerobes use the oxygen-stable pyruvate dehydrogenase complex. Irreversibly inactivated by molecular oxygen. Oxygen-stable variants exist and are uncommon, the Desulfovibrio africanus enzyme being the known exception, which is a good detail for the player-facing text because it shows the constraint is a tendency rather than a law.
+
+Ferredoxin. Small [4Fe-4S] electron carrier, among the oldest protein folds known and present across all three domains. Relevant nuance for act 3 foreshadowing: the transition from anoxygenic to oxygenic photosynthesis involved replacing the [4Fe-4S] ferredoxin with an oxygen-tolerant [2Fe-2S] form, and aerobes generally shifted from ferredoxin-dependent to NAD(P)H-dependent chemistry because the latter is oxygen-insensitive.
+
+[FeFe]-hydrogenases. The H-cluster is irreversibly inactivated on contact with dioxygen in most characterized enzymes. Partial reduction of bound oxygen generates ROS that destroy the cluster from the inside. Some enzymes have protective mechanisms, notably a cysteine safety cap in the Clostridium beijerinckii enzyme that reversibly switches the cluster to an inactive but oxygen-resistant state, so this is again a tendency with exceptions.
+
+Iron-sulfur dehydratases. Fumarase A, aconitase A and B, dihydroxy-acid dehydratase and 6-phosphogluconate dehydratase all carry [4Fe-4S] clusters and all are superoxide-labile. Superoxide oxidizes the exposed cluster, which releases ferrous iron and eliminates activity. The resulting [3Fe-4S] cluster can be reactivated by reduction and remetallation, so this damage is repairable, unlike the oxygen attack on PFOR.
+
+6-phosphogluconate dehydratase deserves specific attention. It is the committed enzyme of the Entner-Doudoroff pathway, which is an alternative sugar catabolism route widespread in bacteria, and it is one of the best characterized superoxide targets in the literature. It is markedly more sensitive to superoxide than to oxygen or peroxide. If the game gives the player an Entner-Doudoroff branch alongside glycolysis, this is a genuine iron-sulfur target sitting inside sugar catabolism rather than off in a pathway the player has not unlocked.
+
+Not verified for this period and left out: specific serine dehydratases were listed as a candidate in the task brief. Some serine dehydratases are [4Fe-4S] enzymes and the class is real, but a citation establishing their oxygen lability at the level of detail used above was not found. Excluded rather than asserted.
+
+### Glycolysis contains no iron-sulfur enzymes, and is not therefore safe
+
+The claim is correct. None of the ten enzymes of the Embden-Meyerhof-Parnas pathway carries an iron-sulfur cluster. No source was found asserting otherwise.
+
+The claim is also misleading, and this is the more useful finding.
+
+Glyceraldehyde-3-phosphate dehydrogenase is among the most oxidant-sensitive enzymes in the cell. It carries a strictly conserved catalytic cysteine whose thiol reactivity toward hydrogen peroxide is higher than protein thiols generally, and oxidation of that residue inactivates the enzyme. The literature is direct about its standing: no other enzyme is as conspicuously oxidized by hydrogen peroxide as GAPDH. Pyruvate kinase is also oxidation-sensitive, by a less well characterized mechanism.
+
+So the damage mechanism in glycolysis is thiol oxidation, not cluster destruction. Different chemistry, different defense, same outcome for the player.
+
+The consequence is that the act 2 crisis has a target inside act 1's core loop after all, and it is precisely the step that produces NADH. That is a better outcome than the iron-sulfur framing the design started from.
+
+There is a further payoff. GAPDH inactivation is not purely destructive. It functions as a redox switch: shutting down glycolytic flux reroutes carbon into the oxidative pentose phosphate pathway, which produces NADPH, which is the reducing power that the glutathione, glutaredoxin and thioredoxin systems run on. Cells expressing a redox-insensitive GAPDH retain catalytic activity but cannot mount that response.
+
+This gives act 2 a mechanic that is real, non-obvious and pedagogically excellent. The pathway does not just break under stress. It reroutes, at the cost of ATP yield, to produce the reducing power that powers the defenses. The player trades energy for antioxidant capacity through a mechanism the cell actually uses.
+
+### The pyruvate disposal chain is mechanistically sound
+
+The task brief asked whether damaging pyruvate disposal blocks NAD+ regeneration and therefore stalls glycolysis upstream. It does, and the chain is documented at every link.
+
+Glycolysis consumes NAD+ at the GAPDH step. The cellular pool is small and fixed, so flux stops unless NADH is reoxidized. In a fermenter, reoxidation happens at the terminal step of a fermentation branch, and every plausible terminal step in an anaerobe of this period is oxygen-vulnerable by one mechanism or another.
+
+Ethanol fermentation. In E. coli the fermentative route runs through AdhE, a bifunctional iron-dependent enzyme that reduces acetyl-CoA to acetaldehyde and then to ethanol, consuming NADH at both steps. AdhE is inactivated by metal-catalyzed oxidation and is highly reactive with hydrogen peroxide, and it is one of the major targets identified when E. coli is subjected to peroxide stress. Replacing the catalytic iron with zinc prevents the reaction. The same pattern appears cleanly in Zymomonas mobilis, where shifting a culture from anaerobic to aerobic conditions inactivated the iron-containing ADH II by about eighty percent within four hours while the zinc-containing ADH I remained fully active.
+
+That contrast is a gift for the game. Two enzymes doing the same chemistry, one with iron and one with zinc, and only one of them dies. Metal substitution as a defense is a real strategy, not an invented upgrade.
+
+Pyruvate decarboxylation to acetyl-CoA. PFOR and PFL, both oxygen-inactivated as described above, both irreparable in the PFOR case.
+
+Hydrogen disposal. [FeFe]-hydrogenases dissipate excess reducing equivalents by reducing protons to H2, coupled to reoxidation of ferredoxin or NAD(P)H. Irreversibly oxygen-inactivated in most characterized cases. Losing this route removes an electron sink and backs redox pressure up into the pathway.
+
+So the chain holds in three independent forms, and the act 2 crisis lands back on the act 1 NAD+ constraint rather than sitting beside it. The player learns that the wall they spent act 1 working around is the same wall that oxygen attacks.
+
+### Damage and repair timescales
+
+Real numbers, useful for balance and for the divergence table when ECONOMY.md is written.
+
+In fully aerated E. coli the steady-state hydrogen peroxide level is estimated at 20 to 50 nM and superoxide at roughly 0.2 nM. Given reaction rates with dehydratase and mononuclear metal centres on the order of 10^4 and 10^6 per molar per second respectively, vulnerable enzymes are predicted to be damaged roughly every thirty minutes. Cluster reassembly proceeds with a half-time of about five minutes, and remetallation of mononuclear enzymes may be faster.
+
+The ratio matters more than the absolute values. Repair is roughly six times faster than damage under normal aerobic conditions, which is why aerobes function at all. Act 2 should be tuned so that rising oxygen inverts that ratio, and the defensive unlocks restore it.
+
+Note that these are E. coli numbers, a facultative aerobe with a full defensive toolkit. An anaerobe has worse ratios. Do not present these figures as applying to the act 2 organism.
+
+### Additional defenses worth adding to the act 2 unlock list
+
+The current list in PROGRESSION.md is not wrong but it is incomplete, and the omissions are the mechanically interesting ones.
+
+Manganese substitution. Replacing iron with manganese in mononuclear enzymes gives nearly the same activity without the tendency toward peroxide oxidation. E. coli activates manganese import under peroxide stress and lactic acid bacteria do it constitutively, accumulating millimolar intracellular manganese, which is a large part of why they tolerate the peroxide they themselves generate. This is a defense by substitution rather than by scavenging and it is a genuinely different mechanic.
+
+Iron-sulfur cluster repair and the backup assembly system. Damaged clusters are repaired by reduction and iron redelivery. E. coli carries a secondary assembly system, Suf, induced under oxidative stress when the primary Isc system is itself peroxide-inactivated. A repair mechanic with its own failure mode is more interesting than a flat damage reduction.
+
+Isozyme replacement. Where repair capacity is exceeded, the cell swaps the vulnerable enzyme for a version that does not use iron. Fumarase is the documented case. This maps onto the AdhE and ADH I contrast above and generalizes into a real strategic choice.
+
+Dps. An iron-sequestering mini-ferritin induced under oxidative stress, which lowers free iron and therefore suppresses Fenton chemistry and DNA damage. This is the mechanistically correct version of the iron sequestration entry already in the unlock list.
 
 ## Defenses
 
@@ -305,15 +393,130 @@ Energy charge, where the ratio of ATP to ADP and AMP acts as a master regulatory
 
 ---
 
-# Part 6: Known unknowns
+# Part 6: The geological timeline
+
+Ground truth for the vertical timeline view. Spans all four acts, so it lives here rather than inside any one act's section.
+
+Every date below is player-facing text and falls under CLAUDE.md hard rule 1. Ranges are given rather than point values because the point values are false precision. Where a drafted figure was wrong it is marked as corrected, with the reason.
+
+The admission rule for this view is that a stop earns its place by its metabolism rather than its morphology. Nothing appears because it is an interesting organism.
+
+## Stop 1: Alkaline hydrothermal vents, Hadean
+
+Drafted as roughly 4.0 Ga. Retained with a heavy caveat.
+
+The hypothesis is that alkaline hydrothermal systems sustain natural proton gradients across thin inorganic barriers, that those barriers contained catalytic iron and nickel sulfide minerals structurally similar to cofactors in modern metabolic enzymes, and that this constitutes a possible abiotic origin of chemiosmotic coupling. The alkaline vent fluid is roughly pH 9 to 11 from serpentinization, and the Hadean ocean is thought to have been mildly acidic near pH 6 from high dissolved carbon dioxide, which produces a gradient of similar polarity and magnitude to the one modern cells maintain. The supporting argument is that ATP synthase is universal while no proton pumping machinery is, which suggests the ability to use a gradient is older than the ability to make one.
+
+The contest is real and it is not a minor quibble. Jackson argued in 2016 that natural pH gradients were unlikely to have played any role, on the grounds that the inorganic barrier arrangement produces no electrical potential difference and that a protocell so dependent on the vent could never have left it. Lane published a direct rebuttal in 2017. A heterotrophic origin in freshwater hydrothermal fields is the main competing proposal. Experimental yields from origin-of-life reactors simulating these conditions remain very low.
+
+Two separate uncertainties are being compressed into one date and the game should not compress them. The timing of the origin of life is uncertain. The vent hypothesis specifically is disputed on mechanism regardless of timing. Present this stop as a hypothesis about where chemiosmosis came from rather than as an event that happened at 4.0 Ga.
+
+Metabolism test: passes clearly. The entire reason to include it is chemiosmosis, which is the act 3 teaching beat.
+
+## Stop 2: Stromatolites, roughly 3.48 to 3.43 Ga
+
+Drafted as roughly 3.5 Ga. Confirmed as approximately correct, with a correction to what they demonstrate.
+
+The oldest widely accepted stromatolites come from the Pilbara Craton of Western Australia. Strelley Pool Formation examples are dated at about 3.43 to 3.45 Ga and Dresser Formation examples at about 3.48 Ga. Djokic and colleagues reported well-preserved Dresser Formation stromatolites in hot spring deposits, which additionally represent the earliest evidence of life on land rather than in the sea.
+
+The dispute over older claims is genuine and worth showing. Nutman and colleagues reported 3.7 Ga stromatolite-like structures from the Isua supracrustal belt in Greenland in 2016. Allwood and colleagues argued in 2018 that the structures are not biogenic, based on relationships in a more deformed part of the same outcrop. Nutman and colleagues responded in 2019 that the problematic features are post-depositional carbonate veining and that the structures sit within a mappable stratigraphic succession. The dispute is unresolved. This is a good illustration of the general problem that older rocks make biological signals harder to separate from geological overprinting.
+
+Correction to what this stop teaches. The design brief said stromatolites qualify because they are microbial mats doing photosynthesis. At 3.43 Ga this overstates the evidence. Stromatolite morphology indicates microbial mat construction, but no definite physiological inference can be drawn from the structures themselves, and any photosynthesis at this date was more plausibly anoxygenic. Label this stop as microbial mats and anoxygenic phototrophy, not as oxygen production.
+
+Metabolism test: passes, once relabeled.
+
+## Stop 3: Oxygenic photosynthesis, contested, do not use 2.7 Ga
+
+Drafted as roughly 2.7 Ga. This figure is stale and should be cut.
+
+The 2.7 Ga date came from 2-methylhopane biomarkers reported in Late Archean sediments in 1999, which were read as evidence that cyanobacteria were widespread long before atmospheric oxygen rose. Two independent problems dismantled it. The syngeneity of the hydrocarbons was questioned by Rasmussen and colleagues in 2008 and French and colleagues demonstrated in 2015 that the molecules came from younger contamination. Separately, the precursor lipids turned out not to be specific to cyanobacteria, being produced by several other bacterial groups including Alphaproteobacteria and Acidobacteria, so they are not diagnostic for oxygenic phototrophs even where they are genuinely ancient.
+
+Partial rehabilitation is worth noting for accuracy. A 2023 analysis re-examined the distribution of the responsible methyltransferase gene and concluded that it was probably present in the last common ancestor of cyanobacteria while appearing in Alphaproteobacteria only around 750 Ma, which re-establishes the biomarkers as cyanobacterial indicators for samples older than that, given contamination-free material. This does not restore the 2.7 Ga date, which failed on contamination grounds independently.
+
+What can be said. The timing of the origin of oxygenic photosynthesis remains debated. Molecular clock and phylogenetic approaches place the divergence of thylakoid-bearing cyanobacteria somewhere between 2.7 and 2.0 Ga. The earliest undisputed cyanobacterial fossil, Eoentophysalis belcherensis, dates to 2.018 to 1.854 Ga. The oldest direct physical evidence of thylakoid membranes was reported in 2024 from microfossils dated 1.78 to 1.73 Ga, giving a minimum age for thylakoid-bearing cyanobacteria of roughly 1.75 Ga.
+
+Recommended treatment. Do not put a date on this stop. Place it before the GOE, state that oxygen production must predate atmospheric accumulation, and say plainly that when it started is unresolved. This is the timeline's strongest opportunity to show a live scientific dispute rather than assert a number.
+
+Metabolism test: passes, and it is arguably the single most metabolically important stop on the timeline.
+
+## Stop 4: Banded iron formations, roughly 3.8 to 1.8 Ga with peaks
+
+Drafted as a depositional window to be established. Established below, and it corrects an error in Part 3 of this document.
+
+Iron formations occur in minor amounts in the early Archean, then in large volume in the Late Archean at roughly 2.8 to 2.5 Ga, with total volume reaching a maximum around 2.5 Ga in the Hamersley Basin of Western Australia. A second Paleoproterozoic episode runs to roughly 1.85 Ga and includes the Superior-type formations of North America at about 1.88 Ga. Deposition then largely ends around 1.85 to 1.8 Ga. There is a gap of roughly a billion years, then a smaller Neoproterozoic reappearance between about 0.8 and 0.6 Ga, associated with intense magmatic activity and with the global glaciations of that interval.
+
+The 1.85 Ga termination is itself an open question. One proposal ties it to the Sudbury impact producing global mixing of shallow oxic and deep anoxic waters, which would have prevented transport of hydrothermally derived ferrous iron to continental margins. Others attribute it to ocean chemistry changes without an impact trigger.
+
+Design consequence for the timeline view. Banded iron is the intended visual for the GOE stop, and it does not cleanly mark the GOE. Peak deposition sits just before atmospheric oxygenation and the end of deposition sits half a billion years after it. Either use the peak at roughly 2.5 Ga and label it as the immediate pre-GOE maximum, or use a different visual. The redox-sensitive detrital mineral record is the cleaner GOE marker but it is far harder to draw.
+
+Metabolism test: passes. It is the physical record of biologically produced oxygen meeting dissolved iron.
+
+## Stop 5: Mitochondrial endosymbiosis, contested window
+
+Drafted as roughly 2.0 to 1.5 Ga. Approximately right as a central estimate, but the honest range is wider and the disagreement is structural rather than statistical.
+
+Estimates for the age of the last eukaryotic common ancestor vary by roughly twofold across methods, from about 1.0 to 2.3 Ga, driven by violations of the molecular clock at these distances and by a shortage of calibration points near the date of interest.
+
+Recent specific results, which illustrate the spread rather than resolving it:
+
+A 2025 dated gene duplication analysis placed the divergence of the eukaryotic host lineage from sampled archaea at 3.05 to 2.79 Ga, the divergence of the mitochondrial ancestor from other Alphaproteobacteria at 2.37 to 2.13 Ga, and the radiation of LECA at 1.80 to 1.67 Ga, aligning mitochondrial endosymbiosis to roughly 2.2 Ga. That study concludes the host already had an elaborated cytoskeleton, endomembrane system, phagocytotic machinery and a nucleus before acquiring the mitochondrion.
+
+A separate analysis using both archaeal and bacterial gene sets obtained a conservative interval of 2.2 to 1.5 Ga for the origin of eukaryotes with a core interval of 2.0 to 1.8 Ga, and argued this aligns eukaryogenesis with the rise of oxygen, against the view that the two are decoupled.
+
+Another approach yields a conservative eukaryogenesis interval of 2.19 to 1.45 Ga, explicitly framed as avoiding false precision.
+
+A 2025 study of a Paleoproterozoic microbial ecosystem argues for early eukaryogenesis with mitochondrial endosymbiosis in micro-oxic and nano-oxic niches and a minimum LECA age above 1.75 Ga.
+
+Recommended treatment. Show the window as roughly 2.2 to 1.5 Ga and state that both the date and the ordering are disputed. Part 7 of this document already records the mitochondria-early versus mitochondria-late disagreement and this stop is where the player meets it.
+
+Metabolism test: passes. It is the act 3 transition.
+
+## Stop 6: First eukaryote fossils, roughly 1.7 to 1.5 Ga
+
+Drafted as roughly 1.6 Ga. Approximately correct, and the qualifier in the task brief is doing real work.
+
+The first fossils unequivocally identified as total-group eukaryotes are acritarchs from about 1.7 to 1.5 Ga. The recurrent assemblage typified by Tappania, Dictyosphaera or Shuiyousphaeridium and Valeria extends from roughly 1650 to 1400 Ma and is found in China, Australia, India, Siberia and North America.
+
+What "widely accepted" is doing. Eukaryotic identity in the Proterozoic fossil record is inferred from a combination of features rather than from any single one. Large cell size, a resistant preservable wall and complex ornamentation such as spines, processes or plates. Individually each occurs in some prokaryotes. In combination they do not. Acritarchs are a polyphyletic form group of uncertain affinity, so the assignment is to eukaryotes broadly rather than to any known clade. The first fossil confidently placed within a named crown-group clade is Bangiomorpha pubescens at roughly 1.0 Ga.
+
+Older claims exist and are contested. Grypania from the Negaunee Formation was originally dated near 2.1 Ga and later redated to 1874 plus or minus 9 Ma, and its biological nature has been questioned. Fibro-radial bodies from the roughly 2.1 Ga Francevillian Group in Gabon are also disputed. Putative eukaryotic biomarkers reported from 2.7 Ga rocks were shown to be drilling contamination, the same contamination episode that dismantled the 2.7 Ga oxygenic photosynthesis date at stop 3.
+
+Metabolism test: fails as drafted, passes if reframed. "First eukaryote fossils" is a morphology stop. It gets on the timeline for cells looking a certain way, which is exactly what PILLARS.md rules out. Two available reframings both make it metabolic:
+
+Sterol biosynthesis. Brocks and colleagues reported in Nature in 2023 a class of steroid biomarkers, the protosterol biota, in the Barney Creek Formation dating to about 1.64 Ga, interpreted as the remains of stem-group eukaryotes. Sterol synthesis requires molecular oxygen, so this is a metabolic marker rather than a morphological one, and it ties the stop directly to the oxygen theme running through the whole game.
+
+Aerobic habitat restriction. A 2026 Nature study reconstructing the habitats of the oldest known fossil eukaryotes, roughly 1.75 to 1.4 Ga, found them almost entirely restricted to settings with oxygenated bottom waters. Early eukaryotes were benthic aerobes. That is a metabolic statement about the same fossils and it is the cleanest possible closing beat for a game about the acquisition of aerobic respiration.
+
+Recommendation: relabel this stop as early aerobic eukaryotes and lead with the oxygen dependency rather than the fossil morphology.
+
+## Proposed additional stop: anoxygenic photosynthesis
+
+Missing from the drafted table and it should probably be there.
+
+Anoxygenic photosynthesis precedes oxygenic photosynthesis and uses electron donors other than water, such as hydrogen sulfide, hydrogen or ferrous iron. It matters for this game because it establishes that photosynthesis and oxygen production are separable, which is the setup that makes the water-splitting innovation legible as an innovation rather than as the definition of photosynthesis.
+
+Placement is a problem. Its timing is at least as poorly constrained as oxygenic photosynthesis and possibly worse, so it would be a second undated stop adjacent to the first. Offered as a proposal rather than a recommendation. If the timeline can only carry one photosynthesis stop, keep the oxygenic one and handle anoxygenic photosynthesis in the stop text.
+
+## Stops considered and rejected
+
+Nitrogen fixation and methanogenesis are both metabolically important and both ancient, and both were considered. Neither connects to any pathway the player unlocks, so including them would mean adding content the game never uses. Left out under PILLARS.md scope discipline rather than for lack of significance.
+
+---
+
+# Part 7: Known unknowns
 
 Surface these in-game. They demonstrate that the science is live rather than finished.
 
 1. Whether mitochondria came early and drove eukaryotic complexity or arrived after a host that was already complex. Actively disputed, with recent papers on both sides.
 2. The exact ATP yield per glucose. Depends on assumptions that are not fully settled, including ATP synthase rotor stoichiometry.
 3. The precise duration and pace of the Great Oxidation Event.
-4. Why oxygenic photosynthesis evolved several hundred million years before atmospheric oxygen accumulated, and whether the delay is fully explained by chemical sinks.
+4. When oxygenic photosynthesis originated. Revised 2026-07-28. The earlier wording here assumed the gap between its origin and atmospheric accumulation was itself established and that only the explanation was open. That was too confident. The 2.7 Ga figure that supported it rests on biomarkers since shown to be younger contamination, and the origin date is unresolved across a range of several hundred million years. See Part 6 stop 3.
 5. The origin of glycolysis itself, which predates the last universal common ancestor and has no accessible fossil record.
+6. Whether natural proton gradients in alkaline hydrothermal vents played any role in the origin of chemiosmosis. Actively disputed on mechanism, not merely on timing. See Part 6 stop 1.
+7. Whether the oldest claimed stromatolites, the 3.7 Ga Isua structures, are biogenic. Unresolved across a 2016 claim, a 2018 rebuttal and a 2019 counter-rebuttal.
+8. Why banded iron formation deposition ended around 1.85 Ga. Impact-triggered ocean mixing and gradual ocean chemistry change are both proposed.
+9. Whether the origin of eukaryotes is temporally coupled to the rise of oxygen. Depends on which molecular clock estimate is preferred, and the estimates span roughly a billion years.
+10. Whether radical SAM enzymes constitute a third class of ROS-sensitive enzyme alongside cluster dehydratases and mononuclear iron enzymes. An active hypothesis with circumstantial support.
 
 ---
 
@@ -342,5 +545,69 @@ Endosymbiosis:
 
 Chemiosmosis:
 - Mitchell, P. Coupling of phosphorylation to electron and hydrogen transfer by a chemi-osmotic type of mechanism. Nature, 1961
+
+Oxidative damage mechanisms and enzyme targets, Part 3:
+- Imlay, J. A. The molecular mechanisms and physiological consequences of oxidative stress: lessons from a model bacterium. Nature Reviews Microbiology, 11(7), 443 to 454, 2013. The canonical review. Establishes [4Fe-4S] dehydratases and mononuclear iron enzymes as the two primary target classes. https://doi.org/10.1038/nrmicro3032
+- Imlay, J. A. Where in the world do bacteria experience oxidative stress? Environmental Microbiology, 21(2), 521 to 530, 2019. Source for the steady-state oxidant concentrations, the roughly thirty minute damage interval, the roughly five minute cluster repair half-time and the lactic acid bacteria manganese strategy. https://doi.org/10.1111/1462-2920.14445
+- Lu, Z., Sethu, R. and Imlay, J. A. Endogenous superoxide is a key effector of the oxygen sensitivity of a model obligate anaerobe. PNAS, 2018. https://www.pnas.org/doi/10.1073/pnas.1800120115
+- Do reactive oxygen species or does oxygen itself confer obligate anaerobiosis? The case of Bacteroides thetaiotaomicron. Molecular Microbiology, 2020. Imlay lab; individual authors not verified. Source for PFOR and PFL being inactivated by molecular oxygen itself rather than by ROS, and for the irreparability of PFOR. https://onlinelibrary.wiley.com/doi/full/10.1111/mmi.14516
+- Gardner, P. R. and Fridovich, I. Superoxide sensitivity of the Escherichia coli 6-phosphogluconate dehydratase. J Biol Chem, 266, 1478 to 1483, 1991. https://pubmed.ncbi.nlm.nih.gov/1846355/
+- Djaman, O., Outten, F. W. and Imlay, J. A. Repair of oxidized iron-sulfur clusters in Escherichia coli. J Biol Chem, 279, 44590 to 44599, 2004
+- Anjem, A. and Imlay, J. A. Mononuclear iron enzymes are primary targets of hydrogen peroxide stress. J Biol Chem, 287(19), 15544 to 15556, 2012. https://doi.org/10.1074/jbc.M111.330365
+- Jang, S. and Imlay, J. A. Hydrogen peroxide inactivates the Escherichia coli Isc iron-sulphur assembly system, and OxyR induces the Suf system to compensate. Mol Microbiol, 78, 1448 to 1467, 2010
+
+Fermentative enzymes and NAD+ regeneration under oxidative stress, Part 3:
+- Novel antioxidant role of alcohol dehydrogenase E from Escherichia coli. J Biol Chem, 2003. Authors not verified. Source for AdhE inactivation by metal-catalyzed oxidation and the zinc substitution result. https://pubmed.ncbi.nlm.nih.gov/12783863/
+- Differential inactivation of alcohol dehydrogenase isoenzymes in Zymomonas mobilis. J Bacteriol, 179(4), 1102 to 1104, 1997. Source for the roughly eighty percent inactivation of iron-containing ADH II after four hours of aeration while zinc-containing ADH I remained active. https://journals.asm.org/doi/pdf/10.1128/jb.179.4.1102-1104.1997
+- A safety cap protects hydrogenase from oxygen attack. Nature Communications, 2021. Authors not verified. https://www.nature.com/articles/s41467-020-20861-2
+- Fantastic [FeFe]-Hydrogenases and Where to Find Them. Frontiers in Microbiology, 2022. Source for the redox-balance role of hydrogenases and for the variation in oxygen tolerance. https://www.frontiersin.org/journals/microbiology/articles/10.3389/fmicb.2022.853626/full
+
+GAPDH as an oxidative target and redox switch, Part 3:
+- The GAPDH redox switch safeguards reductive capacity and enables survival of stressed tumour cells. Nature Metabolism, 2023. Authors not verified. Source for the claim that no other enzyme is as conspicuously oxidized by hydrogen peroxide as GAPDH, and for the redox-insensitive mutant losing the pentose phosphate response. https://www.nature.com/articles/s42255-023-00781-3
+- Cytosolic thiol switches regulating basic cellular functions: GAPDH as an information hub? Biological Chemistry, 2015. Authors not verified.
+
+Alkaline hydrothermal vents and the origin of chemiosmosis, Part 6 stop 1:
+- Lane, N., Allen, J. F. and Martin, W. How did LUCA make a living? Chemiosmosis in the origin of life. BioEssays, 32(4), 271 to 280, 2010
+- Martin, W. and Russell, M. J. On the origin of biochemistry at an alkaline hydrothermal vent. Phil Trans R Soc B, 362, 1887 to 1925, 2007
+- An origin-of-life reactor to simulate alkaline hydrothermal vents. J Mol Evol, 2014. Authors not verified. https://pmc.ncbi.nlm.nih.gov/articles/PMC4247476/
+- Jackson, J. B. (cited in the literature as J. Baz Jackson; initial order not verified). Natural pH gradients in hydrothermal alkali vents were unlikely to have played a role in the origin of life. J Mol Evol, 2016. The primary critique. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4999464/
+- Jackson, J. B. (see note above). Ancient living organisms escaping from, or imprisoned in, the vents? Life, 7(3), 36, 2017. https://doi.org/10.3390/life7030036
+- Lane, N. Proton gradients at the origin of life. BioEssays, 2017. The rebuttal. https://onlinelibrary.wiley.com/doi/abs/10.1002/bies.201600217
+
+Stromatolites, Part 6 stop 2:
+- Allwood, A. C. et al. Strelley Pool stromatolite work, Nature 2006 and subsequent 2009 and 2010 papers. Exact titles not verified.
+- Djokic, T. et al. Earliest signs of life on land preserved in ca. 3.5 Ga hot spring deposits. Nature Communications, 2017. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5436104/
+- Nutman, A. P. et al. Rapid emergence of life shown by discovery of 3,700-million-year-old microbial structures. Nature, 2016. https://www.nature.com/articles/nature19355
+- Allwood, A. C. et al. Reassessing evidence of life in 3,700-million-year-old rocks of Greenland. Nature, 2018. The rebuttal
+- A review of 3.7 Ga stromatolites from the Isua Supracrustal Belt, West Greenland. Earth-Science Reviews, 2025. Summarizes the full exchange including the 2019 counter-rebuttals. https://www.sciencedirect.com/science/article/abs/pii/S0012825224003623
+
+Oxygenic photosynthesis timing, Part 6 stop 3:
+- Summons, R. E., Jahnke, L. L. and Hope, J. M. 2-Methylhopanoids as biomarkers for cyanobacterial oxygenic photosynthesis. Nature, 400, 554 to 557, 1999. The original claim, included because the timeline text explains why it was withdrawn. https://www.nature.com/articles/23005
+- Rasmussen et al. Nature, 2008. First challenge to biomarker syngeneity. Full title and author list not verified.
+- French et al. PNAS, 2015. Demonstrates the Archean hydrocarbon biomarkers are younger contamination. Full title and author list not verified.
+- Fischer, W. W., Hemp, J. and Johnson, J. E. Evolution of oxygenic photosynthesis. Annual Review of Earth and Planetary Sciences, 2016. https://web.gps.caltech.edu/~wfischer/pubs/Fischeretal2016a.pdf
+- Sánchez-Baracaldo, P. On the origin of oxygenic photosynthesis and Cyanobacteria. New Phytologist, 2020. https://doi.org/10.1111/nph.16249
+- Oldest thylakoids in fossil cells directly evidence oxygenic photosynthesis. Nature, 2024. Source for the roughly 1.75 Ga minimum and the 2.018 to 1.854 Ga Eoentophysalis date. https://pubmed.ncbi.nlm.nih.gov/38172638/
+- Genetics re-establish the utility of 2-methylhopanes as cyanobacterial biomarkers before 750 million years ago. Nature Ecology and Evolution, 2023. The partial rehabilitation. https://www.nature.com/articles/s41559-023-02223-5
+
+Banded iron formations, Part 6 stop 4:
+- Some Precambrian banded iron-formations from around the world. American Mineralogist, 90(10), 1473, 2005. Source for the maximum at about 2.5 Ga, disappearance at about 1.8 Ga and Neoproterozoic reappearance between 0.8 and 0.6 Ga. https://pubs.geoscienceworld.org/msa/ammin/article-abstract/90/10/1473/44295/
+- Slack, J. F. and Cannon, W. F. Extraterrestrial demise of banded iron formations 1.85 billion years ago. Geology, 2009. The Sudbury impact hypothesis for the termination
+
+Eukaryogenesis timing, Part 6 stop 5:
+- Dated gene duplications elucidate the evolutionary assembly of eukaryotes. Nature, 2025. Source for nFECA at 3.05 to 2.79 Ga, mFECA divergence at 2.37 to 2.13 Ga, LECA at 1.80 to 1.67 Ga and endosymbiosis aligned to roughly 2.2 Ga. https://www.nature.com/articles/s41586-025-09808-z
+- The origin of eukaryotes and rise in complexity were synchronous with the rise in oxygen. 2023. Source for the 2.2 to 1.5 Ga conservative interval and the 2.0 to 1.8 Ga core interval. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10505794/
+- Frontiers in Bioinformatics, 2023, for the 2.19 to 1.45 Ga conservative eukaryogenesis interval. https://www.frontiersin.org/journals/bioinformatics/articles/10.3389/fbinf.2023.1233281/
+- A late origin of the extant eukaryotic diversity: divergence time estimates using rare genomic changes. Biology Direct, 6, 26, 2011. Authors not verified. Source for the roughly twofold spread, about 1,100 to 2,300 Ma. https://doi.org/10.1186/1745-6150-6-26
+- A diverse Palaeoproterozoic microbial ecosystem implies early eukaryogenesis. Phil Trans R Soc B, 2025. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12329461/
+
+Early eukaryote fossils, Part 6 stop 6:
+- A Laurentian record of the earliest fossil eukaryotes. Geology, 45(5), 387, 2017. Authors not verified. Source for the Tappania, Dictyosphaera and Valeria assemblage spanning about 1650 to 1400 Ma. https://pubs.geoscienceworld.org/gsa/geology/article/45/5/387/207896/
+- The earliest history of eukaryotic life. Trends in Ecology and Evolution, 2021. Source for the first unequivocal total-group eukaryote acritarchs at about 1.7 to 1.5 Ga and for Bangiomorpha at about 1.0 Ga. https://www.sciencedirect.com/science/article/abs/pii/S0169534721003086
+- Brocks, J. J. et al. Lost world of complex life and the late rise of the eukaryotic crown. Nature, 2023. The protosterol biota at about 1.64 Ga
+- Early fossil eukaryotes were benthic aerobes. Nature, 2026. Source for the roughly 1.75 to 1.4 Ga fossil eukaryotes being almost entirely restricted to oxygenated bottom water settings. https://www.nature.com/articles/s41586-026-10533-4
+- Schneider et al. 2002, for the redating of Grypania to 1874 plus or minus 9 Ma. Full citation not verified.
+
+Verification status. Entries marked "not verified" have a confirmed title, journal, year and where given a URL, but the author list was not independently checked during the 2026-07-28 sourcing pass. Do not cite those author names in player-facing text without checking them. Nothing in this section was invented; unverified fields were stripped rather than guessed.
 
 Citation discipline: every player-facing numeric claim needs a pointer into this section. If a number cannot be sourced, it does not ship.
