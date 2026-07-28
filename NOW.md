@@ -14,11 +14,20 @@ The kernel runs. V1 landed the engine and the two property tests that guard it. 
 
 ## Build state
 
-| Log | What it built | Status |
-| --- | --- | --- |
-| V1 | The engine kernel: constants, seeded PRNG, pools, reactions, tick, loop, conservation and determinism tests | Done 2026-07-28 |
-| V2 | Act 1 content: glucose uptake, glycolysis, the NAD+ pool, lactate fermentation | Not started |
-| V3 | The first interface | Not started |
+One sentence per log. The "does not" column is the fence each stage doc inherits, so a log claims its own row and defers everything held by the rows below it.
+
+| Log | Builds | Does not | Status |
+| --- | --- | --- | --- |
+| V1 | The engine kernel: constants, seeded PRNG, pools, reactions, tick, loop, conservation and determinism tests | Any content, any interface, saves | Done 2026-07-28 |
+| V2 | Act 1 content: glucose uptake, glycolysis, the NAD+ pool, lactate fermentation | Any interface, the ethanol branch, glycogen storage | Not started |
+| V3 | The first interface, only what is needed to play the slice and answer the two questions in docs/BRIEF.md line 110 | The timeline, the beast, the rest of DESIGN.md, saves | Not started |
+| V4 | Persistence: save and load against docs/SAVE_SCHEMA.md version 1, plus the migration harness and its fixture test | Offline progress, any network or account | Not started |
+| V5 | Offline progress: steady-state detection, the analytic jump to the next event, and validation of STEADY_EPSILON and STEADY_WINDOW | New content, any interface beyond a return summary | Not started |
+| V6+ | Unplanned, deliberately | Anything written here now would be fiction | Held |
+
+The horizon is V5 and it is a real horizon rather than laziness. Act 2 is the highest-risk beat in the game and docs/PROGRESSION.md line 136 lists its shape as an open question for the prototype, so it is not decidable until the slice has been played. docs/ECONOMY.md gets written in the same window for the same reason. Do not extend this table until V3 has answered the two questions.
+
+The docs/SCIENCE.md reconciliation in Blocking is not a log. It is a docs-only pass and it gates V2.
 
 ## What the kernel does
 
@@ -69,20 +78,22 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Blocking
 
-1. **Five timeline dates are unsourced.** ~4.0 Ga, ~2.7 Ga, ~2.0 to 1.5 Ga and ~1.6 Ga currently violate hard rule 1. A sourcing pass on docs/SCIENCE.md is drafted and pending.
-2. **Act 2 has no iron-sulfur target in the player's pathway.** docs/PROGRESSION.md line 63 targets ROS damage at Fe-S enzymes, but no glycolytic enzyme has an Fe-S cluster and the TCA cycle does not unlock until act 3. Likely correct targets are pyruvate:ferredoxin oxidoreductase and ferredoxin. Needs a docs/SCIENCE.md entry and a docs/PROGRESSION.md correction. Part of the same pending sourcing pass.
+Both items below are half done. The research landed in docs/SCIENCE.md. Neither result has been applied anywhere else, so both still violate hard rule 1 in practice.
+
+1. **Five timeline dates are researched but not applied.** docs/SCIENCE.md Part 6 now sources all five stops and its recommendations change the view: stop 3 loses its 2.7 Ga date entirely because the biomarkers failed on contamination, stop 2 is relabeled from oxygen production to anoxygenic phototrophy, and banded iron does not cleanly mark the GOE so the stop needs a different visual or an explicit pre-GOE label. Nothing downstream reflects any of that yet.
+2. **Act 2 has no iron-sulfur target in the player's pathway.** docs/SCIENCE.md Part 3 has the correct targets under "Damage targets the act 2 player actually has". docs/PROGRESSION.md carries only a superseded note at line 65 and its unlock list at lines 54 to 62 is unchanged, so the act 2 spine is still wrong where it counts.
 
 ## Open, not blocking
 
 - **Working title is still TBD.** docs/BRIEF.md line 4 says so and no naming shortlist exists. The wordmark is drawn as `krebs`, but the Krebs cycle unlocks roughly four hours in and does not exist during act 1.
 - **No release gate for the Needs source badge.** The badge is specified in DESIGN.md but nothing enforces it. A build check that fails on any surviving Needs source turns hard rule 1 from discipline into mechanism. The ESLint determinism rule from V1 is the model: the same trick works here.
 - **Two undisclosed simplifications in the kinetics.** A multi-substrate reaction takes the minimum of its per-substrate saturation terms rather than a real bi-bi rate law, and one kinetics descriptor per reaction means one Km shared across all of its substrates. Both are game decisions, both are defensible, neither is written down. They need a docs/SCIENCE.md entry or a docs/ECONOMY.md divergence row. docs/SCIENCE.md Part 1 requires the methodology to be disclosed in-game, so this is a real obligation rather than tidiness.
-- `STEADY_EPSILON` and `STEADY_WINDOW` shipped in V1 as unvalidated placeholders, 1e-6 and 20. docs/SIMULATION.md Part 6 marks them tune during prototype and no measurement exists yet. The offline progress log validates them, and that measurement is the first thing it has to do.
+- `STEADY_EPSILON` and `STEADY_WINDOW` shipped in V1 as unvalidated placeholders, 1e-6 and 20. docs/SIMULATION.md Part 6 marks them tune during prototype and no measurement exists yet. V5 validates them, and that measurement is the first thing it has to do.
 
 ## Next, in order
 
-1. Land the docs/SCIENCE.md sourcing pass. Both blocking items resolve here, and V2 needs the act 1 numbers to be citable before it can put any of them on screen.
-2. V2, act 1 content. Glucose uptake, glycolysis, the NAD+ pool and lactate fermentation, from docs/SCIENCE.md Part 2 and docs/PROGRESSION.md act 1.
+1. Apply the docs/SCIENCE.md findings to docs/PROGRESSION.md and the timeline stop list. Both blocking items resolve here, and V2 cannot put an act 1 number on screen until they do.
+2. V2. See the build state table.
 
 The ordering matters. docs/SIMULATION.md line 90 asked for the conservation test before act 1 content, and V1 delivered it, so the moment real biology lands it is guarded.
 
