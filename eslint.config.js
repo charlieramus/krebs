@@ -75,9 +75,20 @@ export default tseslint.config(
     },
   },
   {
-    // The determinism guard, scoped to simulation code only. UI code may use
-    // Date.now and Math.random freely; it is not part of the tested state.
-    files: ['src/sim/**/*.{ts,tsx}'],
+    // The determinism guard, scoped to simulation code AND content.
+    //
+    // Extended to src/content/** by V2 stage 6. The question was raised in V2
+    // stage 2 and the answer is that the original scope was too narrow.
+    // Content does not merely sit next to the simulation, it builds the pool
+    // definitions and reaction descriptors the kernel then runs, so a Math.pow
+    // in a tuning file reaches the same arithmetic through a different door and
+    // breaks cross-browser determinism just as thoroughly as one in tick.ts.
+    // The hashed state is a function of content, so content is simulation code
+    // whatever directory it lives in.
+    //
+    // UI code is still exempt. It may use Date.now and Math.random freely
+    // because it is not part of the tested state.
+    files: ['src/sim/**/*.{ts,tsx}', 'src/content/**/*.{ts,tsx}'],
     rules: determinismRules,
   },
   {

@@ -40,10 +40,15 @@ that document exists.
 ## The determinism guard
 
 The ESLint rule that bans `Math.random`, `Math.pow`, `Math.exp`, `Math.log` and
-`Date.now` is currently scoped to `src/sim/**` only. It does not apply here.
+`Date.now` **applies here**, extended from `src/sim/**` to `src/content/**` by
+V2 stage 6.
 
-That is a question rather than a decision. Content builds the reaction
-descriptors that the kernel then runs, so a `Math.pow` in a tuning file reaches
-the same arithmetic through a different door and breaks determinism just as
-thoroughly. **V2 stage 6 owns the call.** Until it lands, treat the rule as
-applying here by discipline.
+The original scope was too narrow. Content does not merely sit next to the
+simulation, it builds the pool definitions and reaction descriptors the kernel
+runs, so a `Math.pow` in a tuning file reaches the same arithmetic through a
+different door and breaks cross-browser determinism just as thoroughly as one
+in `tick.ts`. The hashed state is a function of content, so content is
+simulation code whatever directory it lives in.
+
+Hard rules 4 and 5 are therefore mechanism here rather than discipline, which
+is the same standard `src/sim/` has held since V1.

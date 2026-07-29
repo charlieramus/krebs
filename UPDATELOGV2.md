@@ -595,7 +595,51 @@ bundle size, and the lint probe output from step 1.
 
 ## Stage 6 Report
 
-_Pending._
+**Coherence sweep over `src/content/`.** Swept for `Math.random`, `Math.pow`, `Math.exp`, `Math.log`, `Date.now`, object-key iteration on the flux path and allocation inside the tick. **Nothing to fix.** The only matches for the banned identifiers are in prose: `tuning.ts` explaining why the Hill n is an integer, and the `README.md` paragraph about the guard's scope. No `Object.keys`, `Object.values`, `Object.entries` or `for...in` anywhere outside test files. `recordAct1Tick` and its `moved` helper allocate nothing and do no lookups by id; every `.find` and `.map` in the content layer runs at construction, in `probe`, `createAct1MeterProbes` and `act1PoolDefinitions`.
+
+**The ESLint question stage 2 raised: the guard extends to `src/content/**`.**
+
+The original scope was too narrow. Content does not merely sit next to the simulation, it builds the pool definitions and reaction descriptors the kernel runs, so a `Math.pow` in a tuning file reaches the same arithmetic through a different door and breaks cross-browser determinism just as thoroughly as one in `tick.ts`. The hashed state is a function of content, so content is simulation code whatever directory it lives in. UI code stays exempt, because it is not part of the tested state.
+
+Proved it fires, the way V1 stage 1 proved it. Wrote `src/content/act1/__probe.ts` with all five banned calls, ran `npx eslint` on it:
+
+    src/content/act1/__probe.ts
+      1:18  error  'Math.random' is restricted from being used. CLAUDE.md hard rule 4: use the seeded PRNG in src/sim/prng.ts. Determinism is a tested property  no-restricted-properties
+      2:18  error  'Math.pow' is restricted from being used. CLAUDE.md hard rule 5: Math.pow is implementation-approximated. Use repeated multiplication        no-restricted-properties
+      3:18  error  'Math.exp' is restricted from being used. CLAUDE.md hard rule 5: Math.exp is implementation-approximated and breaks cross-browser determinism  no-restricted-properties
+      4:18  error  'Math.log' is restricted from being used. CLAUDE.md hard rule 5: Math.log is implementation-approximated and breaks cross-browser determinism  no-restricted-properties
+      5:18  error  Unexpected use of 'Date'. docs/SIMULATION.md Part 5: wall-clock time enters only at the loop boundary, never inside sim code                  no-restricted-globals
+      5:18  error  'Date.now' is restricted from being used. docs/SIMULATION.md Part 5: wall-clock time enters only at the loop boundary, never inside sim code   no-restricted-properties
+
+    6 problems (6 errors, 0 warnings)
+
+Probe deleted, `npm run lint` clean afterwards. `src/content/README.md` updated so it states the decision rather than the open question.
+
+**Full verify.** `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean. `npm test` **95 passed against V1's 65**, 30 new across five files. Bundle **193.37 kB, unchanged from V1's 193.37 kB**, which is correct and worth stating plainly: nothing in the app imports the content layer yet, because there is no app. The whole of act 1 currently reaches the world through `npm run sim:act1` and a test suite.
+
+**One glucose, by hand, from `glucose_env` to 2 lactate.**
+
+A single glucose sits outside the cell as one unit of `glucose_env`, carrying carbon 6 and redox 2. **uptake** moves it across the membrane to `glucose`, unchanged in every respect. No transporter is named and no cost is charged, which is disclosed in docs/SCIENCE.md Part 1 rather than buried.
+
+**prep** consumes that glucose and 2 ATP, producing 2 g3p and 2 ADP. The six-carbon skeleton becomes two three-carbon fragments, so carbon goes 6 to 6. Phosphate is the one that looks wrong and is not: 2 ATP at weight 3 is 6 going in, and 2 g3p at weight 1 plus 2 ADP at weight 2 is 6 coming out. The cell has spent its investment and the phosphates are still all present, just distributed differently. Redox 2 rides onto the two trioses at 1 each. Adenylate is untouched at 2, because ATP became ADP rather than disappearing.
+
+**payoff** runs twice, once per triose. Each turn takes one g3p, one NAD+, 2 ADP and one free phosphate, and returns one pyruvate, one NADH and 2 ATP. Across both turns: carbon 6 to 6; phosphate 2 from the trioses plus 8 from four ADP plus 2 free equals 12, out as four ATP at weight 3, also 12; redox 2 leaves the trioses and lands on 2 NADH, because pyruvate carries none; nicotinamide 2 to 2, NAD+ becoming NADH; adenylate 4 to 4. The cell now holds 4 ATP where it spent 2, and its entire nicotinamide pool is 2 units further toward reduced. **This is the step that has a ceiling on it**, and everything about act 1 follows from that.
+
+**ferment** runs twice, if the player has it. Two pyruvate and 2 NADH become 2 lactate and 2 NAD+. Carbon 6 to 6. Redox 2 comes off the carriers and goes onto the lactate at 1 each, which is why lactate carries a redox weight at all and why the glucose-to-2-lactate conversion is **redox neutral end to end**, exactly as the counting convention promises. Nicotinamide 2 to 2, and the carrier is back where it started, ready for another triose. No ATP appears anywhere in these two lines, which is the misconception, refuted by the absence of a term rather than by an argument.
+
+Net across all five steps: one environmental glucose has become 2 lactate, carbon 6 to 6 and redox 2 to 2. The cell is 2 ATP richer and 2 free phosphates poorer, adenylate unchanged. **maintain** then hydrolyses those 2 ATP back to 2 ADP and 2 free phosphate, returning phosphate and adenylate to exactly where they started, and the cell has done work rather than accumulated a score.
+
+All five totals across the whole sequence: unchanged. **The walkthrough and the code agree**, which I checked against the harness rather than asserting: `npm run sim:act1 -- 1200 fermenting` reports 451.37 glucose committed, 897.11 lactate produced, and 4.000000000 ATP per glucose gross with 2.000000000 net.
+
+**NOW.md updated**, 65 insertions and 17 deletions. Status rewritten to act 1 exists and runs with still nothing a player can touch. V2 marked done 2026-07-29 and the table not extended past V5. A new "What the content layer does" section added as a sibling to the kernel's, same shape, carrying the file list, the full pathway, the five conserved quantities, the 95 tests, the 2.351e-13 drift and the `e9b720a8` hash. A "Settled 2026-07-29" block records the six decisions this log made.
+
+Blocking is emptied of both items stage 1 closed and carries **one new item: act 1 has an unrecoverable state**, the ATP bootstrap trap stage 5 found. It is a real defect in shipped content and Blocking is where the things that are actually wrong belong, as against the things that are merely unfinished.
+
+"Open, not blocking" gains four entries. The tuning values and their docs/ECONOMY.md debt, called out as the largest single debt V2 created. The docs/SIMULATION.md line 90 wording question, **recorded rather than resolved**, with a recommendation that Part 2 be widened to say the conserved set is content's to declare, since act 3 will add more, but noting that a spec edit should be deliberate rather than incidental. The timeline date column having no treatment for an undated stop, which is what stage 1 left open. And the instantaneous NAD+ recovery, which is correct simulation and possibly anticlimactic gameplay.
+
+"Why the UI waits" now says what V2 actually shows about the two docs/BRIEF.md questions, and is honest that a console cannot answer a question about feel. On the NAD+ wall it can say a lot: the stall is legible as an event at 3.05 game-seconds with glucose visibly piling up, and the zero-yield result is an assertion rather than an intention. On saturating kinetics it can say very little, and says so. Four things V3 has to measure are named.
+
+docs/ECONOMY.md and docs/CONTENT_STYLE.md were not created. Neither exists and neither should yet.
 
 ---
 
