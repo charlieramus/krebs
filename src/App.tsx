@@ -13,6 +13,7 @@
 import { RuntimeProvider } from './ui/RuntimeContext';
 import { Badge } from './ui/components/Badge';
 import { Card } from './ui/components/Card';
+import { PathwayCard } from './ui/components/PathwayCard';
 import { PoolRail } from './ui/components/PoolRail';
 import { TopBar } from './ui/components/TopBar';
 import { DISCLOSURE, NO_SAVES } from './ui/content';
@@ -50,9 +51,7 @@ export function App() {
           <PoolRail />
 
           <div className="flex min-w-0 flex-col gap-4">
-            <Card surface="cream" className="flex min-w-0 items-center justify-center p-8">
-              <span className="text-body text-ink3">Pathway card, stage 5.</span>
-            </Card>
+            <PathwayCard />
             <Card surface="mint" dashed className="flex items-center justify-center p-8">
               <span className="text-body text-ink3">Unlock shelf, stage 6.</span>
             </Card>

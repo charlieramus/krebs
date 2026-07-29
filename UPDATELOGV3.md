@@ -621,7 +621,46 @@ that changed it has written to simulation state.
 
 ## Stage 5 Report
 
-_Pending._
+**Zero flux looks stopped. That is the stage and it works.** In the walled state the card shows one arrow flowing and four dead, and the two states do not resemble each other:
+
+    flowing   6px substrate-blue dashes travelling, solid ink track,
+              filled substrate arrowhead with an ink outline
+    stopped   no dashes at all, 2px ink3 hairline track,
+              hollow white arrowhead outlined in ink3
+
+Two different silhouettes rather than two speeds of one. Screenshotted running and walled: at eight game-seconds `uptake` is still pumping dashes into the cell while `prep`, `payoff`, `ferment` and `maintain` are all hairlines. Nobody would read that as "working slowly".
+
+**The zero-flux threshold is `ZERO_FLUX_THRESHOLD = 0.25`**, in applied pool units per game-second, in `src/ui/tuning.ts` with the rest of the provisional numbers.
+
+Chosen from a pixel rate rather than picked. At `DASH_PIXELS_PER_FLUX_UNIT = 6`, a flux of 0.25 moves a dash at 1.5 pixels per second, which is below the rate at which movement is perceptible against a static background at normal viewing distance. Above it the motion is visible; below it the arrow would be claiming to be alive while showing the player nothing they can actually see, which is the specific lie this stage exists to prevent. For scale, act 1's working fluxes run between roughly 7 and 26, so the inert treatment fires only when a reaction has dropped to about one to three percent of its working rate.
+
+It is a perception threshold reasoned from a pixel rate, not a measurement. Stage 7 is the first time anyone watches it with fresh eyes, and it owes a docs/ECONOMY.md row like everything else in that file.
+
+**`src/ui/tuning.ts` exists now**, with the same header treatment as `src/content/act1/tuning.ts` and the same status: provisional, tuned for nothing, not measurements, each owing a divergence row. Three values so far, `ZERO_FLUX_THRESHOLD`, `DASH_PIXELS_PER_FLUX_UNIT` and `DASH_LENGTH`, plus their Tuned badges with per-value reasons. Stage 6 adds the unlock thresholds to the same file.
+
+**Applied flux, not intended flux.** Speed reads `snapshot.appliedFlux`, which is `state.fluxes[r] * state.scales[r]`. Driving it from the intended flux would keep dashes flowing through a shortfall that has already stopped the reaction, which is a lie told at the exact moment the player most needs the truth.
+
+**Phase is integrated, and interpolated.** `stroke-dashoffset` is written from the snapshot every frame rather than handed to a CSS animation, because a CSS animation has to be restarted when the rate changes and a restart reads as a stutter carrying no information. The phase accumulates as the integral of rate over time, so a reaction that speeds up and slows down looks continuous rather than jumping. The clock it integrates against is `(elapsedMs + interpolation * TICK_MS) / 1000`, which is game time plus the sub-tick remainder `loop.advance` returns, and which docs/SIMULATION.md Part 1 passes to the renderer for exactly this. Confirmed live: sampling `stroke-dashoffset` across frames shows all four running arrows advancing and wrapping inside one dash period.
+
+It is read only. **The act 1 canonical hash is still `e9b720a8`** and the stage 1 test that frame timing cannot reach the simulation passes unchanged. A renderer that had moved the hash would have written to simulation state, and none of this does.
+
+**Reduced motion shows a rate for every arrow.** All five, including `ferment` at `0.00 /s` while it is disabled. Each renders through Figure with the reaction's own badge from `src/ui/content.ts`, so a reduced-motion player gets tabular figures and a source trace like everyone else.
+
+`src/ui/__tests__/pathway.test.tsx`, eighteen assertions. Every reaction renders a numeric rate under reduced motion; every one of those renders through Figure, asserted by the badge trace being present on the figure; and none of them renders a number when motion is allowed. That last one is not pedantry: if the number were always shown, the animation would be redundant decoration rather than the channel DESIGN.md says it is, and the reduced path would be untested by construction because it would look identical to the animated one.
+
+The reduced flag is a **normal prop on `PathwayArrow`**, not a hook read inside it, so the reduced path can be rendered and asserted without faking a media query. `PathwayCard` reads `usePrefersReducedMotion` once and passes it down.
+
+**A caveat on how reduced motion was verified, stated rather than glossed.** The rendered reduced path was confirmed in a real browser by temporarily forcing the flag on, screenshotting, and reverting. The **media query detection itself was not exercised in a browser**, because `Emulation.setEmulatedMedia` is not on the browse tool's CDP allowlist and there is no other way to flip the setting from here. The hook is small and its logic is ordinary, but "small and ordinary" is not "tested", so it is flagged. Stage 7 plays both reduced-motion settings and should do it through real OS settings, which is the only check that covers this.
+
+**One improvement past the spec, and one fix.**
+
+The **track dims when a reaction is stopped in both motion modes**, not only the animated one. Colour is not motion, so this is available to a reduced-motion player at no cost, and without it a stopped arrow under reduced motion looked exactly like a running one apart from a small number. DESIGN.md's point is that the reduced path should carry the same reading, not the same reading minus the obvious part.
+
+The **maintenance row was missing its phosphate.** It drew `atp -> maintain -> adp`, and this log's own screen sketch says `adp + pi`. Fixed, which meant letting a pathway row hold a group of products rather than a single one. Worth the change beyond correctness: the payoff phase consumes free phosphate two rows up, and without the phosphate drawn here it appears from nowhere. Now that row balances on sight, three dots in, two dots and one dot out.
+
+**Two smaller notes.** `min-width: 0` is set on every flex child in the card as well as on the grid column from DESIGN.md line 150, because a flex item defaults to `min-width: auto` and refuses to shrink below its content, which is the same bug wearing a different hat. And `g3p` is drawn twice, ending row one and starting row two, on purpose: the preparatory phase makes two trioses per glucose and the payoff phase consumes them one at a time, so drawing the handoff at both a line end and a line start makes it a visible seam rather than a wrap.
+
+**Verify.** `npm test` 156 passed across 16 files, up from stage 4's 138, 18 new. `npm run typecheck` clean. `npm run lint` clean, including the tabular-figures rule, which caught a `toFixed` on the dash offset and was again right to: an offset is not a number anybody reads, and the fix was to round without it rather than to add an exception. `npm run build` clean, 221.66 kB JS and 17.43 kB CSS. `npm run dev` watched in a browser through the running state, the walled state and the forced reduced-motion state, with no console errors.
 
 ---
 
