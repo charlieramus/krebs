@@ -1,6 +1,6 @@
 # Progression
 
-Last updated: 2026-07-27
+Last updated: 2026-07-29
 
 The content spine. Defines acts, unlock order, gating and the single major transition. This doc determines the shape of the data model, so it is settled before engine code gets written.
 
@@ -51,18 +51,27 @@ Setting: the Great Oxidation Event, roughly 2.4 billion years ago.
 
 This act inverts the normal idle-game expectation. A new resource appears and it damages you. Oxygen concentration rises on a fixed schedule independent of player action, reactive oxygen species scale with it and ROS degrade enzymes the player has already bought. Production falls. The player watches numbers go down for the first time.
 
+Two damage mechanisms, not one. Reactive oxygen species and molecular oxygen itself are separate threats with separate targets, and the antioxidant enzymes only address the first. Superoxide and hydrogen peroxide inactivate cluster-dependent dehydratases and poison mononuclear iron enzymes by mismetallation. Molecular oxygen inactivates a different set, including pyruvate:ferredoxin oxidoreductase and pyruvate:formate lyase, at a rate that does not depend on superoxide or peroxide levels at all. See docs/SCIENCE.md Part 3.
+
+That split is the act's structure. Superoxide dismutase and catalase buy the player a visible win against the first mechanism and do nothing whatsoever against the second, so the player discovers that some damage cannot be defended against, only routed around by replacing the vulnerable enzyme with different chemistry. That is the actual reason obligate anaerobes are obligate: the anaerobic competence and the oxygen sensitivity are the same property.
+
+The target inside act 1's own loop is glyceraldehyde-3-phosphate dehydrogenase, damaged by thiol oxidation rather than by cluster destruction. Glycolysis contains no iron-sulfur enzymes, which is true and misleading: GAPDH is among the most oxidant-sensitive enzymes in the cell, and it is the step that produces NADH. The crisis therefore lands on the NAD+ wall the player spent act 1 learning to work around, rather than beside it.
+
 Unlock order:
 1. ROS damage becomes visible, initially as unexplained enzyme degradation
 2. Superoxide dismutase
 3. Catalase
-4. Iron sequestration, which reduces Fenton chemistry
+4. Dps, an iron-sequestering mini-ferritin induced under oxidative stress, which lowers free iron and therefore suppresses Fenton chemistry
 5. Glutathione and peroxiredoxin systems
-6. Oxygen tolerance thresholds
-7. Aerotolerance, which converts oxygen from pure hazard to neutral
+6. Iron-sulfur cluster repair, with the Suf backup assembly system for when the primary Isc system is itself peroxide-inactivated
+7. Manganese substitution in mononuclear iron enzymes, defense by substitution rather than by scavenging
+8. Isozyme replacement, swapping a vulnerable iron-dependent enzyme for one that does not use iron
+9. Oxygen tolerance thresholds
+10. Aerotolerance, which converts oxygen from pure hazard to neutral
 
-Damage should target iron-sulfur cluster enzymes preferentially, which is both mechanistically correct and produces a legible failure pattern the player can reason about.
+Unlocks 2 to 5 address ROS. Unlocks 6 to 8 are the answer to the second mechanism and to damage that outruns repair, and 6 is a repair mechanic with its own failure mode rather than a flat damage reduction.
 
-Superseded 2026-07-28. The act 2 player has no TCA cycle and therefore no aconitase, and glycolysis contains no iron-sulfur enzymes, so as written this specifies damage to enzymes the player does not own. See docs/SCIENCE.md Part 3, "Damage targets the act 2 player actually has", for the targets that do apply, for the distinction between ROS-mediated and direct oxygen damage which the unlock list above does not currently model, and for four additional defenses that belong in this list.
+The GAPDH damage is not purely destructive and the payoff is worth building. Inactivation acts as a redox switch: shutting down glycolytic flux reroutes carbon into the oxidative pentose phosphate pathway, which makes the NADPH that the glutathione and thioredoxin systems run on. The pathway does not just break under stress, it reroutes, and the player trades ATP yield for antioxidant capacity through a mechanism the cell actually uses.
 
 The teaching beat: oxygen was a mass extinction before it was fuel. Aerobic respiration is not the obvious next step up a ladder, it is an opportunistic exploitation of a poison that life spent hundreds of millions of years learning to survive.
 

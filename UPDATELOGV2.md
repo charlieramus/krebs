@@ -124,7 +124,29 @@ partly closed, say which part and why.
 
 ## Stage 1 Report
 
-_Pending._
+Checked first, as instructed. Neither had landed. `docs/PROGRESSION.md` line 65 still carried the superseded note with the original unlock list untouched above it, and `DESIGN.md` still listed `~2.7 Ga oxygenic photosynthesis Needs source` with four other unsourced dates. Both blocking items were exactly where `NOW.md` left them on 2026-07-28. Proceeded.
+
+**`docs/PROGRESSION.md`, act 2.** Rewrote the unlock list rather than appending, and deleted the superseded note. The list is now ten entries. `Dps` replaces the vague "iron sequestration" as the mechanistically correct version of the same idea, and three genuinely new defenses join it: iron-sulfur cluster repair with the Suf backup system, manganese substitution, and isozyme replacement. Three paragraphs above the list carry the findings the list itself cannot: the two-mechanism split, the design consequence that SOD and catalase are useless against the second mechanism, and GAPDH as the in-loop target. Added the pentose phosphate reroute as a fourth paragraph, because Part 3 presents it as a mechanic rather than as background and the act 2 spine is incomplete without it. Kept the teaching beat and the 90 to 150 minute target duration verbatim, as instructed.
+
+**`DESIGN.md`, the timeline.** All seven stops rewritten. Five paragraphs now sit under the table explaining the four stops that changed, because the changes are findings rather than corrections and the table alone would bury them. The GOE visual decision, which stage 1 left to me: **keep banded iron, move the number onto the card.** Part 6 stop 4 offers the ~2.5 Ga peak labelled as pre-GOE maximum or a different visual entirely, and the only cleaner marker it names, the redox-sensitive detrital mineral record, has no legible cartoon silhouette. Banded iron has an unmistakable striped one. So the figure stays, the date column carries the GOE's own range at ~2.4 to 2.0 Ga, and the card states the ~2.5 Ga peak explicitly as the immediate pre-GOE maximum. Recorded in the decisions table with that reasoning, alongside two more rows for the undated stops and the eukaryote reframing.
+
+Badges: every `Needs source` is gone. Four stops are `Sourced`, three are `Sourced, Contested`. The GOE is `Sourced` alone. Its pace is a live question in Part 7 item 3, but the event is not contested and spending the badge on it would devalue the badge where it does real work, at the vent and endosymbiosis stops.
+
+**`docs/SCIENCE.md` Part 1.** Four entries added under "What is deliberately wrong and why", replacing the placeholder. Two disclose V1 stage 3's simplifications, and I read the code before writing them rather than trusting `NOW.md`'s summary: `src/sim/reactions.ts:145` takes the minimum of per-substrate saturation terms, and `src/sim/reactions.ts:50` holds one `Kinetics` per `Reaction`, so one Km reaches every substrate. Both were flagged in a comment at `src/sim/reactions.ts:118-137` asking for exactly this entry. Two more entries cover the balance sheet conventions stage 2 is about to make load-bearing: redox as electron pairs against the fully fermented state, and glucose uptake as untyped transport with the PEP cost set to zero and disclosed. A preamble states that this is a disclosure pass and not a balance pass, that no tuned number appears, and that hard rule 2 is therefore not in play.
+
+**Both `NOW.md` blocking items close.**
+
+Item 1, the five timeline dates: closed. `DESIGN.md` now reads "Every stop on this view now traces to docs/SCIENCE.md Part 6. No `Needs source` badge survives here."
+
+Item 2, the act 2 iron-sulfur target: closed. `docs/PROGRESSION.md` now reads "The target inside act 1's own loop is glyceraldehyde-3-phosphate dehydrogenase, damaged by thiol oxidation rather than by cluster destruction."
+
+**Two deviations, both flagged rather than silent.**
+
+I also rewrote `DESIGN.md` open item 2, which stage 1 did not ask for. It asserted the act 2 target was an iron-sulfur enzyme and ended "Needs a docs/SCIENCE.md entry before it is built". Leaving it would have left `DESIGN.md` contradicting the `docs/PROGRESSION.md` I had just corrected, which is the same blocking item wearing a different hat. Rewritten as closed, noting that the mockups' PFOR and ferredoxin damage still holds for the pyruvate disposal chain, and that the real new interface problem is distinguishing two damage mechanisms visually.
+
+Open item 5 is **not fully closed and I did not claim it was**. Its sourcing half is done. But sourcing killed two dates rather than supplying them, and the date column is specified as a date. Rewritten to state the smaller design question that remains: `unresolved` and `hypothesis` need a treatment at the same visual weight as a real date, and the non-linear axis has to place an undated stop by ordering constraint alone. Not designed, and not V2's job.
+
+Verify: `git diff --stat` shows `DESIGN.md`, `docs/PROGRESSION.md` and `docs/SCIENCE.md` only. No code, no tests, no `package.json`.
 
 ---
 
