@@ -154,3 +154,35 @@ body {
   margin: 0;
   min-height: 100vh;
 }
+
+/* ===========================================================================
+   REDUCED MOTION
+
+   DESIGN.md's obligation has two halves and they pull in opposite directions,
+   so both are implemented in different places.
+
+   Motion that CARRIES INFORMATION must not simply be disabled, because nothing
+   in the game may be encoded in movement alone. That is the flowing dashes on
+   the pathway arrows, and they are handled in src/ui/components/PathwayArrow.tsx,
+   which swaps them for a static arrow plus an explicit numeric rate. Not here:
+   this block cannot add a number to the screen.
+
+   Motion that is DECORATION should just stop. That is everything else, and at
+   present it is the 80ms button press. Killing it globally is correct and it
+   is also the safe default for whatever a later log adds, since a transition
+   nobody thought about is far more likely to be decorative than load-bearing.
+
+   The pathway dashes are driven from JavaScript rather than from a CSS
+   animation, so this rule cannot reach them by accident.
+   =========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

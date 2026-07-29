@@ -931,7 +931,160 @@ recommendation.
 
 ## Stage 7 Report
 
-_Pending._
+**The play session.** Roughly 25 minutes of real time across four runs, notes taken while playing rather than reconstructed. Game time runs 1:1 with real time, so elapsed minutes below are both.
+
+    run 1   auto trigger, normal motion. Wall met, coach mark auto-opened,
+            bought lactate dehydrogenase from the coach mark's own action,
+            then ran on. Bought both uptake steps at 6.0min and 7.1min.
+            Sampled every minute to 8 minutes.
+    run 2   manual trigger, normal motion. Wall met, coach mark stayed shut,
+            opened by hand from the info affordance.
+    run 3   reduced motion forced on. Walled state read with no animation.
+    run 4   auto trigger again, after the shelf fix below. Bought from the
+            coach mark, then ran 8 minutes untouched with an affordable
+            upgrade deliberately left unbought.
+
+Also `/?glucose=500&ferment=on` for the starved state, which a player cannot otherwise reach now that the environment is sized past it.
+
+**One real defect found by playing, fixed.** Buying lactate dehydrogenase from the **coach mark's** action button left the shelf still showing an unbought slot reading "14157 of 55 ATP made". The shelf seeded its bought-state from the snapshot once at mount and updated it only in its own click handler, so two views of one fact existed and one was not watching. It now derives everything from the snapshot every frame and the click handlers set nothing. Exactly the class of bug that only appears when you use the thing two different ways, which is what step 1 is for.
+
+---
+
+### The two docs/BRIEF.md line 110 questions
+
+Standing caveat first, in the posture V2 stage 6 set: these readings come from the person who built it, who knows where the wall is and what solves it. That is the least reliable possible reader of whether a teaching beat teaches.
+
+**Does the NAD+ wall read as interesting rather than annoying? Yes, and it is the strongest thing in the build.**
+
+It is a genuine event with a beginning, a middle and a cause. The pathway reaches full flux, holds it, then decays over about a second and stops at roughly three game-seconds. What sells it is that the failure is visibly not starvation: the environment is still full, glucose is piling up *inside* the cell, and the uptake arrow keeps pumping at full rate while the four downstream arrows drop to hairlines. You are looking at a cell drowning in food that has stopped eating. That reads as a puzzle rather than as a punishment, which is the whole difference between interesting and annoying.
+
+The carrier card says why before any number is read. The blob goes from dull grey-green to vivid teal across three seconds as NAD+ becomes NADH, sampled frame by frame at `rgb(169 191 184)`, `rgb(134 191 178)`, `rgb(35 191 160)`, with the two electron dots fading in on the same axis. DESIGN.md calls this its single most important colour decision and it earns that.
+
+**Do saturating kinetics feel like a game? No, not yet, and the reason is not the kinetics.**
+
+The curves themselves behave and the bottleneck is legible. Buying uptake capacity produced an immediate, visible, correctly-shaped response: ATP per second 31.79 to 39.74, glucose per second 7.95 to 9.94, lactate +15.90 to +19.87, and then a re-settle within twenty seconds. Watching a rate step up and level off *is* reading a saturating system, and the second step gave less than the first.
+
+The problem is the gap between purchases. **Once act 1 is solved the screen stops changing entirely.** Every net rate reads exactly 0.00 except lactate, ATP per second is pinned at 31.79 to 31.80, and it stayed there for eight consecutive minutes with an affordable upgrade deliberately left unbought. The only thing in motion is a cumulative counter the player cannot see.
+
+That is correct simulation, and the flux-is-the-headline inversion is what surfaces it honestly rather than hiding it behind a stock that keeps climbing. It is also a game with two events in it and ten minutes of nothing in between. Saturating kinetics cannot feel like a game while there is nothing arriving for them to respond to. This is now NOW.md blocking item 2 and it belongs to docs/ECONOMY.md, not to an interface log.
+
+---
+
+### The four things NOW.md said V3 had to measure
+
+**1. Does the stall read as an interesting constraint or as the game breaking?** As a constraint. The distinguishing evidence is the glucose card: it is the one number still growing while everything else is dead, and a game that had simply broken would not keep one thing conspicuously working. The uptake arrow still flowing while four hairlines sit under it is the same statement in motion. Nothing about it reads as an error state.
+
+**2. Is the instantaneous recovery satisfying or anticlimactic? Satisfying, and the worry was misplaced.** Measured from a 20000-tick stall, 16.7 minutes: the payoff phase restarts after **2 ticks**, 100 milliseconds. On screen five dead arrows come alive in the same frame, lactate goes from 0.00 to +22.59/s, and the carrier blob starts travelling back down the redox axis. It does not read as a cheat because the reason is visible: the stall stranded 6.8 units of g3p in the pool for the whole sixteen minutes, so there was substrate waiting the instant NAD+ returned. A ramp would have been less honest and no more satisfying.
+
+**3. Does a player watching ATP per second jump while ATP per glucose does not move draw the intended conclusion?** The conclusion is available and it is not forced. On unlocking fermentation, ATP per second went 0.00 to 36.48 to 41.87 across four seconds while glucose per second stayed at exactly **7.95, unchanged**, in the headline readout immediately beside it. Two large numbers side by side, one of which moved enormously and one of which did not, is as clean a statement of "this bought throughput and not yield" as the screen can make without writing a sentence. **This is the one of the four I am least able to answer**, because knowing the answer in advance makes the display look more eloquent than it is. It needs a reader who is not me.
+
+**4. Are walled and starved distinguishable at a glance now that they are rendered?** Yes, unmistakably, with no text label.
+
+    walled     one arrow flowing, four grey hairlines with hollow heads.
+               glucose piled at 30 to 47 inside the cell against a full
+               environment. every downstream card reading exactly 0.00 in grey.
+               carrier fully saturated teal, NAD+ 0.00 against NADH 30.00.
+
+    starved    all five arrows flowing, slowly. every intracellular pool near
+               zero, glucose 2.75, g3p 0.84, pyruvate 0.84. every net rate a
+               small red negative. nothing accumulating anywhere.
+
+One is a pathway with a blockage; the other is a pathway with nothing in it. They do not resemble each other.
+
+**The coach mark trigger: `auto`, and here is why.** Under `manual` the cell stalls and **nothing on the screen explains it**. The shelf lights up and describes what lactate dehydrogenase does, but nothing says why you need it, and the only explanation is behind a 16px info affordance a first-time player has no reason to notice. Under `auto` the mark opens at the moment the thing it explains happens, fires exactly once, carries the fix as its own action button, and is dismissible. The failure mode of `auto` is interruption, and it cannot nag because it never reopens; the failure mode of `manual` is a player sitting in front of a dead cell with no way in. That asymmetry decides it. Recorded in NOW.md as chosen-but-weakly, because I am the wrong reader for exactly this question.
+
+---
+
+### Coherence sweep
+
+Fixed rather than reported, per the stage.
+
+- **Decorative motion was not reduced-motion gated.** The pathway dashes were handled in stage 5, but the 80ms button press transition was not, and neither would anything a later log added be. `src/index.css` now carries a global `prefers-reduced-motion` block that collapses transition and animation durations. It cannot reach the pathway dashes by accident because those are driven from JavaScript, and it should not: DESIGN.md's obligation is that informational motion is *replaced*, not disabled, and only `PathwayArrow` can put a number on the screen in its place.
+- **The shelf state bug** above.
+- Swept and clean: no `Math.random`, `Date.now` or `new Date` anywhere in `src/ui/` outside comments; no `toFixed`, `toPrecision` or `toLocaleString` in any `.tsx` outside `Figure.tsx`, both remaining mentions being comments explaining why the code avoids them. Gradients, blurred shadows, unbadged figures and stray colour tokens are all covered by tests and the lint rule rather than by this sweep.
+
+---
+
+### Verify
+
+`npm run typecheck` clean. `npm run lint` clean. `npm run build` clean. `npm run dev` in a browser with no console errors.
+
+**Tests: 160 passed across 18 files, against V2's 95.** 65 new.
+
+    runtime.test.ts           10   bridge fidelity, frame timing, the offline hole
+    designSystem.test.ts       8   shadows, gradients, the DESIGN.md colour parse
+    illustration.test.ts      24   rules 1 to 3 as properties over the pool table
+    blobTable.report.test.ts   1   derived geometry readout
+    pathway.test.tsx          18   the reduced-motion obligation
+    stallRecovery.test.ts      2   20000-tick recovery, outcome and mechanism
+    unlockPacing.report.test   2   the walled ATP ceiling, unlock pacing
+
+**Bundle, against V2's 193.37 kB.** V2's figure was JS alone, with no interface and nothing importing the content layer.
+
+    JS      229.44 kB   +36.07 kB   React actually used, plus the runtime, thirteen
+                                    components, the content and tuning tables and
+                                    the whole act 1 content layer
+    CSS      18.04 kB   +18.04 kB   the token block, the utilities it generates and
+                                    the reduced-motion block
+    fonts    68.86 kB   +68.86 kB   Fredoka 29.73 + Nunito 39.13, woff2, latin only
+    -------------------------------
+    total   316.34 kB  +122.97 kB
+
+Fonts are 56 percent of the growth and 22 percent of the payload, which is the price of self-hosting and is the right price: a Google Fonts link would show 0 kB here and a network dependency at first paint. JS gzips to 72.36 kB.
+
+**Hashes.**
+
+    toy pathway   172f83fb   unchanged, as required
+    act 1         e9b720a8 -> 657594cb   changed by stage 6, deliberately
+
+Stage 6 changed the pathway, which the stage spec explicitly permits reporting. Exactly one thing moved it: `ACT1_GLUCOSE_ENV_INITIAL` from 10000 to 80000, and starting amounts are hashed state. No coefficient, pool, ordering, rate or kinetic form was touched, and the reason is written into the assertion itself rather than left as a bare number. **The interface moved neither hash.** Everything V3 built reads simulation state and never writes it, which is what the stage 1 frame-timing test exists to keep true.
+
+---
+
+### DESIGN.md diff summary
+
+Status line replaced: it said "proposed, no code exists yet", which had been false since stage 2.
+
+New **"What survived contact"** section in three parts. *Implemented and working*: the tokens, type scale, spacing, shadow and radius rules; tabular figures; the badge contract and its release gate; illustration rules 1 to 3; flux-is-the-headline; motion as rate; the reduced-motion obligation; the no-gradient and hard-shadow rules. *Deferred deliberately*: illustration rules 4 to 6, the beast, the timeline, the teaching panel, every other screen. *What turned out to be wrong*, which is the valuable half: two dots on a blob read as a face and collide with rule 6's ROS; the "colour leaving" sentence is backwards against its own token definitions; the wordmark scale does not fit a persistent top bar; a coach mark cannot live inside a 17rem rail; `Needs source` yellow is correctly not in the palette and the document should say so; and nothing in the document covers rendering a system at steady state.
+
+Open question 3 **closed as stale**: it claimed the docs sit at the repository root and roughly 25 references were dead. They are in `docs/`, they resolve, and there was nothing to fix. Open question 6 **closed by mechanism**. New open question 7, the steady-state treatment, which is now the largest open visual question. Eleven rows added to the decisions log.
+
+### NOW.md diff summary
+
+Status rewritten: the slice is playable and one and a half questions are answered. Build state table: **V3 done 2026-07-29**. New **"What the interface does"** section, sibling to the kernel and content sections. "Why the UI waits" replaced by **"What the interface answered"**, carrying both answers with the who-is-reading-this caveat stated rather than implied. "The vertical slice": V3 done, slice complete.
+
+**On extending the build state table**, which line 30 made conditional on V3 answering the questions: **not extended, deliberately**, and the reason is recorded in the table itself. Question 1 came back negative, so writing a V6 act 2 row while act 1's own loop has a known hole in it would be planning on top of a defect. What the answers license is docs/ECONOMY.md, not more content.
+
+**Blocking** now has two items. Item 1, the ATP bootstrap trap, is **restated and left open**: V3 deferred it rather than fixing it, and the trap returns with any change that raises capacity, lengthens the act or lowers the environment size. Item 2 is new: **a solved act 1 is a static screen**, which is the finding the whole log existed to produce.
+
+**Open, not blocking** gained the coach mark trigger, the docs/ECONOMY.md debt now itemised at twenty numbers across two files, the uptake ladder's Vmax 12 ceiling and what it implies for act 1's next unlock, the backgrounded-tab hole, unlock state not being hashed and what that means for V4, the untested reduced-motion media query, and the two DESIGN.md items that did not survive contact. The instantaneous-recovery item is **closed with a measurement** rather than left open.
+
+**Next, in order** is now docs/ECONOMY.md, then V4, then V5, with ECONOMY.md first because both blocking items are its to resolve and building saves on an economy with a known hole means saving the hole.
+
+---
+
+### Step 8: is it time to write docs/ECONOMY.md?
+
+**Yes, and it should be the next thing written, ahead of V4.** NOW.md said it needed a playable prototype first. There is one. More than that, V3 produced two findings that are explicitly its to resolve and nobody else's: the ATP bootstrap trap, which is a balance decision between a maintenance rate that backs off as ATP falls and a floor under the preparatory phase; and the static mid-game, which is why question 1 came back negative. V3 could measure both and was right not to fix either.
+
+**This log does not write it.** The rows it would owe, twenty numbers across two files:
+
+    src/content/act1/tuning.ts
+      ACT1_VMAX               uptake 8, prep 12, payoff 26, ferment 26, maintain 50
+      ACT1_KM                 uptake 500, prep 4, payoff 2, ferment 2, maintain 20
+      ACT1_HILL_N             2
+      ACT1_NICOTINAMIDE_TOTAL 30
+      ACT1_GLUCOSE_ENV_INITIAL 80000        raised from 10000 by V3 stage 6
+
+    src/ui/tuning.ts
+      ZERO_FLUX_THRESHOLD       0.25
+      DASH_PIXELS_PER_FLUX_UNIT 6
+      DASH_LENGTH               8
+      FERMENT_ATP_THRESHOLD     55           bounded above by a measured 60
+      UPTAKE_VMAX_STEPS         8, 10, 12    bounded above by prep's Vmax of 12
+      UPTAKE_ATP_THRESHOLDS     1500, 12000
+
+Three of those are no longer free parameters and the divergence table should record why. `FERMENT_ATP_THRESHOLD` cannot reach 60, because a walled cell's cumulative ATP converges there and stops, so a higher threshold is unbuyable. `UPTAKE_VMAX_STEPS` cannot usefully exceed 12, because `prep` runs at 12 and uptake above it delivers glucose nothing can consume. And `ACT1_GLUCOSE_ENV_INITIAL` is sized against the top of that ladder, so it moves whenever the ladder does. Those three are a constraint system rather than three independent knobs, and that is the most useful thing V3 learned about act 1's economy.
 
 ---
 

@@ -117,13 +117,36 @@ function Slot({
 export function UnlockShelf() {
   const runtime = useRuntime();
 
-  // Discrete events, so React state. Mirrors the snapshot rather than owning it:
-  // the runtime is the authority and refuses a purchase it cannot afford.
-  const [fermentBought, setFermentBought] = useState(runtime.snapshot.fermentUnlocked);
-  const [uptakeStep, setUptakeStep] = useState(runtime.snapshot.uptakeStep);
+  /**
+   * MIRRORED FROM THE SNAPSHOT, NOT OWNED.
+   *
+   * The runtime is the only authority on what has been bought, and this is a
+   * defect the stage 7 play session found rather than a precaution. The shelf
+   * originally seeded this from the snapshot once at mount and updated it only
+   * in its own click handler, so buying lactate dehydrogenase from the COACH
+   * MARK's action button left the shelf still showing an unbought slot reading
+   * "14157 of 55 ATP made". Two views of one fact, one of which was not
+   * watching. Everything below now derives from the snapshot every frame and
+   * the click handlers set nothing.
+   *
+   * Still React state rather than a live DOM write, because these change what is
+   * rendered rather than what a node says, and they change a handful of times in
+   * a session rather than twenty times a second. The comparison before each set
+   * is what keeps that true.
+   */
+  const [bought, setBought] = useState({
+    ferment: runtime.snapshot.fermentUnlocked,
+    uptakeStep: runtime.snapshot.uptakeStep,
+  });
   const [affordable, setAffordable] = useState({ ferment: false, uptake: false });
 
   useSnapshotEffect((snapshot) => {
+    setBought((current) =>
+      current.ferment === snapshot.fermentUnlocked && current.uptakeStep === snapshot.uptakeStep
+        ? current
+        : { ferment: snapshot.fermentUnlocked, uptakeStep: snapshot.uptakeStep },
+    );
+
     const nextFerment =
       !snapshot.fermentUnlocked && snapshot.meter.atpProduced >= FERMENT_ATP_THRESHOLD;
     const uptakeThreshold = UPTAKE_ATP_THRESHOLDS[snapshot.uptakeStep];
@@ -135,6 +158,9 @@ export function UnlockShelf() {
         : { ferment: nextFerment, uptake: nextUptake },
     );
   });
+
+  const fermentBought = bought.ferment;
+  const uptakeStep = bought.uptakeStep;
 
   const atTopOfLadder = uptakeStep >= UPTAKE_VMAX_STEPS.length - 1;
   const nextThreshold = UPTAKE_ATP_THRESHOLDS[uptakeStep] ?? null;
@@ -157,7 +183,7 @@ export function UnlockShelf() {
           affordable={affordable.ferment}
           buyLabel="Express it"
           onBuy={() => {
-            if (runtime.buyFerment()) setFermentBought(true);
+            runtime.buyFerment();
           }}
         />
 
@@ -174,7 +200,7 @@ export function UnlockShelf() {
           affordable={affordable.uptake && !atTopOfLadder}
           buyLabel="Add capacity"
           onBuy={() => {
-            if (runtime.buyUptakeStep()) setUptakeStep(runtime.snapshot.uptakeStep);
+            runtime.buyUptakeStep();
           }}
         />
       </div>
