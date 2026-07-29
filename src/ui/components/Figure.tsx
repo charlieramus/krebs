@@ -22,6 +22,7 @@
 
 import { useLive } from '../RuntimeContext';
 import type { Act1Snapshot } from '../runtime';
+import { Badge, badgeTrace, type BadgeSpec } from './Badge';
 
 /**
  * DESIGN.md's type scale, restricted to the sizes a figure can legitimately
@@ -38,6 +39,27 @@ const SIZE_CLASS: Readonly<Record<FigureSize, string>> = {
 };
 
 export interface FigureProps {
+  /**
+   * REQUIRED. DESIGN.md says an unsourced number should look visibly broken
+   * because the badge slot is empty. A required prop is stronger than that: it
+   * does not compile. There is no default and there must never be one, because
+   * a default is a decision about provenance made by whoever wrote the
+   * component rather than by whoever wrote the number.
+   */
+  badge: BadgeSpec;
+  /**
+   * Where the badge is drawn.
+   *
+   * `inline` draws it beside the figure and is the default. `attached` means an
+   * ancestor already displays this exact badge and drawing a second copy is
+   * noise: a pool card carries one badge for the card, not one per figure on
+   * it. The badge is still required, still typed, and still reaches the release
+   * gate, so this changes what is drawn and never whether provenance was
+   * declared. A component that passes `attached` and then does not display the
+   * badge anywhere is a bug, and the only kind of bug in this contract that a
+   * type cannot catch.
+   */
+  badgeDisplay?: 'inline' | 'attached';
   /** A number known at render time. Mutually exclusive with `read`. */
   value?: number;
   /** A number sampled from the simulation snapshot every frame. */
@@ -78,6 +100,8 @@ export function formatFigure(value: number, decimals: number, signed: boolean): 
 }
 
 export function Figure({
+  badge,
+  badgeDisplay = 'inline',
   value,
   read,
   decimals = 2,
@@ -91,7 +115,13 @@ export function Figure({
   }
 
   return (
-    <span className={`inline-flex items-baseline gap-0.5 tabular-nums ${SIZE_CLASS[size]} ${className}`}>
+    <span
+      // The trace is on the figure itself, not only on the badge, so hovering
+      // the number answers "where did this come from" even where the badge is
+      // attached to a container.
+      title={badgeTrace(badge)}
+      className={`inline-flex items-baseline gap-0.5 tabular-nums ${SIZE_CLASS[size]} ${className}`}
+    >
       {read === undefined ? (
         <StaticNumber value={value as number} decimals={decimals} signed={signed} />
       ) : (
@@ -100,6 +130,7 @@ export function Figure({
       {unit === undefined ? null : (
         <span className="text-micro font-bold text-ink2 tabular-nums">{unit}</span>
       )}
+      {badgeDisplay === 'inline' ? <Badge badge={badge} className="ml-1 self-center" /> : null}
     </span>
   );
 }

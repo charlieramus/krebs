@@ -12,9 +12,14 @@
  * than written down. ATP per second is the payoff phase's stoichiometric
  * coefficient applied to the flux the tick actually ran, so it goes to zero the
  * moment the NAD+ wall arrives, without anything here knowing what NAD+ is.
+ *
+ * Every string comes from src/ui/content.ts with its badge. Nothing on this
+ * screen is written at the call site.
  */
 
 import { Figure } from './Figure';
+import { Badge, type BadgeSpec } from './Badge';
+import { READOUTS } from '../content';
 import { poolIndex, type Act1Snapshot } from '../runtime';
 
 const ATP = poolIndex('atp');
@@ -36,19 +41,39 @@ const readElapsedMinutes = (snapshot: Act1Snapshot): number => snapshot.elapsedM
 
 function Headline({
   label,
+  badge,
   read,
-  colour,
+  unit,
+  decimals = 2,
+  colour = '',
 }: {
   label: string;
+  badge: BadgeSpec;
   read: (snapshot: Act1Snapshot) => number;
-  colour: string;
+  unit: string;
+  decimals?: number;
+  colour?: string;
 }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-label font-body font-extrabold uppercase tracking-label text-ink2">
-        {label}
+      <span className="flex items-center gap-1">
+        <span className="text-label font-body font-extrabold uppercase tracking-label text-ink2">
+          {label}
+        </span>
+        {/* One badge per readout, carried by the label. The figure below passes
+            the same badge with badgeDisplay="attached" so the contract holds
+            without drawing the pill twice. */}
+        <Badge badge={badge} />
       </span>
-      <Figure read={read} decimals={2} unit="/s" size="headline" className={colour} />
+      <Figure
+        badge={badge}
+        badgeDisplay="attached"
+        read={read}
+        decimals={decimals}
+        unit={unit}
+        size="headline"
+        className={colour}
+      />
     </div>
   );
 }
@@ -64,15 +89,27 @@ export function TopBar() {
       </h1>
 
       <div className="flex flex-wrap items-end gap-8">
-        <Headline label="ATP" read={readAtpPerSecond} colour="text-atp" />
-        <Headline label="Glucose" read={readGlucosePerSecond} colour="text-substrate" />
-
-        <div className="flex flex-col gap-0.5">
-          <span className="text-label font-body font-extrabold uppercase tracking-label text-ink2">
-            Elapsed
-          </span>
-          <Figure read={readElapsedMinutes} decimals={1} unit="min" size="headline" />
-        </div>
+        <Headline
+          label={READOUTS.atpRate.text}
+          badge={READOUTS.atpRate.badge}
+          read={readAtpPerSecond}
+          unit="/s"
+          colour="text-atp"
+        />
+        <Headline
+          label={READOUTS.glucoseRate.text}
+          badge={READOUTS.glucoseRate.badge}
+          read={readGlucosePerSecond}
+          unit="/s"
+          colour="text-substrate"
+        />
+        <Headline
+          label={READOUTS.elapsed.text}
+          badge={READOUTS.elapsed.badge}
+          read={readElapsedMinutes}
+          unit="min"
+          decimals={1}
+        />
       </div>
     </header>
   );

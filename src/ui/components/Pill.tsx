@@ -28,6 +28,8 @@ export interface PillProps {
   className?: string;
   /** Inline style for a fill outside the surface set, e.g. a semantic colour. */
   background?: string;
+  /** Hover trace. A badge carries its source here, so a number can be checked. */
+  title?: string;
 }
 
 export function Pill({
@@ -36,9 +38,11 @@ export function Pill({
   dashed = false,
   className = '',
   background,
+  title,
 }: PillProps) {
   return (
     <span
+      title={title}
       className={[
         background === undefined ? SURFACE_CLASS[surface] : '',
         'inline-flex items-center gap-1 rounded-pill border-ink text-ink',

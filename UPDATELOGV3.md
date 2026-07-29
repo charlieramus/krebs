@@ -367,7 +367,94 @@ closed by mechanism rather than by intention.
 
 ## Stage 3 Report
 
-_Pending._
+**DESIGN.md open question 6 is closed by mechanism.** The gate exists, it fires, it fails the build with exit code 1, and it names the file that caused it. Stages 4 to 6 are the content authoring it was supposed to precede, and it now precedes them.
+
+**The union.** `src/ui/components/Badge.tsx`. `Sourced` and `Contested` do not typecheck without a document reference, `Tuned` does not typecheck without a reason, and `Needs source` requires nothing, which is exactly the point of it. `Tuned` carries an optional `divergenceRow` shaped for the docs/ECONOMY.md row it will owe, with a comment saying it is optional only because that document does not exist yet and can be made required in one line once every value has a row.
+
+**The gate: a Vite plugin over the emitted bundle. `vite/needsSourceGate.ts`.**
+
+The other two options lose for concrete reasons. A **render-time throw** guarded by `import.meta.env.PROD` only fires if the offending component actually renders, so a badge on a panel that opens once in twenty minutes ships happily and detonates in front of a player rather than in front of the person who wrote it; a gate that depends on coverage is not a gate. A **test scanning `src/ui/**`** checks the source rather than the artifact, misses anything the globs do not reach, and only runs when somebody runs tests, so `npm run build` would still produce a shippable bundle. Scanning the emitted bundle checks the thing that actually ships, cannot be skipped because it is part of the build, and is stricter in the one direction that matters: a badge unreachable from the entry point is tree-shaken and correctly does not fail, while a badge that survives into a chunk fails whatever route it took.
+
+**Making the sentinel honest was the real work.** Scanning the bundle for `needs-source` only works if that literal can reach the bundle from a call site and never from `Badge.tsx` itself, otherwise the gate fails on a clean repository and gets deleted within a week. So `Badge.tsx` writes that string in exactly one place, the type union, which is erased at compile time. There is no lookup table keyed by badge kind, because object keys are strings and survive minification, so the component is an if-chain instead. And the branch that renders the badge sits behind `import.meta.env.DEV`, which Vite replaces with `false` in a production build, so the branch and its label are dead code and get dropped. There is also deliberately **no `needsSource()` factory** beside `sourced()`, `contested()` and `tuned()`: an author has to write `{ kind: 'needs-source' }` by hand, and that friction is the feature.
+
+The reasoning was verified rather than asserted. A clean production build passes with the badge component fully present in the source, which is only possible if the dev branch really was eliminated.
+
+**Step 4, the gate firing, verbatim.** A probe component carrying `badge={{ kind: 'needs-source' }}` was added and rendered from `App.tsx`:
+
+    ✓ 49 modules transformed.
+    rendering chunks...
+    ✗ Build failed in 1.27s
+    error during build:
+    [krebs-needs-source-gate] [plugin krebs-needs-source-gate]
+
+      RELEASE GATE FAILED: a "needs-source" badge survived into the production bundle.
+
+        assets/index-BeQdHLLD.js  <-  D:/Portfolio work/Development/krebs/src/ui/components/NeedsSourceProbe.tsx
+
+      CLAUDE.md hard rule 1: never put a number in player-facing text that is not
+      traceable to docs/SCIENCE.md. DESIGN.md makes that a badge contract, and this
+      badge is the development-only state that says a claim has no source yet.
+
+      Fix it by sourcing the claim and using sourced(...) or contested(...), or by
+      admitting the number is a game decision and using tuned(...) with a reason.
+      Do not delete this gate.
+
+`npm run build` exits **1**, checked separately, because a gate that prints an error and exits 0 is decoration in CI. The failure names the offending module rather than only the chunk, so it is actionable instead of merely true. The probe was deleted, the import removed, and the build is clean again at 214.50 kB JS.
+
+**The dev build still renders it loudly.** Confirmed in the browser with the probe in place: a dashed yellow `NEEDS SOURCE` pill sitting next to `42`, against `SOURCED` in green and `TUNED` in orange elsewhere on the same screen. Being visible during development is the badge's entire purpose.
+
+**A finding: `Needs source` yellow is not in the palette, and it should not be.** DESIGN.md's badge contract asks for yellow and DESIGN.md's colour section contains no yellow. That is not an oversight in either direction, so it is hardcoded in `Badge.tsx` as `#F5DE3C` with a comment. Adding it to the token block would make it look like a system colour, and it would fail the stage 2 test asserting `index.css` defines exactly the colours DESIGN.md names. A development-only state has no business in a shipping palette, it should look alien, and it is dead code in production anyway. Recorded here so stage 7 can decide whether DESIGN.md wants a line saying so.
+
+**Figure now requires a badge, plus one deviation.** `badge` is a required prop with no default, and there must never be a default, because a default is a decision about provenance made by whoever wrote the component rather than by whoever wrote the number. DESIGN.md says an unsourced number should look visibly broken; a required prop is stronger because it does not compile.
+
+The deviation is `badgeDisplay?: 'inline' | 'attached'`. Drawing a pill beside every one of the thirty-odd figures in the dev table, or beside both figures on all eight pool cards in stage 4, produces a screen that is more badge than number. `attached` means an ancestor already displays this exact badge, so a column header or a card header carries it once. The badge is still required, still typed, and still reaches the release gate, so this changes what is drawn and never whether provenance was declared. The one hole is that a component passing `attached` and then not displaying the badge anywhere is a bug a type cannot catch; it is documented at the prop and is the only gap in this contract.
+
+**`src/ui/content.ts`, every player-facing string with its badge.**
+
+| String | Badge | Trace |
+| --- | --- | --- |
+| Glucose (environment) | Tuned | The environment is modeled as a finite pool so uptake has something to deplete |
+| Glucose | Sourced | docs/SCIENCE.md Part 2 |
+| Glyceraldehyde 3-phosphate | Sourced | docs/SCIENCE.md Part 2 |
+| Pyruvate | Sourced | docs/SCIENCE.md Part 2 |
+| Lactate | Sourced | docs/SCIENCE.md Part 2 |
+| NAD+ | Sourced | docs/SCIENCE.md Part 2 |
+| NADH | Sourced | docs/SCIENCE.md Part 2 |
+| ATP | Sourced | docs/SCIENCE.md Part 2 |
+| ADP | Sourced | docs/SCIENCE.md Part 2 |
+| Phosphate | Sourced | docs/SCIENCE.md Part 2 |
+| NAD+ / NADH | Sourced | docs/SCIENCE.md Part 2 |
+| ATP / ADP | Sourced | docs/SCIENCE.md Part 2 |
+| Uptake | Sourced | docs/SCIENCE.md Part 1, glucose uptake is modeled as untyped transport |
+| Preparatory phase | Sourced | docs/SCIENCE.md Part 2, steps 1 to 5 |
+| Payoff phase | Sourced | docs/SCIENCE.md Part 2, steps 6 to 10 |
+| Lactate fermentation | Sourced | docs/SCIENCE.md Part 2, fermentation |
+| Maintenance | Tuned | ATP hydrolysis to ADP and phosphate is real. Standing in for the entire rest of cellular metabolism with one reaction is not |
+| ATP *(top bar)* | Sourced | docs/SCIENCE.md Part 2, **4 ATP gross and 2 net per glucose** |
+| Glucose *(top bar)* | Tuned | Uptake rate is a tuned Vmax. The pathway it feeds is sourced |
+| Elapsed | Tuned | Game time is arbitrary and maps to no real timescale, per docs/SCIENCE.md Part 1 |
+| net rate | Tuned | Rates are tuned for pacing and are not measured values |
+| in the cell | Tuned | Pool sizes are tuned. Only the ratios the stoichiometry fixes are sourced |
+| Lactate dehydrogenase | Sourced | docs/SCIENCE.md Part 2, lactate dehydrogenase reduces pyruvate to lactate, oxidizing NADH |
+| Uptake capacity | Tuned | A finite ladder of transport steps. Neither the steps nor their number is sourced |
+| NAD+ has run out | Sourced | docs/SCIENCE.md Part 2, the NAD+ constraint |
+| *coach mark, paragraph 1* | Sourced | docs/SCIENCE.md Part 2, the NAD+ constraint |
+| *coach mark, paragraph 2* | Sourced | docs/SCIENCE.md Part 2, glycolysis halts within seconds regardless of glucose availability |
+| Show me what recycles it | Sourced | docs/SCIENCE.md Part 2, fermentation exists to regenerate NAD+ |
+| *required disclosure* | Sourced | docs/SCIENCE.md Part 1, required disclosure text |
+| No saves yet. A refresh loses the run. | Tuned | A statement about this build, not about biology. Saves land in V4 |
+
+**Stated plainly: no string carries a number that could not be traced.** Exactly one string contains a number at all, the top bar's ATP trace, and it is `4 ATP gross and 2 net per glucose`, which is docs/SCIENCE.md Part 2 lines 131 to 138 verbatim. Every other entry is a name, a label or a sentence with no figure in it. Nothing needed a `Needs source` badge, and nothing needed inventing.
+
+Two decisions inside that table worth defending. Badges were applied to **every** string, not only the quantitative ones, because a molecule name is a checkable claim too and the badge is where a reader finds out whether anyone checked it; where a name is really a modeling decision the badge says Tuned and says why, which is the case that would otherwise pass silently. And `Elapsed` is **Tuned rather than Sourced** because docs/SCIENCE.md Part 1 says game time is arbitrary and maps to no real timescale, so badging the clock Sourced would imply a game-second means something.
+
+**Two findings for later stages.**
+
+The **coach mark fits in two paragraphs**, which the stage said to report if it did not. It does, and that is a result rather than luck: the constraint is genuinely one idea, that the pool is small and fixed and the payoff phase is the only thing that spends it. What did **not** fit is the part players find most surprising, that fermentation buys throughput and buys exactly zero yield. That is a second idea, DESIGN.md's two-paragraph ceiling is hard, and cramming it in would break the ceiling to make a point about honesty. It belongs on the unlock itself in stage 6, or in a teaching panel, which is out of scope. Flagged rather than smuggled in.
+
+The **required disclosure from docs/SCIENCE.md Part 1 now renders on screen**, quoted verbatim. That document says it must appear in-game "in the about screen and on first launch, not buried in a repo file", and the slice has no about screen and no first-launch flow, so it sits in the act screen footer. This was not in the stage spec. It went in because stage 3 is the stage that made player-facing text a real thing, and shipping the first player-facing text while the one piece of text docs/SCIENCE.md actually mandates stayed in a repo file would be the exact failure the badge contract exists to prevent. `No saves yet. A refresh loses the run.` sits beside it, per the log's Decisions section.
+
+**Verify.** `npm test` 113 passed, unchanged from stage 2, since this stage added mechanism rather than new simulation behaviour and its own guard is the build. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean and exit 0 with the probe removed, 214.50 kB JS and 17.23 kB CSS.
 
 ---
 
