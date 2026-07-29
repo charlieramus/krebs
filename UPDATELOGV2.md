@@ -480,7 +480,66 @@ toy pathway hash is still 172f83fb.
 
 ## Stage 5 Report
 
-_Pending._
+    src/content/act1/harness.ts                          new, npm run sim:act1
+    src/content/act1/__tests__/conservation.test.ts      new, 6 tests
+    src/content/act1/__tests__/determinism.test.ts       new, 6 tests
+    package.json                                         + sim:act1 script
+
+**A separate harness file, and the reason is stronger than "the scenario sets diverged".** `src/content/README.md` states that `src/sim/` never depends on content. A kernel harness importing `createAct1` would be exactly that dependency, in the one file most likely to be read later as a licence to add more. So `npm run sim` is untouched and still runs the toy pathway, and act 1 gets `npm run sim:act1` with the same argument shape. V1's reported output remains a reference someone can check against, and I confirmed the toy pathway's conservation output is byte-identical to what V1 reported.
+
+**Flux is printed first, above pools, per NOW.md.** It carries both the mean over the run and the instantaneous value at the end, because for act 1 those two numbers disagreeing *is* the reading. Look at what that buys across the three scenarios:
+
+    scenario     uptake mean/end    payoff mean/end    what it says
+    fermenting   7.611 / 7.602      14.999 / 15.204    steady, running
+    walled       7.611 / 7.602      0.500 / 0.000      importing at full rate, processing nothing
+    starved      3.486 / 2.942      6.886 / 5.908      everything low together, declining
+
+The two failure modes do not look alike, which was the requirement. **Walled** has uptake at full rate and payoff at exactly zero, with 438 glucose piled up inside the cell and 9543 still outside. **Starved** has every flux low in proportion and no pool accumulating anywhere. A player could tell those apart from the flux column alone, which is the thing V3 has to render.
+
+**Full harness output, 1200 ticks each.**
+
+*fermenting.* Pools: glucose_env 9543.37, glucose 5.26, g3p 2.82, pyruvate 2.82, lactate 897.11, nad 27.18, nadh 2.82, atp 8.74, adp 31.26, pi 48.44. Zero shortfall ticks on every pool, zero scaling cap hits. Cumulative 1799.86 ATP gross, 902.74 spent in prep, 908.37 hydrolysed by maintenance, 456.63 glucose taken up, 451.37 committed, 897.11 lactate. **4.000000000 ATP per glucose gross, 2.000000000 net.** Conservation drift: adenylate -3.553e-16, carbon 8.489e-16, nicotinamide -4.737e-16, phosphate -1.218e-15, redox 9.095e-16.
+
+*walled.* Pools: glucose_env 9543.37, glucose 438.41, g3p 6.45, pyruvate 30.00, lactate 0, nad 0, nadh 30.00, atp 0, adp 40.00, pi 53.55. Zero shortfall ticks. Cumulative 60.00 ATP gross against 1799.86 fermenting, from 18.22 glucose committed against 451.37, on identical uptake. **Still 4.000000000 per glucose gross and 2.000000000 net.** Drift: adenylate 7.105e-16, carbon 8.489e-16, nicotinamide 1.184e-16, phosphate 2.030e-16, redox 9.095e-16.
+
+*starved.* Pools: glucose_env 290.85, glucose 2.28, g3p 0.59, pyruvate 0.59, lactate 412.56, nad 29.41, nadh 0.59, atp 2.69, adp 37.31, pi 56.72. Zero shortfall ticks. Cumulative 826.30 ATP gross from 206.87 glucose committed. **4.000000000 gross, 2.000000000 net.** Drift: adenylate 3.553e-15, carbon exactly 0, nicotinamide 2.132e-15, phosphate 4.060e-16, redox exactly 0.
+
+The yield figure being 4.000000000 in all three, including the one that spent most of its run dead, is the stage 4 result holding under three completely different flux regimes.
+
+**A defect the harness found, and I am flagging it rather than tuning it away.**
+
+The first draft of `starved` used `glucose_env: 20`, and it did not show substrate limitation. It showed **the pathway dying of ATP exhaustion and never recovering.** I probed the threshold: below roughly 400 environmental glucose, uptake is slow enough that baseline maintenance drains ATP faster than the pathway can bootstrap. ATP decays geometrically to denormal, and the preparatory phase can then no longer pay its 2 ATP entry cost. Nothing can restart it, because prep needs ATP and payoff needs the g3p that only prep makes. Glucose keeps arriving and the cell stays dead forever.
+
+    glucose_env    atp at 1200 ticks    prep flux    verdict
+    20             3.80e-68             0.000        dead
+    100            7.55e-67             0.000        dead
+    200            1.88e-51             0.000        dead
+    300            1.43e-07             0.000        dead
+    500            2.69e+00             2.952        alive, substrate-limited
+    1000           4.61e+00             4.671        alive, substrate-limited
+
+**Act 1 as tuned has an unrecoverable state.** Biologically it is not nonsense, the investment phase of glycolysis really does mean a cell too poor in ATP cannot start the pathway, but an idle game that can enter a state the player cannot act their way out of is broken. This is a balance problem, stage 5 measures rather than balances, and `docs/ECONOMY.md` does not exist yet, so it is written into `harness.ts` beside the scenario and into NOW.md by stage 6. `starved` now uses 500, the lowest round number clear of the trap, so it demonstrates the failure mode it is named for.
+
+**Conservation, extended to act 1.** Same randomization approach as the toy pathway, through the same option shape, which is what stage 3 built `createAct1` for. Seeded, randomized initial levels, Vmax and Km across two orders of magnitude, plus configurations forcing shortfall scaling and configurations with several pools short at once. Fermentation randomized on and off so both topologies are covered, the closed carrier loop and the one-way carrier. Tolerance unchanged at 1e-9 relative, and the measurement test asserting observed drift stays below tolerance/1000 is kept.
+
+Worst drift per quantity over 60 long runs of 4000 ticks:
+
+    adenylate      1.653e-13
+    carbon         2.351e-13
+    nicotinamide   1.920e-13
+    phosphate      8.865e-14
+    redox          2.351e-13
+    worst overall  2.351e-13
+
+**Act 1 does drift slightly worse than the toy pathway, 2.351e-13 against V1's 1.964e-13, and the tolerance was not loosened.** It is a 20 percent increase within the same order of magnitude, and it is what you would expect from a pathway with five reactions rather than three and five quantities rather than three: more rounded additions per pool per tick. It is still more than three orders below the 1e-9 tolerance and V1 stage 5's argument for that number is untouched. Worth recording as the new baseline, not worth acting on.
+
+**Determinism, extended to act 1. New canonical hash: `e9b720a8`.** Fixture: `createAct1({ seed: 20260729 })`, 1200 ticks, setting `ferment` from a PRNG roll every 50 ticks. Frozen as an assertion.
+
+The script **sets** ferment from the roll rather than toggling it, and that difference is the whole point. A toggle depends only on how many rolls have happened, so the roll value would never reach the pools and the seed would once again only be visiting the RNG state field, which is the hole V1 stage 5 named. Setting from the value means two seeds produce different enable histories, different NAD+ trajectories and different pool amounts. There is a test asserting exactly that, comparing pool amounts between two seeds before any hashing happens, so the hole is closed by measurement rather than by argument.
+
+**Two canonical hashes now, both frozen. The toy pathway's `172f83fb` is untouched** and still asserted in `src/sim/__tests__/determinism.test.ts`, which passes.
+
+Verify. `npm test` 95 passed, up from 83, 12 new. `npm run typecheck` clean. `npm run lint` clean. `npm run sim:act1 -- 1200 <scenario>` run for all three, output above. `npm run sim` unchanged.
 
 ---
 
