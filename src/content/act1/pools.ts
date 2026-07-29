@@ -43,6 +43,7 @@
  */
 
 import type { PoolDefinition } from '../../sim/pools';
+import { ACT1_NICOTINAMIDE_TOTAL } from './tuning';
 
 export type Act1PoolId =
   | 'glucose_env'
@@ -146,8 +147,10 @@ const CONSERVED: Readonly<Record<Act1PoolId, Readonly<Record<string, number>>>> 
  *
  *   nad + nadh   the nicotinamide total, and the entire act 1 mechanic.
  *                docs/SCIENCE.md Part 2 line 108 sources that the pool is small
- *                and fixed. It does not source how small, so the number is
- *                ours. V2 stage 4 sizes it against how fast the stall arrives.
+ *                and fixed. It does not source how small, so the number is ours
+ *                and it lives in tuning.ts with the rates, sized in stage 4
+ *                against how long the stall takes to arrive. All of it starts
+ *                as NAD+, so the wall is approached rather than started at.
  *
  *   atp + adp    the adenylate total. Fixed and closed, because ATP is a flux
  *                and not a score. `maintain` hydrolyses ATP back to ADP and Pi,
@@ -160,7 +163,7 @@ export const ACT1_INITIAL: Readonly<Record<Act1PoolId, number>> = {
   g3p: 0,
   pyruvate: 0,
   lactate: 0,
-  nad: 10,
+  nad: ACT1_NICOTINAMIDE_TOTAL,
   nadh: 0,
   atp: 20,
   adp: 20,

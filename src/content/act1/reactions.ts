@@ -10,6 +10,7 @@
  *   uptake     glucose_env                   ->  glucose
  *   prep       glucose + 2 atp               ->  2 g3p + 2 adp
  *   payoff     g3p + nad + 2 adp + pi        ->  pyruvate + nadh + 2 atp
+ *   ferment    pyruvate + nadh               ->  lactate + nad          disabled
  *   maintain   atp                           ->  adp + pi
  *
  * Net per glucose across uptake, prep and two turns of payoff: 2 ATP net, 4
@@ -17,10 +18,11 @@
  * stoichiometry test computes those four numbers from the table above rather
  * than asserting them from memory.
  *
- * FERMENTATION IS DELIBERATELY ABSENT. Lactate fermentation lands in V2 stage
- * 4, not because it was forgotten but because the wall has to exist before the
- * way around it does. Run this pathway as it stands and it stalls with a full
- * glucose pool, which is the entire teaching beat of act 1.
+ * FERMENTATION SHIPS DISABLED. The wall has to exist before the way around it
+ * does. Run this pathway as it comes and it stalls with a full glucose pool,
+ * which is the entire teaching beat of act 1. Enabling `ferment` recovers
+ * throughput and does not move yield by a single ATP, which is the thing most
+ * players arrive expecting to be false.
  *
  * WHY `maintain` EXISTS. ATP is not a score. The adenylate pool is fixed and
  * closed, and a cell hydrolyses ATP back to ADP and phosphate continuously to
@@ -44,12 +46,13 @@ import { createSimulation, type SimulationState } from '../../sim/state';
 import { act1PoolDefinitions, type Act1PoolId } from './pools';
 import { ACT1_HILL_N, ACT1_KM, ACT1_VMAX } from './tuning';
 
-export type Act1ReactionId = 'uptake' | 'prep' | 'payoff' | 'maintain';
+export type Act1ReactionId = 'uptake' | 'prep' | 'payoff' | 'ferment' | 'maintain';
 
 export const ACT1_REACTION_IDS: readonly Act1ReactionId[] = [
   'uptake',
   'prep',
   'payoff',
+  'ferment',
   'maintain',
 ];
 
@@ -57,8 +60,29 @@ export interface Act1Options {
   initial: Readonly<Partial<Record<Act1PoolId, number>>>;
   vmax: Readonly<Partial<Record<Act1ReactionId, number>>>;
   km: Readonly<Partial<Record<Act1ReactionId, number>>>;
+  /**
+   * Per-reaction enabled flag. Only `ferment` ships disabled, and this is the
+   * whole unlock mechanism in V2: no cost, no threshold, no purchase. Unlock
+   * gating needs an interface to be gated from and that is V3.
+   */
+  enabled: Readonly<Partial<Record<Act1ReactionId, boolean>>>;
   seed: number;
 }
+
+/**
+ * Which reactions are running at the start of act 1.
+ *
+ * `ferment` is false because the wall has to be reachable. A player who starts
+ * with lactate dehydrogenase never meets the NAD+ constraint, and the
+ * constraint is the act.
+ */
+export const ACT1_ENABLED: Readonly<Record<Act1ReactionId, boolean>> = {
+  uptake: true,
+  prep: true,
+  payoff: true,
+  ferment: false,
+  maintain: true,
+};
 
 /**
  * Build the act 1 pathway.
@@ -73,6 +97,7 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
   const initial = options.initial ?? {};
   const vmax = options.vmax ?? {};
   const km = options.km ?? {};
+  const enabled = options.enabled ?? {};
 
   const pools = new PoolRegistry(act1PoolDefinitions(initial));
 
@@ -86,6 +111,7 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
 
   const v = (id: Act1ReactionId): number => vmax[id] ?? ACT1_VMAX[id];
   const k = (id: Act1ReactionId): number => km[id] ?? ACT1_KM[id];
+  const on = (id: Act1ReactionId): boolean => enabled[id] ?? ACT1_ENABLED[id];
 
   const reactions: readonly Reaction[] = [
     /**
@@ -104,7 +130,7 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
       substrates: [{ poolIndex: at('glucose_env'), coefficient: 1 }],
       products: [{ poolIndex: at('glucose'), coefficient: 1 }],
       kinetics: michaelisMenten(v('uptake'), k('uptake')),
-      enabled: true,
+      enabled: on('uptake'),
     },
 
     /**
@@ -141,7 +167,7 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
         { poolIndex: at('adp'), coefficient: 2 },
       ],
       kinetics: hill(v('prep'), k('prep'), ACT1_HILL_N),
-      enabled: true,
+      enabled: on('prep'),
     },
 
     /**
@@ -173,7 +199,43 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
         { poolIndex: at('atp'), coefficient: 2 },
       ],
       kinetics: michaelisMenten(v('payoff'), k('payoff')),
-      enabled: true,
+      enabled: on('payoff'),
+    },
+
+    /**
+     * Lactate fermentation. One step, lactate dehydrogenase reducing pyruvate
+     * to lactate and oxidising NADH back to NAD+. docs/SCIENCE.md Part 2 line
+     * 116.
+     *
+     * SHIPS DISABLED, AND THAT IS THE DESIGN. The wall has to be reachable. A
+     * player who starts with this reaction running never meets the NAD+
+     * constraint, and docs/PROGRESSION.md line 40 makes the constraint the
+     * teaching beat of the entire act.
+     *
+     * WHAT THIS REACTION IS NOT. It produces no ATP. Look at the products:
+     * lactate and NAD+, and nothing else. docs/SCIENCE.md Part 2 line 114 says
+     * framing fermentation as an energy pathway is a common misconception and
+     * the game should correct it directly, so the stoichiometry has to be able
+     * to carry that correction on its own. It does. There is no ATP term here
+     * to remove and none that could have been added without inventing one.
+     *
+     * What it buys is throughput. Recycling NAD+ lets the payoff phase keep
+     * running, so ATP per second goes up while ATP per glucose does not move at
+     * all. The nadWall test asserts exactly that, because a claim the player is
+     * expected to find surprising should be a claim the test suite can prove.
+     */
+    {
+      id: 'ferment',
+      substrates: [
+        { poolIndex: at('pyruvate'), coefficient: 1 },
+        { poolIndex: at('nadh'), coefficient: 1 },
+      ],
+      products: [
+        { poolIndex: at('lactate'), coefficient: 1 },
+        { poolIndex: at('nad'), coefficient: 1 },
+      ],
+      kinetics: michaelisMenten(v('ferment'), k('ferment')),
+      enabled: on('ferment'),
     },
 
     /**
@@ -195,7 +257,7 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
         { poolIndex: at('pi'), coefficient: 1 },
       ],
       kinetics: michaelisMenten(v('maintain'), k('maintain')),
-      enabled: true,
+      enabled: on('maintain'),
     },
   ];
 

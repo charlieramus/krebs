@@ -56,6 +56,12 @@ function coefficientOf(
   return total;
 }
 
+function byId(reactions: readonly Reaction[], id: string): Reaction {
+  const found = reactions.find((r) => r.id === id);
+  if (!found) throw new Error(`no reaction "${id}"`);
+  return found;
+}
+
 describe('act 1 stoichiometry', () => {
   it('balances every conserved quantity across every reaction, exactly', () => {
     const state = createAct1();
@@ -116,9 +122,8 @@ describe('act 1 stoichiometry', () => {
      */
     const pools = new PoolRegistry(act1PoolDefinitions());
     const state = createAct1();
-    const byId = new Map(state.reactions.map((r) => [r.id, r]));
-    const prep = byId.get('prep') as Reaction;
-    const payoff = byId.get('payoff') as Reaction;
+    const prep = byId(state.reactions, 'prep');
+    const payoff = byId(state.reactions, 'payoff');
 
     // One glucose enters the preparatory phase.
     expect(coefficientOf(pools, prep, 'substrates', 'glucose')).toBe(1);
@@ -147,21 +152,36 @@ describe('act 1 stoichiometry', () => {
     );
   });
 
-  it('consumes NAD+ in exactly one reaction, which is what makes act 1 act 1', () => {
+  it('consumes NAD+ in exactly one reaction and regenerates it in exactly one', () => {
     const pools = new PoolRegistry(act1PoolDefinitions());
     const state = createAct1();
+
     const nadConsumers = state.reactions.filter(
       (r) => coefficientOf(pools, r, 'substrates', 'nad') > 0,
     );
-
     expect(nadConsumers.map((r) => r.id)).toEqual(['payoff']);
 
-    // And nothing regenerates it. Fermentation is V2 stage 4, and until it
-    // lands the pathway has a one-way carrier and therefore a hard ceiling.
     const nadProducers = state.reactions.filter(
       (r) => coefficientOf(pools, r, 'products', 'nad') > 0,
     );
-    expect(nadProducers).toHaveLength(0);
+    expect(nadProducers.map((r) => r.id)).toEqual(['ferment']);
+
+    // And the only regenerator ships off, so the carrier is one-way by default
+    // and the pathway has a hard ceiling until something turns it on.
+    expect((nadProducers[0] as Reaction).enabled).toBe(false);
+  });
+
+  it('produces no ATP in the fermentation step, which is the act 1 misconception', () => {
+    const pools = new PoolRegistry(act1PoolDefinitions());
+    const state = createAct1();
+    const ferment = byId(state.reactions, 'ferment');
+
+    // docs/SCIENCE.md Part 2 line 114. Asserted on the table rather than on a
+    // simulation run, so no tuning value can change the answer.
+    expect(coefficientOf(pools, ferment, 'products', 'atp')).toBe(0);
+    expect(coefficientOf(pools, ferment, 'substrates', 'atp')).toBe(0);
+    expect(coefficientOf(pools, ferment, 'products', 'nad')).toBe(1);
+    expect(coefficientOf(pools, ferment, 'substrates', 'nadh')).toBe(1);
   });
 
   it('resolves every pool index through the registry, so no index is out of range', () => {

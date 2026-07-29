@@ -60,6 +60,7 @@ export const ACT1_VMAX: Readonly<Record<Act1ReactionId, number>> = {
   uptake: 8,
   prep: 12,
   payoff: 26,
+  ferment: 26,
   maintain: 50,
 };
 
@@ -81,6 +82,7 @@ export const ACT1_KM: Readonly<Record<Act1ReactionId, number>> = {
   uptake: 500,
   prep: 4,
   payoff: 2,
+  ferment: 2,
   maintain: 20,
 };
 
@@ -96,3 +98,27 @@ export const ACT1_KM: Readonly<Record<Act1ReactionId, number>> = {
  * enzymes in this log.
  */
 export const ACT1_HILL_N = 2;
+
+/**
+ * Size of the nicotinamide pool, NAD+ plus NADH. Act 1's ceiling on everything.
+ *
+ * SOURCED: that the pool is small and fixed, and that glycolysis halts within
+ * seconds if NADH is not reoxidised regardless of glucose availability.
+ * docs/SCIENCE.md Part 2 line 108.
+ *
+ * NOT SOURCED: how small. That number is ours and it lives here with the rates
+ * rather than in pools.ts, because it is a tuned quantity wearing a pool's
+ * clothes. Sized against how long the stall takes to arrive with `ferment`
+ * disabled, which is the only thing about it that matters.
+ *
+ * Raised from 10 to 30 in UPDATELOGV2.md stage 4. At 10 the pathway stalled at
+ * roughly 1.7 game-seconds, which is inside the sourced "within seconds" but
+ * arrives before the pathway has visibly finished starting up: the payoff phase
+ * peaks and dies in the same breath, so there is no interval during which a
+ * player can see a working cell to lose. At 30 the pathway reaches full flux,
+ * holds it, and then decays, which is a stall rather than a failure to launch.
+ *
+ * All of it starts as NAD+. The pool is fully oxidised at t=0, so the wall is
+ * approached rather than started at.
+ */
+export const ACT1_NICOTINAMIDE_TOTAL = 30;

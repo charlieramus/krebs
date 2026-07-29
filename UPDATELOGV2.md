@@ -385,7 +385,46 @@ say what it was and what it became.
 
 ## Stage 4 Report
 
-_Pending._
+    src/content/act1/reactions.ts                    + ferment, + enabled overrides
+    src/content/act1/tuning.ts                       + ferment rates, + nicotinamide total
+    src/content/act1/pools.ts                        nad initial now reads from tuning
+    src/content/act1/meter.ts                        new, the ATP counter
+    src/content/act1/__tests__/nadWall.test.ts       new, 4 tests
+    src/content/act1/__tests__/{pools,stoichiometry}.test.ts   updated for the fifth reaction
+
+**The numbers.**
+
+    nicotinamide total       30
+    peak payoff flux         14.577 /s
+    stall at                 3.05 game-seconds
+    nad at stall             4.941e-324 of 30
+    glucose at stall         438.41 intracellular, 9543 of 10000 environmental
+    recovery at              0.05 game-seconds after enabling ferment
+    ATP per completed glucose, stalled     4.000000000 gross, 2.000000000 net
+    ATP per completed glucose, fermenting  4.000000000 gross, 2.000000000 net
+    glucose consumed         18.22 stalled, 670.68 fermenting
+
+**The pool size changed, from 10 to 30, and here is what it was and what it became.** At 10 the pathway stalled at roughly 1.7 game-seconds. That is inside the sourced "within seconds", but it arrives before the pathway has visibly finished starting up: the payoff phase peaks and dies in the same breath, so there is no interval during which a player can watch a working cell to then lose it. At 30 the pathway reaches full flux, holds it, and then decays over about a second. That is a stall rather than a failure to launch. **Yes, the wall arrives fast enough to be legible at 30, and it did not at 10.** Both numbers are in `tuning.ts`, and the header records the change and the reason.
+
+**The wall is not substrate starvation and the test proves it.** At stall, 9543 of 10000 environmental glucose remains and intracellular glucose has piled up to 438, because uptake keeps running while the pathway that consumes it does not. That growing glucose pool is the legible signal, and the test asserts intracellular glucose exceeds NADH rather than merely being non-zero.
+
+**Recovery is one tick, and that is a real finding rather than a measurement artifact.** During the stall the cell stockpiles everything except NAD+: g3p sits at 6.4, ADP is nearly the whole adenylate pool, phosphate is abundant. The instant fermentation runs it converts NADH back at ~24 flux, and one tick of that is enough NAD+ for the payoff phase to clear half its pre-stall peak. Nothing else was ever missing. Whether an instantaneous recovery reads as satisfying or as anticlimactic is a V3 question, and it is worth flagging now because the answer might be that the unlock wants a ramp the simulation does not currently give it.
+
+**Assertion (d) needed a correction to be true, and the correction is the interesting part.** Taken literally, cumulative ATP produced divided by glucose consumed is **not** equal between the two runs: 3.292230 stalled against 3.978440 fermenting. Neither is 4. The reason is carbon in flight. Every glucose the preparatory phase commits becomes two trioses, and trioses sitting in the g3p pool at the end of a run were paid for and have not paid out. A stalled pathway strands them permanently, so its raw figure reads low forever.
+
+Comparing the raw figures would have shown fermentation apparently improving yield, which is precisely the misconception this test exists to refute. So the denominator is glucose that finished the pathway: `glucoseConsumed - g3pDelta / 2`, with the preparatory spend prorated to the same set. Corrected, both runs give **4.000000000 gross and 2.000000000 net, agreeing to 9 decimal places**. The two inputs are independent measurements, glucose consumed from the applied `prep` flux and g3p from the pool itself, so they only reconcile to exactly 4 if the stoichiometry is right. The raw figures are still asserted and still printed, so the gap stays visible rather than being absorbed by the correction.
+
+Throughput, meanwhile, moved by a factor of 37: 18.22 glucose consumed stalled against 670.68 fermenting over the same 1200 ticks. **Fermentation buys throughput and buys exactly zero yield**, which is `docs/PROGRESSION.md` line 40 written as an assertion.
+
+**Nicotinamide conservation.** Worst relative drift across the whole sequence, 600 ticks of stall then 600 of recovery, checked every tick: **1.421e-15**, against a 1e-9 bound. NAD+ plus NADH equals the total to 9 decimal places at the end. The fermentation stoichiometry is right and stage 3's property test did not miss anything.
+
+**A fourth test the stage did not ask for, as a control.** Fermentation enabled from the start never stalls at all. Without it, a stall caused by something other than NAD+, ADP exhaustion or a phosphate shortfall, would satisfy every assertion in the main test.
+
+**`meter.ts` is new and slightly beyond the letter of stage 4.** Cumulative ATP is a counter and not a pool, per this log's own decisions, so it has to live somewhere outside the simulation state. Stage 5's harness needs the same counters, so writing them into the test would have meant writing them twice. Everything it reads comes from `state.fluxes[r] * state.scales[r]`, which is the flux the tick actually applied rather than the flux it intended, so shortfall-scaled ticks are counted correctly. Every coefficient is read out of the reaction table at construction rather than written down again.
+
+**No unlock system.** `ferment` has an `enabled` flag and `createAct1` takes an `enabled` override so tests and harness scenarios can flip it. No cost, no threshold, no purchase, no gating. Unlock gating needs an interface to be gated from and that is V3.
+
+Verify. `npm test` 83 passed, up from 78. `npm run typecheck` clean. `npm run lint` clean.
 
 ---
 

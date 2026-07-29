@@ -7,6 +7,7 @@ import {
   act1PoolDefinitions,
   type Act1PoolId,
 } from '../pools';
+import { ACT1_NICOTINAMIDE_TOTAL } from '../tuning';
 
 /**
  * The totals below are hand-computed, deliberately.
@@ -100,7 +101,9 @@ describe('act 1 pools', () => {
     expect(pools.totalConserved('phosphate')).toBe(140);
 
     // The two carrier totals, which are the fixed ceilings act 1 runs against.
-    expect(pools.totalConserved('nicotinamide')).toBe(10);
+    // The nicotinamide size is tuned rather than sourced and lives in
+    // tuning.ts, so this reads it from there instead of restating it.
+    expect(pools.totalConserved('nicotinamide')).toBe(ACT1_NICOTINAMIDE_TOTAL);
     expect(pools.totalConserved('adenylate')).toBe(40);
   });
 
