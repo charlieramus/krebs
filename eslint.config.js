@@ -92,6 +92,64 @@ export default tseslint.config(
     rules: determinismRules,
   },
   {
+    /**
+     * THE TABULAR FIGURES GUARD. Added by UPDATELOGV3.md stage 2.
+     *
+     * DESIGN.md says column alignment is the credibility mechanism and calls
+     * tabular figures not optional. Not optional should mean impossible to
+     * omit, not reliably remembered, so every number in the interface goes
+     * through src/ui/components/Figure.tsx, which applies the declaration
+     * itself. This rule is what makes that true rather than aspirational: a
+     * number formatted at a call site fails the build.
+     *
+     * A lint rule rather than a scanning test, because the AST knows what a
+     * call is and a grep does not. `toFixed` inside a string, inside a comment,
+     * or inside a template that is never rendered would all trip a grep, and a
+     * guard with false positives gets disabled.
+     *
+     * WHAT IT CANNOT SEE, stated rather than glossed. `{someNumber}` in JSX is
+     * indistinguishable from `{someString}` without type information, and
+     * typed linting across a React tree costs more than it buys here. This rule
+     * catches formatting, which is where alignment is actually lost. Interpolating
+     * an unformatted float would produce ragged decimals and be obvious on sight.
+     *
+     * Scoped to .tsx, so the harnesses and the drain measurement, which print
+     * to a terminal rather than to a page, are untouched.
+     */
+    files: ['src/**/*.tsx'],
+    ignores: ['src/ui/components/Figure.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.property.name='toFixed']",
+          message:
+            'DESIGN.md: every number goes through Figure, which applies tabular figures. Pass `value` or `read` to Figure instead of formatting here.',
+        },
+        {
+          selector: "CallExpression[callee.property.name='toPrecision']",
+          message:
+            'DESIGN.md: every number goes through Figure, which applies tabular figures. Pass `value` or `read` to Figure instead of formatting here.',
+        },
+        {
+          selector: "CallExpression[callee.property.name='toExponential']",
+          message:
+            'DESIGN.md: every number goes through Figure, which applies tabular figures. Pass `value` or `read` to Figure instead of formatting here.',
+        },
+        {
+          selector: "CallExpression[callee.property.name='toLocaleString']",
+          message:
+            'DESIGN.md: every number goes through Figure. toLocaleString also varies its width by locale, which breaks column alignment outright.',
+        },
+        {
+          selector: "JSXExpressionContainer > CallExpression[callee.name='String']",
+          message:
+            'DESIGN.md: every number goes through Figure. Use <Figure value={n} decimals={0} /> rather than String(n).',
+        },
+      ],
+    },
+  },
+  {
     files: ['*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },

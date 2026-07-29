@@ -122,3 +122,43 @@ export const ACT1_HILL_N = 2;
  * approached rather than started at.
  */
 export const ACT1_NICOTINAMIDE_TOTAL = 30;
+
+/**
+ * Starting amount of environmental glucose. Raised from 10000 to 80000 by
+ * UPDATELOGV3.md stage 6, and this is the change that moved the act 1 canonical
+ * hash.
+ *
+ * WHAT IT FIXES, AND WHAT IT DOES NOT.
+ *
+ * NOW.md blocking item 1 records that act 1 has an unrecoverable state below
+ * roughly 400 environmental glucose: baseline maintenance drains ATP faster than
+ * the pathway can bootstrap, the preparatory phase can no longer pay its 2 ATP
+ * entry cost, and nothing restarts it because `prep` needs ATP and `payoff`
+ * needs the g3p only `prep` makes. V3 stage 1 measured when a fermenting cell
+ * crosses that threshold: 23m21s at the default uptake Vmax, and 7m11s at the
+ * highest Vmax then contemplated. docs/PROGRESSION.md gives act 1 a target
+ * duration of 45 to 90 minutes, so a player who played act 1 for as long as act
+ * 1 is supposed to last ran the environment dry and died with no way back.
+ *
+ * 80000 is sized against the top of the capacity ladder in src/ui/tuning.ts,
+ * which stage 6 measured down to Vmax 12. Uptake runs near saturation while the
+ * environment is far above its Km of 500, so drain is roughly linear at Vmax:
+ * 80000 / 12 is about 111 game-minutes of continuous maximum uptake, which
+ * clears the 90 minute end of the target with headroom.
+ *
+ * THIS IS A DEFERRAL AND NOT A FIX, stated plainly. The bootstrap trap still
+ * exists. It has been moved beyond the horizon of act 1 rather than removed, and
+ * any future change that raises uptake capacity, lengthens the act, or lowers
+ * this number brings it back. The NOW.md blocking item stays open.
+ *
+ * WHY NOT THE OTHER TWO OPTIONS. A replenishment boundary flux is the
+ * biologically honest answer, since a cell in a microbial mat sits in a
+ * resupplied medium, but a reaction that produces carbon from nothing breaks
+ * conservation on its first tick, and making the conservation test treat this
+ * pool as a boundary is an edit to a V1 guard that a UI log should not make in
+ * passing. Repairing the bootstrap trap itself is the real fix and it is an
+ * economy decision: it means either a maintenance rate that backs off as ATP
+ * falls, or a floor under the preparatory phase, and both are exactly the sort
+ * of number docs/ECONOMY.md exists to own. Stage 7 recommends writing it.
+ */
+export const ACT1_GLUCOSE_ENV_INITIAL = 80000;

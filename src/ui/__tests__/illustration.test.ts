@@ -1,0 +1,211 @@
+/**
+ * DESIGN.md's central claim, as a property rather than eight hand-written cases.
+ *
+ * "Every visual property carries simulation state" and "nothing in the
+ * illustration set is decorative" are the two sentences the whole direction
+ * rests on. This is the test that either makes them true or reveals them as a
+ * slogan. Same posture as V2 stage 3's stoichiometry test: assert over the table
+ * rather than over a list of examples, so a pool added in a later act is covered
+ * the moment it exists rather than the moment someone remembers to add a case.
+ *
+ * ---------------------------------------------------------------------------
+ * THE TEST READS GEOMETRY, NOT CLAIMS
+ * ---------------------------------------------------------------------------
+ *
+ * It counts the edges in the rendered path data and the circles in the rendered
+ * markup. It does not read a `data-sides` attribute, because a component that
+ * reports its own side count can be wrong about it in exactly the way this test
+ * exists to catch. `data-role` is used only to say which KIND of shape was
+ * drawn; the count always comes from the geometry.
+ *
+ * Rendered through renderToStaticMarkup rather than a DOM, because Blob is a
+ * pure function of its props by design. That is not incidental: the moment the
+ * illustration needed the runtime to draw itself, it would stop being testable
+ * as a property of the pool table.
+ */
+
+import { renderToStaticMarkup } from 'react-dom/server';
+import { createElement } from 'react';
+import { describe, expect, it } from 'vitest';
+import { Blob } from '../components/Blob';
+import { act1PoolDefinitions, ACT1_POOL_IDS, type Act1PoolId } from '../../content/act1/pools';
+import { carbonOf, phosphateOf } from '../poolCards';
+
+function render(id: Act1PoolId): string {
+  return renderToStaticMarkup(
+    createElement(Blob, {
+      carbon: carbonOf(id),
+      phosphate: phosphateOf(id),
+      fill: '#000000',
+      seed: 7,
+      label: id,
+    }),
+  );
+}
+
+/**
+ * Edges in a closed straight-line path. `M a L b L c Z` is three edges: two
+ * drawn and one implied by the close.
+ */
+function countEdges(markup: string): number {
+  const path = /data-role="silhouette" d="([^"]+)"/.exec(markup);
+  if (path === null) return 0;
+  const d = path[1] as string;
+  if (!d.includes('Z')) throw new Error('silhouette path is not closed');
+  return (d.match(/L/g) ?? []).length + 1;
+}
+
+function countDots(markup: string, role: string): number {
+  return (markup.match(new RegExp(`data-role="${role}"`, 'g')) ?? []).length;
+}
+
+function hasSilhouette(markup: string): boolean {
+  return markup.includes('data-role="silhouette"');
+}
+
+function hasCarrier(markup: string): boolean {
+  return markup.includes('data-role="carrier"');
+}
+
+describe('illustration rule 1: sides equal carbons', () => {
+  it.each(ACT1_POOL_IDS.filter((id) => carbonOf(id) > 0))(
+    '%s draws one edge per conserved carbon',
+    (id) => {
+      expect(countEdges(render(id))).toBe(carbonOf(id));
+    },
+  );
+
+  it('draws no polygon at all for a pool with no carbon skeleton', () => {
+    // The specific failure this guards: a zero-sided polygon, which is either
+    // an empty path or a degenerate one, rendered as if it meant something.
+    for (const id of ACT1_POOL_IDS.filter((pool) => carbonOf(pool) === 0)) {
+      const markup = render(id);
+      expect(hasSilhouette(markup)).toBe(false);
+      expect(hasCarrier(markup)).toBe(true);
+      // And the shape it does get has real extent, rather than being a stub.
+      expect(/data-role="carrier" d="M [\d.]+ [\d.]+ C/.test(markup)).toBe(true);
+    }
+  });
+
+  it('covers every act 1 pool, so neither branch above is vacuous', () => {
+    const polygons = ACT1_POOL_IDS.filter((id) => carbonOf(id) > 0);
+    const carriers = ACT1_POOL_IDS.filter((id) => carbonOf(id) === 0);
+    expect(polygons.length + carriers.length).toBe(ACT1_POOL_IDS.length);
+    expect(polygons.length).toBeGreaterThan(0);
+    expect(carriers.length).toBeGreaterThan(0);
+  });
+});
+
+describe('illustration rule 2: phosphate dots are countable', () => {
+  it.each(ACT1_POOL_IDS)('%s draws one dot per conserved phosphate', (id) => {
+    expect(countDots(render(id), 'phosphate')).toBe(phosphateOf(id));
+  });
+
+  it('makes ATP = ADP + Pi visible as a dot count', () => {
+    // Not a separate claim, a consequence of rule 2 holding over the real
+    // weights. If this ever fails, the phosphate column has drifted.
+    expect(phosphateOf('atp')).toBe(phosphateOf('adp') + phosphateOf('pi'));
+    expect(countDots(render('atp'), 'phosphate')).toBe(
+      countDots(render('adp'), 'phosphate') + countDots(render('pi'), 'phosphate'),
+    );
+  });
+});
+
+describe('illustration rule 3: redox is saturation, not hue', () => {
+  it('draws NAD+ and NADH as the same silhouette to the character', () => {
+    // Same seed, same weights, so the paths must be byte-identical. This is what
+    // "the same shape at different saturation" has to mean in practice: if the
+    // silhouettes differ at all, the player is reading shape as well as colour
+    // and the encoding is no longer clean.
+    const oxidized = renderToStaticMarkup(
+      createElement(Blob, {
+        carbon: carbonOf('nad'),
+        phosphate: phosphateOf('nad'),
+        fill: '#A9BFB8',
+        seed: 67,
+        label: 'NAD+',
+      }),
+    );
+    const reduced = renderToStaticMarkup(
+      createElement(Blob, {
+        carbon: carbonOf('nadh'),
+        phosphate: phosphateOf('nadh'),
+        fill: '#23BFA0',
+        seed: 67,
+        label: 'NADH',
+      }),
+    );
+
+    const geometry = (markup: string): string =>
+      (/data-role="carrier" d="([^"]+)"/.exec(markup)?.[1] as string) ?? '';
+
+    expect(geometry(oxidized)).toBe(geometry(reduced));
+    expect(geometry(oxidized).length).toBeGreaterThan(0);
+
+    // And they really are distinguished by the fill and nothing else. Normalise
+    // away the two things that are legitimately different, the fill and the
+    // accessible label, and the remaining markup must be identical.
+    const normalise = (markup: string): string =>
+      markup.replace(/fill="#[0-9A-Fa-f]{6}"/, 'fill="X"').replace(/aria-label="[^"]*"/, 'label');
+    expect(oxidized).not.toBe(reduced);
+    expect(normalise(oxidized)).toBe(normalise(reduced));
+  });
+
+  it('gives the reduced carrier electron dots and the oxidized one none', () => {
+    const reduced = renderToStaticMarkup(
+      createElement(Blob, {
+        carbon: 0,
+        phosphate: 0,
+        fill: '#23BFA0',
+        seed: 67,
+        electrons: 2,
+        label: 'NADH',
+      }),
+    );
+    const oxidized = renderToStaticMarkup(
+      createElement(Blob, { carbon: 0, phosphate: 0, fill: '#A9BFB8', seed: 67, label: 'NAD+' }),
+    );
+    expect(countDots(reduced, 'electron')).toBe(2);
+    expect(countDots(oxidized, 'electron')).toBe(0);
+  });
+});
+
+describe('nothing is geometrically perfect', () => {
+  it('displaces every vertex, so no molecule is a textbook figure', () => {
+    // A regular hexagon reads as a diagram. Confirm the six vertices of glucose
+    // do not sit at a constant radius, which is what "regular" would mean.
+    const markup = render('glucose');
+    const d = /data-role="silhouette" d="([^"]+)"/.exec(markup)?.[1] as string;
+    const coordinates = (d.match(/[\d.]+ [\d.]+/g) ?? []).map((pair) => {
+      const [x, y] = pair.split(' ').map(Number) as [number, number];
+      return Math.hypot(x - 23, y - 23);
+    });
+    expect(coordinates.length).toBe(6);
+    const spread = Math.max(...coordinates) - Math.min(...coordinates);
+    expect(spread).toBeGreaterThan(0.5);
+  });
+
+  it('is deterministic, so a blob does not reshuffle between renders', () => {
+    expect(render('glucose')).toBe(render('glucose'));
+  });
+});
+
+describe('the weights come from the pool table and not from the interface', () => {
+  it('reads every carbon and phosphate weight straight out of act1PoolDefinitions', () => {
+    for (const definition of act1PoolDefinitions()) {
+      const id = definition.id as Act1PoolId;
+      expect(carbonOf(id)).toBe(definition.conserved.carbon ?? 0);
+      expect(phosphateOf(id)).toBe(definition.conserved.phosphate ?? 0);
+    }
+  });
+
+  it('agrees with the sourced act 1 skeleton sizes', () => {
+    // docs/SCIENCE.md Part 2: glucose is six carbons and is cleaved into two
+    // three-carbon fragments. If the illustration ever stops saying that, this
+    // is where it shows up.
+    expect(carbonOf('glucose')).toBe(6);
+    expect(carbonOf('g3p')).toBe(3);
+    expect(carbonOf('pyruvate')).toBe(3);
+    expect(carbonOf('lactate')).toBe(3);
+  });
+});

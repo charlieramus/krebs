@@ -142,7 +142,41 @@ e9b720a8.
 
 ## Stage 1 Report
 
-_Pending._
+The bridge exists and the numbers move. `npm run dev` renders act 1 in a browser for the first time in the project's history, and what it renders is the walled state, because `ACT1_ENABLED.ferment` is false and stage 6 has not built the unlock yet. Watching NAD+ go from 30 to 0 in a browser window is the first thing this repository has ever done that a console could not.
+
+**Files.** `src/ui/runtime.ts` is the bridge, `src/ui/RuntimeContext.tsx` is the React side of it, `src/ui/drain.ts` is the step 6 measurement behind `npm run sim:drain`, `src/ui/__tests__/runtime.test.ts` is the guard, `src/App.tsx` is the deliberately ugly readout and `src/ui/README.md` no longer says the directory is empty. One kernel file changed, `src/sim/loop.ts`, and that is step 1's problem below.
+
+**The `recordAct1Tick` problem, and how it was solved.** `createLoop` now takes an optional read-only `TickObserver` and calls it immediately after each `tick`, inside the while loop. The runtime passes `recordAct1Tick` as that observer, so metering is exactly as frequent as ticking by construction rather than by the driver remembering to match it.
+
+Everything else considered lost on the same point. The meter reads `state.fluxes` and `state.scales`, which are scratch arrays the next tick overwrites, so by the time `advance` returns the only surviving snapshot is the last tick's. `lastTickCount` reports how many ticks ran but cannot recover the ones already overwritten, which is what the stage spec meant by it not being enough. Chunking the frame delta into tick-sized pieces so each `advance` runs at most one tick was rejected for a concrete reason rather than an aesthetic one: it changes the order the accumulator adds floats in, so a frame delivered as one 150ms delta and the same frame delivered as three 50ms deltas would no longer be bit-identical, which is exactly the property the second half of the test file exists to assert. Metering from pool deltas instead of fluxes was rejected because a pool touched by two reactions cannot attribute its change to either.
+
+The kernel change is small, optional, and additive, so every existing call site is untouched. The observer's contract is written into `loop.ts` in as many words: it may not write to simulation state, because a write there would make game state a function of how often the driver calls `advance`, which is the exact dependency the fixed timestep exists to remove. Flagging it here rather than burying it: this is a V1 file and V3 edited it.
+
+**Test count: 105, against V2's 95.** Ten new, all in `src/ui/__tests__/runtime.test.ts`, none of the existing 95 modified.
+
+The two properties the spec named both hold. Driving the runtime with 400 frames of 50ms produces pool amounts, a tick count and a state hash identical to calling `tick` 400 times directly. And 400 regular 50ms frames against an irregular scripted sequence of 16 different deltas summing to exactly the same 20000ms produce identical tick counts, identical pool amounts and an identical hash, while differing in frame count, which is the point: the display saw two different worlds and the simulation saw one. The irregular deltas are a fixed pattern rather than PRNG output, because a test that depends on a random sequence cannot be re-run against its own failure.
+
+Three tests beyond the spec, each for a failure that would otherwise be silent. Metering is asserted across three framings of the same 200 ticks, one tick per frame, ten ticks per frame and all 200 in a single frame, and all three agree to twelve decimal places on ATP produced, glucose taken up and lactate produced, with the ledger still reading exactly 4 gross per glucose. That is the test that would have caught the step 1 bug had it been written wrong. The backgrounded-tab hole is asserted rather than merely described: five minutes arriving in one frame runs exactly `MAX_CATCHUP_TICKS` ticks and routes the remaining 290000ms to `pendingOfflineMs`. And the first frame of a run credits zero elapsed time however late it arrives, which is what makes `stop` then `start` resume instead of dumping the paused interval into the accumulator.
+
+**The backgrounded tab, surfaced and not fixed.** `pendingOfflineMs` is on the snapshot, printed in the readout, and captioned on the page as game time lost to a backgrounded tab that V5 will own. It reads zero for every normal frame size.
+
+**Environment drain, measured through the runtime.** `npm run sim:drain`, ferment enabled, `glucose_env` starting at 10000, 120 game-minutes per row.
+
+    uptake Vmax    crosses 400    env at end    atp at crossing    atp at end
+    8 (default)      23m 21.2s          0.00           3.341e+0    4.941e-323
+    12               15m 34.1s          0.00           5.509e+0    4.941e-323
+    18               10m 22.8s          0.00           1.661e+1    3.953e-323
+    26                7m 11.1s          0.00           1.661e+1    4.941e-323
+
+This log's arithmetic guessed roughly 21 minutes at the default Vmax. The measured figure is 23m 21.2s, so the estimate was close and slightly optimistic. The 26 row is a placeholder for the top of the capacity ladder stage 6 has not designed yet, and it is where the other downstream Vmax values already sit, since selling uptake past the point where it stops being rate-limiting sells nothing. Stage 6 owns the real number.
+
+The trap is confirmed rather than inferred. Every row ends with `glucose_env` at exactly 0.00 and ATP at 4.9e-323, which is denormal, one or two ulps above zero. The cell does not recover in the remaining 90-plus minutes of any row. Against docs/PROGRESSION.md's 45 to 90 minute target for act 1, a player who buys the capacity upgrades at all reaches an unrecoverable state between 7 and 23 minutes in. Measured, not fixed, per the stage spec. Stage 6 decides.
+
+**A finding for stage 6, from the browser rather than the harness.** Under the walled state ATP also decays to exactly 0.000000 while `maintain` keeps hydrolysing, so by roughly 15 game-seconds the screen shows every flux at zero except `uptake`, glucose piling up inside the cell, NAD+ at zero and NADH at 30. V2 stage 4 only ever tested recovery from a 600-tick stall. Stage 6 step 6 asks for a 20000-tick stall, and this is the reason it matters: recovery has to come back through `payoff`, which needs g3p, which needs `prep`, which needs the ATP that is no longer there. Not investigated here, because stage 1 measures.
+
+**Verify.** `npm test` 105 passed across 12 files. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean, 207.25 kB JS and 9.77 kB CSS. `npm run dev` opened in a real browser: tick count read 43 then 308 then 547 across three reads, frames read 130 then 928 then 1644, so the display ran at roughly three frames per tick as expected at 60Hz over 20Hz, and the console carried no errors. ATP per glucose held at 4.000000000 gross and 2.000000000 net on screen throughout, including deep into the stall.
+
+**The act 1 canonical hash is still `e9b720a8`**, asserted in `src/content/act1/__tests__/determinism.test.ts` line 118 and passing. `172f83fb` is untouched and also passing. Nothing in the interface wrote to simulation state.
 
 ---
 
@@ -206,7 +240,74 @@ firing against a deliberate violation, then remove the violation.
 
 ## Stage 2 Report
 
-_Pending._
+**Fonts, self-hosted, and no request leaves the origin.** `src/ui/fonts/` carries `fredoka-latin-var.woff2` at 29.73 kB and `nunito-latin-var.woff2` at 39.13 kB, with `OFL-Fredoka.txt` and `OFL-Nunito.txt` beside them and a README recording the exact CDN URLs and versions they were retrieved from on 2026-07-29. `@font-face` in `src/index.css` points at them by relative path with `font-display: swap`, and behind each sits a rounded system fallback, `ui-rounded` then `Segoe UI Variable` then `Trebuchet MS`, rather than a drop to Arial. There is no `fonts.googleapis.com` link and no remote `@import` anywhere.
+
+Two decisions worth stating rather than burying. Both files are the **variable** builds, so one file covers Fredoka 300 to 700 and Nunito 200 to 1000, against six static files for the Nunito range DESIGN.md asks for. And both are the **latin subset only**, because nothing in the game is written in another script and shipping cyrillic, greek, hebrew and vietnamese coverage nobody reads would roughly triple the bytes. Confirmed live in the browser: `document.fonts` reports `Fredoka@300 700` and `Nunito@200 1000`, and the wordmark computes to Fredoka at 91px.
+
+**The token table.** Every name below is DESIGN.md's, verbatim, and every colour value is asserted against DESIGN.md by a test rather than by my eye. Nothing was added that DESIGN.md does not define.
+
+    surfaces     page cream pink mint sky lilac white
+    ink          ink ink2 ink3
+    semantic     atp reduced oxidized substrate loss gain gradient nitrogen
+    type         --font-display --font-body
+                 --text-wordmark h2 card-title headline-num body label micro
+                 --tracking-wordmark h2 headline-num label
+    spacing      --spacing: 4px
+    borders      --outline-card 2.5px, --outline-pill 2px
+    radius       --radius-card 16, --radius-button 12, --radius-pill 999
+    shadow       --shadow-hard 4px 4px 0 ink, --shadow-hard-pressed 0 0 0 ink
+    motion       --duration-micro short medium long, --ease-enter exit move
+
+Three of those need a note. The **ranged type sizes are `clamp()`** rather than breakpoints, because DESIGN.md writes them as ranges (60 to 104px, 26 to 38px) and a range is what `clamp` means; the one fixed size, body at 15.5px, is not clamped. The **spacing scale is expressed as a base unit rather than nine named steps.** DESIGN.md gives base unit 4px and the scale 2, 4, 8, 12, 16, 24, 32, 48, 64, and Tailwind v4 multiplies `--spacing` by the utility number, so that scale is exactly `p-0.5 p-1 p-2 p-3 p-4 p-6 p-8 p-12 p-16` and every step lands on the grid by construction. Emitting `--spacing-2: 2px` would make `p-2` mean 2px where every Tailwind user alive reads it as 8px, and a scale that is a trap is a scale people work around. And `--color-gradient` **keeps DESIGN.md's name** despite the obvious collision worry: Tailwind v4 spells gradients `bg-linear-*`, `bg-radial-*` and `bg-conic-*`, so `bg-gradient` is free and means only the act 3 proton motive force colour.
+
+**Primitives**, in `src/ui/components/`. `Card` with a 2.5px ink outline, the hard offset shadow and radius 16, its `surface` prop restricted to the seven DESIGN.md surface names. `Pill` with a 2px outline and radius 999, deliberately carrying no shadow, because giving every small element the offset shadow makes a page read as a pile of stickers rather than a page with stickers on it. `Button` at radius 12, translating 3px into its own shadow on `:active` while the shadow drops to zero over `--duration-micro`. And `Figure`.
+
+**Figure is the one that matters and it took a shape the stage did not specify.** It applies `tabular-nums` itself and there is no way to render through it without that. But most figures on this screen change twenty times a second, and routing them through React state would re-render the tree at tick rate, which is exactly what stage 1 built the runtime to avoid. So Figure takes either a static `value` or a `read` function sampled from the snapshot every frame, and the live path writes text into its own node through `useLive` with no render at all. Both paths format through one `formatFigure`, so a live figure and a static one cannot disagree about how a number looks. It also normalises a denormal to zero and refuses to print `-0.00`, because a pool that has decayed to 4.9e-323 is zero as far as a reader is concerned and a minus sign in front of it is a distracting lie.
+
+**Mechanism (a): a test, `src/ui/__tests__/designSystem.test.ts`.** Three checks for shadows and two for gradients, over every `.ts`, `.tsx` and `.css` file in `src/ui/` plus `src/index.css` and `src/App.tsx`. Comments are stripped before scanning, because DESIGN.md's prose and this repository's comments both discuss blurred shadows and gradients by name precisely in order to forbid them, and a guard that makes documenting the rule a violation of it does not survive. The file also excludes itself, for the same reason and after the same failure: on first run it reported five gradient violations, all of them its own pattern literals.
+
+A fourth check went in beyond the stage's ask, and it is the strictest thing here. The test **parses DESIGN.md's Colour section** and asserts that `src/index.css` defines every colour it names, at exactly the value it gives, and defines no `--color-*` that DESIGN.md does not name. "Do not add tokens DESIGN.md does not define" is now a failing test rather than an instruction, and the dependency runs the right way: change DESIGN.md and the code fails until it catches up.
+
+**Mechanism (b): a lint rule, not a scanning test.** `no-restricted-syntax` in `eslint.config.js`, scoped to `src/**/*.tsx` with `Figure.tsx` the only exemption, banning `toFixed`, `toPrecision`, `toExponential`, `toLocaleString` and `String()` inside a JSX expression. A lint rule because the AST knows what a call is and a grep does not: `toFixed` in a comment, in a string, or in a template that never renders would all trip a scan, and a guard with false positives gets disabled. Scoped to `.tsx` so the harnesses and `drain.ts`, which print to a terminal rather than a page, are untouched.
+
+What it cannot see, stated rather than glossed: `{someNumber}` in JSX is indistinguishable from `{someString}` without type information, and typed linting across a React tree costs more than it buys. The rule catches *formatting*, which is where alignment is actually lost, and an unformatted float interpolated raw would produce ragged decimals that are obvious on sight. There is no carve-out for the leftover stage 1 table: its numbers were rerouted through Figure rather than exempted, because scaffolding is exactly where a formatting call survives long enough to be copied.
+
+**Both mechanisms fired against deliberate violations.** A blurred shadow, a Tailwind `shadow-lg`, a `bg-linear-to-br` and a `toFixed` in the wordmark were planted, then removed.
+
+    ×  no blurred shadows > declares no box-shadow or shadow token with a non-zero third length
+       + "src/ui/components/Card.tsx: dashed ? none : 4px 4px 12px"
+    ×  no blurred shadows > uses no Tailwind shadow utility that carries a blur
+       + "src/ui/components/Card.tsx: shadow-lg"
+    ×  no gradients > uses no Tailwind gradient utility
+       + "src/ui/components/Card.tsx: bg-linear-"
+       Tests  3 failed | 5 passed (8)
+
+    D:\Portfolio work\Development\krebs\src\ui\components\TopBar.tsx
+      60:16  error  DESIGN.md: every number goes through Figure, which applies
+                    tabular figures. Pass `value` or `read` to Figure instead of
+                    formatting here  no-restricted-syntax
+    ✖ 1 problem (1 error, 0 warnings)
+
+**Planting the violation caught a real hole in the scanner, which is the argument for planting it.** On the first attempt the blur-radius check did not fire. Its regex stopped the shadow value at the first quote, so against `boxShadow: dashed ? 'none' : '4px 4px 12px ...'` it read the condition and missed both branches. A CSS-in-JS shadow is a conditional expression more often than a bare string, so the check would have passed a blurred shadow in production while reporting a clean repository. Fixed to read to end of line and to strip function calls before splitting layers, so the commas inside `rgba()` no longer split one layer into three. Both violations then reported and both were removed; the suite is clean.
+
+**The top bar** is the first real surface. Wordmark in Fredoka 600 with `tracking-wordmark`, ATP per second and glucose per second as headline figures in Nunito 900, elapsed game time. Flux in the large type and **stock nowhere at all**, which is DESIGN.md's inversion taken literally: how much ATP is in the pool is a fact about the adenylate ceiling, not about how the cell is doing.
+
+Both headline rates are **derived from the reaction table**, not written down. Stage 2 added `production` and `netRate` to the snapshot, filled from flat stoichiometry matrices built once at construction, so "ATP per second" is the payoff phase's coefficient of 2 read out of `src/content/act1/reactions.ts` rather than typed into the display, and it falls to zero when the NAD+ wall arrives without the top bar knowing what NAD+ is. `netRate` is signed and is what stage 4's flux-headline pool cards will read.
+
+Two small findings. Elapsed time renders as **minutes with one decimal** rather than a clock face, because a clock face needs a zero-padded seconds field and a padded field is a second numeric format living outside Figure; minutes is also the unit docs/PROGRESSION.md specifies act 1's duration in. And the wordmark needed an **explicit `font-semibold`**: Tailwind's preflight resets `h1` to inherit its weight, which on a variable face renders 400 silently, and the first screenshot showed a Fredoka wordmark at the wrong weight with nothing obviously broken about it.
+
+**Bundle, against V2's 193.37 kB.** V2's figure was JS alone, since nothing imported the content layer and there was no interface at all.
+
+    JS      209.91 kB   +16.54 kB   React is now actually used, plus runtime,
+                                    components and the whole act 1 content layer
+    CSS      15.69 kB   +15.69 kB   the token block and the utilities it generates
+    fonts    68.86 kB   +68.86 kB   Fredoka 29.73 + Nunito 39.13, both woff2
+    ------------------------------
+    total   294.46 kB  +101.09 kB
+
+**Fonts are 68 percent of the growth** and 23 percent of the total payload. That is the price of self-hosting and it is the right price: a `<link>` to Google Fonts would show 0 kB in this table and a network dependency at first paint, which `CLAUDE.md` forbids. The fonts also load in parallel with the JS rather than blocking it, and `font-display: swap` means neither blocks paint.
+
+**Verify.** `npm test` 113 passed across 13 files, up from stage 1's 105, 8 new. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean. `npm run dev` opened in a browser at 1400x900: mint page ground, Fredoka 600 wordmark, ATP in `atp` orange and glucose in `substrate` blue as headline figures with tabular columns holding alignment as the digits change, and no console errors. The stage 1 table still sits underneath, still ugly, now formatted through Figure.
 
 ---
 
@@ -266,7 +367,94 @@ closed by mechanism rather than by intention.
 
 ## Stage 3 Report
 
-_Pending._
+**DESIGN.md open question 6 is closed by mechanism.** The gate exists, it fires, it fails the build with exit code 1, and it names the file that caused it. Stages 4 to 6 are the content authoring it was supposed to precede, and it now precedes them.
+
+**The union.** `src/ui/components/Badge.tsx`. `Sourced` and `Contested` do not typecheck without a document reference, `Tuned` does not typecheck without a reason, and `Needs source` requires nothing, which is exactly the point of it. `Tuned` carries an optional `divergenceRow` shaped for the docs/ECONOMY.md row it will owe, with a comment saying it is optional only because that document does not exist yet and can be made required in one line once every value has a row.
+
+**The gate: a Vite plugin over the emitted bundle. `vite/needsSourceGate.ts`.**
+
+The other two options lose for concrete reasons. A **render-time throw** guarded by `import.meta.env.PROD` only fires if the offending component actually renders, so a badge on a panel that opens once in twenty minutes ships happily and detonates in front of a player rather than in front of the person who wrote it; a gate that depends on coverage is not a gate. A **test scanning `src/ui/**`** checks the source rather than the artifact, misses anything the globs do not reach, and only runs when somebody runs tests, so `npm run build` would still produce a shippable bundle. Scanning the emitted bundle checks the thing that actually ships, cannot be skipped because it is part of the build, and is stricter in the one direction that matters: a badge unreachable from the entry point is tree-shaken and correctly does not fail, while a badge that survives into a chunk fails whatever route it took.
+
+**Making the sentinel honest was the real work.** Scanning the bundle for `needs-source` only works if that literal can reach the bundle from a call site and never from `Badge.tsx` itself, otherwise the gate fails on a clean repository and gets deleted within a week. So `Badge.tsx` writes that string in exactly one place, the type union, which is erased at compile time. There is no lookup table keyed by badge kind, because object keys are strings and survive minification, so the component is an if-chain instead. And the branch that renders the badge sits behind `import.meta.env.DEV`, which Vite replaces with `false` in a production build, so the branch and its label are dead code and get dropped. There is also deliberately **no `needsSource()` factory** beside `sourced()`, `contested()` and `tuned()`: an author has to write `{ kind: 'needs-source' }` by hand, and that friction is the feature.
+
+The reasoning was verified rather than asserted. A clean production build passes with the badge component fully present in the source, which is only possible if the dev branch really was eliminated.
+
+**Step 4, the gate firing, verbatim.** A probe component carrying `badge={{ kind: 'needs-source' }}` was added and rendered from `App.tsx`:
+
+    ✓ 49 modules transformed.
+    rendering chunks...
+    ✗ Build failed in 1.27s
+    error during build:
+    [krebs-needs-source-gate] [plugin krebs-needs-source-gate]
+
+      RELEASE GATE FAILED: a "needs-source" badge survived into the production bundle.
+
+        assets/index-BeQdHLLD.js  <-  D:/Portfolio work/Development/krebs/src/ui/components/NeedsSourceProbe.tsx
+
+      CLAUDE.md hard rule 1: never put a number in player-facing text that is not
+      traceable to docs/SCIENCE.md. DESIGN.md makes that a badge contract, and this
+      badge is the development-only state that says a claim has no source yet.
+
+      Fix it by sourcing the claim and using sourced(...) or contested(...), or by
+      admitting the number is a game decision and using tuned(...) with a reason.
+      Do not delete this gate.
+
+`npm run build` exits **1**, checked separately, because a gate that prints an error and exits 0 is decoration in CI. The failure names the offending module rather than only the chunk, so it is actionable instead of merely true. The probe was deleted, the import removed, and the build is clean again at 214.50 kB JS.
+
+**The dev build still renders it loudly.** Confirmed in the browser with the probe in place: a dashed yellow `NEEDS SOURCE` pill sitting next to `42`, against `SOURCED` in green and `TUNED` in orange elsewhere on the same screen. Being visible during development is the badge's entire purpose.
+
+**A finding: `Needs source` yellow is not in the palette, and it should not be.** DESIGN.md's badge contract asks for yellow and DESIGN.md's colour section contains no yellow. That is not an oversight in either direction, so it is hardcoded in `Badge.tsx` as `#F5DE3C` with a comment. Adding it to the token block would make it look like a system colour, and it would fail the stage 2 test asserting `index.css` defines exactly the colours DESIGN.md names. A development-only state has no business in a shipping palette, it should look alien, and it is dead code in production anyway. Recorded here so stage 7 can decide whether DESIGN.md wants a line saying so.
+
+**Figure now requires a badge, plus one deviation.** `badge` is a required prop with no default, and there must never be a default, because a default is a decision about provenance made by whoever wrote the component rather than by whoever wrote the number. DESIGN.md says an unsourced number should look visibly broken; a required prop is stronger because it does not compile.
+
+The deviation is `badgeDisplay?: 'inline' | 'attached'`. Drawing a pill beside every one of the thirty-odd figures in the dev table, or beside both figures on all eight pool cards in stage 4, produces a screen that is more badge than number. `attached` means an ancestor already displays this exact badge, so a column header or a card header carries it once. The badge is still required, still typed, and still reaches the release gate, so this changes what is drawn and never whether provenance was declared. The one hole is that a component passing `attached` and then not displaying the badge anywhere is a bug a type cannot catch; it is documented at the prop and is the only gap in this contract.
+
+**`src/ui/content.ts`, every player-facing string with its badge.**
+
+| String | Badge | Trace |
+| --- | --- | --- |
+| Glucose (environment) | Tuned | The environment is modeled as a finite pool so uptake has something to deplete |
+| Glucose | Sourced | docs/SCIENCE.md Part 2 |
+| Glyceraldehyde 3-phosphate | Sourced | docs/SCIENCE.md Part 2 |
+| Pyruvate | Sourced | docs/SCIENCE.md Part 2 |
+| Lactate | Sourced | docs/SCIENCE.md Part 2 |
+| NAD+ | Sourced | docs/SCIENCE.md Part 2 |
+| NADH | Sourced | docs/SCIENCE.md Part 2 |
+| ATP | Sourced | docs/SCIENCE.md Part 2 |
+| ADP | Sourced | docs/SCIENCE.md Part 2 |
+| Phosphate | Sourced | docs/SCIENCE.md Part 2 |
+| NAD+ / NADH | Sourced | docs/SCIENCE.md Part 2 |
+| ATP / ADP | Sourced | docs/SCIENCE.md Part 2 |
+| Uptake | Sourced | docs/SCIENCE.md Part 1, glucose uptake is modeled as untyped transport |
+| Preparatory phase | Sourced | docs/SCIENCE.md Part 2, steps 1 to 5 |
+| Payoff phase | Sourced | docs/SCIENCE.md Part 2, steps 6 to 10 |
+| Lactate fermentation | Sourced | docs/SCIENCE.md Part 2, fermentation |
+| Maintenance | Tuned | ATP hydrolysis to ADP and phosphate is real. Standing in for the entire rest of cellular metabolism with one reaction is not |
+| ATP *(top bar)* | Sourced | docs/SCIENCE.md Part 2, **4 ATP gross and 2 net per glucose** |
+| Glucose *(top bar)* | Tuned | Uptake rate is a tuned Vmax. The pathway it feeds is sourced |
+| Elapsed | Tuned | Game time is arbitrary and maps to no real timescale, per docs/SCIENCE.md Part 1 |
+| net rate | Tuned | Rates are tuned for pacing and are not measured values |
+| in the cell | Tuned | Pool sizes are tuned. Only the ratios the stoichiometry fixes are sourced |
+| Lactate dehydrogenase | Sourced | docs/SCIENCE.md Part 2, lactate dehydrogenase reduces pyruvate to lactate, oxidizing NADH |
+| Uptake capacity | Tuned | A finite ladder of transport steps. Neither the steps nor their number is sourced |
+| NAD+ has run out | Sourced | docs/SCIENCE.md Part 2, the NAD+ constraint |
+| *coach mark, paragraph 1* | Sourced | docs/SCIENCE.md Part 2, the NAD+ constraint |
+| *coach mark, paragraph 2* | Sourced | docs/SCIENCE.md Part 2, glycolysis halts within seconds regardless of glucose availability |
+| Show me what recycles it | Sourced | docs/SCIENCE.md Part 2, fermentation exists to regenerate NAD+ |
+| *required disclosure* | Sourced | docs/SCIENCE.md Part 1, required disclosure text |
+| No saves yet. A refresh loses the run. | Tuned | A statement about this build, not about biology. Saves land in V4 |
+
+**Stated plainly: no string carries a number that could not be traced.** Exactly one string contains a number at all, the top bar's ATP trace, and it is `4 ATP gross and 2 net per glucose`, which is docs/SCIENCE.md Part 2 lines 131 to 138 verbatim. Every other entry is a name, a label or a sentence with no figure in it. Nothing needed a `Needs source` badge, and nothing needed inventing.
+
+Two decisions inside that table worth defending. Badges were applied to **every** string, not only the quantitative ones, because a molecule name is a checkable claim too and the badge is where a reader finds out whether anyone checked it; where a name is really a modeling decision the badge says Tuned and says why, which is the case that would otherwise pass silently. And `Elapsed` is **Tuned rather than Sourced** because docs/SCIENCE.md Part 1 says game time is arbitrary and maps to no real timescale, so badging the clock Sourced would imply a game-second means something.
+
+**Two findings for later stages.**
+
+The **coach mark fits in two paragraphs**, which the stage said to report if it did not. It does, and that is a result rather than luck: the constraint is genuinely one idea, that the pool is small and fixed and the payoff phase is the only thing that spends it. What did **not** fit is the part players find most surprising, that fermentation buys throughput and buys exactly zero yield. That is a second idea, DESIGN.md's two-paragraph ceiling is hard, and cramming it in would break the ceiling to make a point about honesty. It belongs on the unlock itself in stage 6, or in a teaching panel, which is out of scope. Flagged rather than smuggled in.
+
+The **required disclosure from docs/SCIENCE.md Part 1 now renders on screen**, quoted verbatim. That document says it must appear in-game "in the about screen and on first launch, not buried in a repo file", and the slice has no about screen and no first-launch flow, so it sits in the act screen footer. This was not in the stage spec. It went in because stage 3 is the stage that made player-facing text a real thing, and shipping the first player-facing text while the one piece of text docs/SCIENCE.md actually mandates stayed in a repo file would be the exact failure the badge contract exists to prevent. `No saves yet. A refresh loses the run.` sits beside it, per the log's Decisions section.
+
+**Verify.** `npm test` 113 passed, unchanged from stage 2, since this stage added mechanism rather than new simulation behaviour and its own guard is the build. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean and exit 0 with the probe removed, 214.50 kB JS and 17.23 kB CSS.
 
 ---
 
@@ -325,7 +513,62 @@ important colour decision.
 
 ## Stage 4 Report
 
-_Pending._
+**There is no path data anywhere in `src/ui/components/Blob.tsx`.** No hand-authored shapes at all. A blob is handed a carbon weight and a phosphate weight and draws itself, and those weights are read out of `act1PoolDefinitions()`, which is the same conserved-quantity table the conservation test asserts against. Change glucose from six carbons to five and the picture changes in the same commit. That is what makes DESIGN.md's central claim a dependency in the code rather than a sentence in a document, and it is the thing this stage was for.
+
+**The derived geometry, printed by the code rather than transcribed beside it.** `src/ui/__tests__/blobTable.report.test.ts`, same posture as the conservation test's worst-drift readout.
+
+    pool            carbon   sides    phosphate    dots   shape
+    ------------------------------------------------------------
+    glucose_env         6         6           0       0   silhouette
+    glucose             6         6           0       0   silhouette
+    g3p                 3         3           1       1   silhouette
+    pyruvate            3         3           0       0   silhouette
+    lactate             3         3           0       0   silhouette
+    nad                 0         0           0       0   carrier
+    nadh                0         0           0       0   carrier
+    atp                 0         0           3       3   carrier
+    adp                 0         0           2       2   carrier
+    pi                  0         0           1       1   carrier
+
+Ten pools, eight cards. Sides equal carbons on all five carbon pools. Dots equal phosphate on all ten. The five zero-carbon pools get the carrier silhouette rather than a zero-sided polygon.
+
+`ATP = ADP + Pi` fell out of that table without being designed: three dots, two dots, one dot, and the arithmetic is visible on the rail. It is asserted in `illustration.test.ts` as a consequence of rule 2 holding over the real weights rather than as a separate claim, so if the phosphate column ever drifts, that is where it surfaces.
+
+**The test reads geometry, never claims.** It counts `L` commands in the rendered path and `data-role` circles in the rendered markup. It does not read a side-count attribute, because a component that reports its own side count can be wrong about it in exactly the way this test exists to catch. `data-role` says only which kind of shape was drawn. Rendered through `renderToStaticMarkup`, which required `Blob` to be a pure function of its props, and that turned out to be a load-bearing constraint rather than a convenience: the moment the illustration needed the runtime to draw itself, it would stop being testable as a property of the pool table.
+
+Twenty-four assertions across five groups. Rule 1 as a property over every carbon-bearing pool, plus the zero-carbon branch asserting no silhouette is emitted and a real carrier path is, plus a guard that both branches are non-empty so neither passes vacuously. Rule 2 over all ten pools. Rule 3 asserting NAD+ and NADH render byte-identical geometry and differ only in fill once the fill and the accessible label are normalised away. And two on irregularity: glucose's six vertices do not sit at a constant radius, and the same blob renders identically twice.
+
+**Rule 3 works, and the answer to the stage's question is yes.** The colour leaving is legible before the number is read, comfortably. Measured in the browser by sampling the fill attribute frame by frame:
+
+    t=0s   fill rgb(169 191 184)   electrons 0.00   NAD+ 29.99  NADH  0.01
+    t=1s   fill rgb(134 191 178)   electrons 0.26
+    t=2s   fill rgb( 35 191 160)   electrons 1.00   NAD+  0.00  NADH 30.00
+
+`oxidized` is a dull grey-green and `reduced` is a vivid teal, and they are far enough apart that peripheral vision catches the change on a card you are not looking at. Two screenshots of the same card three seconds apart are unmistakably different before you read either number. One silhouette, one fill, moving along the axis, exactly as DESIGN.md describes it.
+
+Two honest qualifications. First, **DESIGN.md's sentence is ambiguous and I had to pick a reading.** It says "when the redox pool drains, the player watches the NAD+ wall arrive as colour leaving", but NAD+ is the *desaturated* end of the axis, so as NAD+ drains, colour arrives rather than leaves. The implementation encodes the reduced fraction, so saturation rises into the wall and falls when fermentation runs. That is the reading that makes the encoding monotonic in one quantity, and the other reading would need the axis inverted against DESIGN.md's own token descriptions. Flagged for stage 7 rather than resolved here.
+
+Second, **the whole transition takes about three seconds and it happens at t=0.** With `ferment` disabled the pathway walls at roughly 3.05 game-seconds, so the entire redox story plays out before a player has finished looking at the screen and then never moves again. The encoding is correct and the pacing is not. That is not stage 4's to fix, it is a tuning consequence, and it is the strongest argument yet that `ACT1_NICOTINAMIDE_TOTAL` needs a docs/ECONOMY.md row.
+
+**Two illustration findings, both found by looking rather than by reasoning, both fixed.**
+
+**Blobs kept turning into faces.** The first version put NADH's two electron dots side by side in the upper half of the carrier, and the reduced carrier immediately read as a small character with two eyes. Then ATP's three phosphate dots in a horizontal row across the lower half read as eyes and a nose. DESIGN.md reserves faces for things that *are* characters: rule 6 gives ROS X eyes so hazards read as characters, and the beast has a face for the same reason. A carrier is not a character and a nucleotide is not a character. Electrons moved to a stacked pair on the upper-right edge, where they read as two particles being carried, which is what they are.
+
+The phosphate fix is the better of the two because the visual reason and the biological reason agreed. **Phosphates are now a diagonal chain rather than a row**, because ATP's three phosphates really are a chain, alpha to beta to gamma, and hydrolysis really does take the terminal one off the end. A row of three says they are interchangeable, which is what makes "spending energy removes a dot" read as arbitrary instead of as the end of a chain coming off. Spacing and radius were then tuned so consecutive links do not touch, because the first chain overlapped itself and three versus two stopped being readable, which is the only thing rule 2 actually asks for.
+
+**A regular hexagon reads as a diagram, and at first it was one.** Vertex wobble was raised from 0.13 radius and 0.11 angle to 0.19 and 0.16 after looking at the rail: at the original values glucose still read as a neat hexagon, which is the one thing DESIGN.md says it must not do. The wobble is a deterministic integer hash of seed and vertex index rather than a random number, so each molecule has its own permanent shape and nothing reshuffles between renders. `src/ui/` is exempt from the determinism guard by the carve-out in `eslint.config.js`, but the reasoning behind that guard still applies to anything a player looks at twice.
+
+**Flux headline, stock subscript, and a sign that reads as a sign.** Net rate in `headline` type, stock in `micro` underneath, on every card. The rate is coloured live: `gain` green rising, `loss` red falling, `ink2` flat below 1e-6. That is not a decoration chosen for this card, it is DESIGN.md's own definition of those two tokens, which name "rising, healthy" and "falling numbers" explicitly. A falling pool and a rising one are distinguishable across the room without reading the minus. The colour is written straight to the node from the snapshot through a new `useLiveNode` hook, so nothing on the rail re-renders at tick rate.
+
+**The two pair cards follow different rules, deliberately.** The nicotinamide card draws **one** blob, because rule 3 says NAD+ and NADH are the same silhouette and drawing two would be drawing the same shape twice and throwing the encoding away. The adenylate card draws **two**, because rule 2 governs that pair instead, and putting ATP and ADP side by side is the only thing that makes a countable dot difference visible at all. Both show two stocks under one headline.
+
+**A note on my own lint rule.** It caught `fraction.toFixed(3)` in `PoolCard.tsx`, where the number was an SVG opacity rather than anything a player reads. Rather than adding a disable comment, the code was changed to quantise the fraction to a hundred integer steps and compare those, which sidesteps the rule and is better code anyway: the attribute is now written only when it visibly changed, rather than sixty times a second with a float differing in its twelfth decimal place. The rule was right to fire and the right answer was not an exception.
+
+**The ugly table is gone.** The rail says everything it said and says it with shape and colour instead of six decimal places. `App.tsx` is now the DESIGN.md layout with placeholders for stage 5's pathway card and stage 6's shelf, and `min-width: 0` is already set on the main grid column per DESIGN.md line 150, applied now rather than in stage 5 where it would be a bug fix.
+
+**Two layout findings for stage 7.** The **wordmark at up to 104px is very large for a persistent top bar**; it is DESIGN.md's own scale and it is followed here, but on a screen that has to carry eight pool cards, a pathway and a shelf it takes a permanent 100px band for a word that never changes. And the **rail is 1400px tall at eight cards**, so the bottom three are below the fold on a laptop, which matters because the carrier card is the one the whole act turns on and it is card six. Both recorded rather than acted on, since stage 4's job is the rail and stage 7's is what did not survive contact.
+
+**Verify.** `npm test` 138 passed across 15 files, up from stage 3's 113, 25 new. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean, 217.19 kB JS and 17.33 kB CSS. `npm run dev` in a browser at 1500x1100 with no console errors, showing the walled state unmistakably: uptake at +7.62/s in green, environment at -7.62/s in red, everything downstream at 0.00 in grey, glucose piled at 21.01 inside the cell, NAD+ at 0.00 against NADH at 30.00 on a fully saturated teal carrier, and ATP at 0.00 against ADP at 40.00.
 
 ---
 
@@ -378,7 +621,46 @@ that changed it has written to simulation state.
 
 ## Stage 5 Report
 
-_Pending._
+**Zero flux looks stopped. That is the stage and it works.** In the walled state the card shows one arrow flowing and four dead, and the two states do not resemble each other:
+
+    flowing   6px substrate-blue dashes travelling, solid ink track,
+              filled substrate arrowhead with an ink outline
+    stopped   no dashes at all, 2px ink3 hairline track,
+              hollow white arrowhead outlined in ink3
+
+Two different silhouettes rather than two speeds of one. Screenshotted running and walled: at eight game-seconds `uptake` is still pumping dashes into the cell while `prep`, `payoff`, `ferment` and `maintain` are all hairlines. Nobody would read that as "working slowly".
+
+**The zero-flux threshold is `ZERO_FLUX_THRESHOLD = 0.25`**, in applied pool units per game-second, in `src/ui/tuning.ts` with the rest of the provisional numbers.
+
+Chosen from a pixel rate rather than picked. At `DASH_PIXELS_PER_FLUX_UNIT = 6`, a flux of 0.25 moves a dash at 1.5 pixels per second, which is below the rate at which movement is perceptible against a static background at normal viewing distance. Above it the motion is visible; below it the arrow would be claiming to be alive while showing the player nothing they can actually see, which is the specific lie this stage exists to prevent. For scale, act 1's working fluxes run between roughly 7 and 26, so the inert treatment fires only when a reaction has dropped to about one to three percent of its working rate.
+
+It is a perception threshold reasoned from a pixel rate, not a measurement. Stage 7 is the first time anyone watches it with fresh eyes, and it owes a docs/ECONOMY.md row like everything else in that file.
+
+**`src/ui/tuning.ts` exists now**, with the same header treatment as `src/content/act1/tuning.ts` and the same status: provisional, tuned for nothing, not measurements, each owing a divergence row. Three values so far, `ZERO_FLUX_THRESHOLD`, `DASH_PIXELS_PER_FLUX_UNIT` and `DASH_LENGTH`, plus their Tuned badges with per-value reasons. Stage 6 adds the unlock thresholds to the same file.
+
+**Applied flux, not intended flux.** Speed reads `snapshot.appliedFlux`, which is `state.fluxes[r] * state.scales[r]`. Driving it from the intended flux would keep dashes flowing through a shortfall that has already stopped the reaction, which is a lie told at the exact moment the player most needs the truth.
+
+**Phase is integrated, and interpolated.** `stroke-dashoffset` is written from the snapshot every frame rather than handed to a CSS animation, because a CSS animation has to be restarted when the rate changes and a restart reads as a stutter carrying no information. The phase accumulates as the integral of rate over time, so a reaction that speeds up and slows down looks continuous rather than jumping. The clock it integrates against is `(elapsedMs + interpolation * TICK_MS) / 1000`, which is game time plus the sub-tick remainder `loop.advance` returns, and which docs/SIMULATION.md Part 1 passes to the renderer for exactly this. Confirmed live: sampling `stroke-dashoffset` across frames shows all four running arrows advancing and wrapping inside one dash period.
+
+It is read only. **The act 1 canonical hash is still `e9b720a8`** and the stage 1 test that frame timing cannot reach the simulation passes unchanged. A renderer that had moved the hash would have written to simulation state, and none of this does.
+
+**Reduced motion shows a rate for every arrow.** All five, including `ferment` at `0.00 /s` while it is disabled. Each renders through Figure with the reaction's own badge from `src/ui/content.ts`, so a reduced-motion player gets tabular figures and a source trace like everyone else.
+
+`src/ui/__tests__/pathway.test.tsx`, eighteen assertions. Every reaction renders a numeric rate under reduced motion; every one of those renders through Figure, asserted by the badge trace being present on the figure; and none of them renders a number when motion is allowed. That last one is not pedantry: if the number were always shown, the animation would be redundant decoration rather than the channel DESIGN.md says it is, and the reduced path would be untested by construction because it would look identical to the animated one.
+
+The reduced flag is a **normal prop on `PathwayArrow`**, not a hook read inside it, so the reduced path can be rendered and asserted without faking a media query. `PathwayCard` reads `usePrefersReducedMotion` once and passes it down.
+
+**A caveat on how reduced motion was verified, stated rather than glossed.** The rendered reduced path was confirmed in a real browser by temporarily forcing the flag on, screenshotting, and reverting. The **media query detection itself was not exercised in a browser**, because `Emulation.setEmulatedMedia` is not on the browse tool's CDP allowlist and there is no other way to flip the setting from here. The hook is small and its logic is ordinary, but "small and ordinary" is not "tested", so it is flagged. Stage 7 plays both reduced-motion settings and should do it through real OS settings, which is the only check that covers this.
+
+**One improvement past the spec, and one fix.**
+
+The **track dims when a reaction is stopped in both motion modes**, not only the animated one. Colour is not motion, so this is available to a reduced-motion player at no cost, and without it a stopped arrow under reduced motion looked exactly like a running one apart from a small number. DESIGN.md's point is that the reduced path should carry the same reading, not the same reading minus the obvious part.
+
+The **maintenance row was missing its phosphate.** It drew `atp -> maintain -> adp`, and this log's own screen sketch says `adp + pi`. Fixed, which meant letting a pathway row hold a group of products rather than a single one. Worth the change beyond correctness: the payoff phase consumes free phosphate two rows up, and without the phosphate drawn here it appears from nowhere. Now that row balances on sight, three dots in, two dots and one dot out.
+
+**Two smaller notes.** `min-width: 0` is set on every flex child in the card as well as on the grid column from DESIGN.md line 150, because a flex item defaults to `min-width: auto` and refuses to shrink below its content, which is the same bug wearing a different hat. And `g3p` is drawn twice, ending row one and starting row two, on purpose: the preparatory phase makes two trioses per glucose and the payoff phase consumes them one at a time, so drawing the handoff at both a line end and a line start makes it a visible seam rather than a wrap.
+
+**Verify.** `npm test` 156 passed across 16 files, up from stage 4's 138, 18 new. `npm run typecheck` clean. `npm run lint` clean, including the tabular-figures rule, which caught a `toFixed` on the dash offset and was again right to: an offset is not a number anybody reads, and the fix was to round without it rather than to add an exception. `npm run build` clean, 221.66 kB JS and 17.43 kB CSS. `npm run dev` watched in a browser through the running state, the walled state and the forced reduced-motion state, with no console errors.
 
 ---
 
@@ -460,7 +742,103 @@ exactly what changed it, and freeze it.
 
 ## Stage 6 Report
 
-_Pending._
+**The act happens now.** The wall arrives, the shelf lights up, the coach mark opens on it, and buying lactate dehydrogenase brings a dead cell back inside two ticks.
+
+**Two things bought, neither with ATP.** `runtime.buyFerment()` flips the `enabled` flag `createAct1` already takes. `runtime.buyUptakeStep()` walks an enumerated ladder. Both refuse unless the cumulative meter has reached the threshold, and **neither subtracts from the adenylate pool**, which is stated in three places in the code because it is the thing a future contributor is most likely to helpfully break. Subtracting from a fixed, closed, conserved pool breaks the conservation test on the tick it happens; it is also the more honest statement about a cell, which does not save up ATP but produces it at a rate.
+
+**The tuning table.** Every number in `src/ui/tuning.ts`, all of them Tuned, each with its own reason string rather than a shared one, because "Tuned" without a reason is a badge that says nothing.
+
+| Value | Number | Tuned reason |
+| --- | --- | --- |
+| `ZERO_FLUX_THRESHOLD` | 0.25 | Below this an arrow reads as stopped rather than slow. A perception threshold, not a measurement |
+| `DASH_PIXELS_PER_FLUX_UNIT` | 6 | How fast the pathway looks. Chosen by watching it |
+| `DASH_LENGTH` | 8 | Dash and gap in pixels. One period is twice this |
+| `FERMENT_ATP_THRESHOLD` | 55 | Bounded above by the measured cumulative-ATP ceiling of a walled cell, which is 60. Above that the unlock is unbuyable |
+| `UPTAKE_VMAX_STEPS` | 8, 10, 12 | A finite ladder of three steps. Hard rule 3 forbids an upgrade with no last step |
+| `UPTAKE_ATP_THRESHOLDS` | 1500, 12000 | Spaced so the ladder is climbed across the session rather than in its first minute |
+| `ACT1_GLUCOSE_ENV_INITIAL` | 80000 | In `src/content/act1/tuning.ts`, because the environment is content. See step 5 below |
+
+**Two of those were set by measurement rather than by preference, and one of them overturned this log's own Decisions section.**
+
+**The ferment threshold is bounded from above by a hard fact.** With ferment disabled, the nicotinamide pool is the ceiling on everything: each NAD+ that becomes NADH yields its 2 ATP once and never again, so cumulative gross ATP converges to **exactly 60.000000** and stops there forever. Any threshold at or above 60 is unbuyable, and a player would sit at a wall whose solution they could never afford. `src/ui/__tests__/unlockPacing.report.test.ts` asserts that ceiling exists rather than trusting the comment. 55 puts the unlock in reach just as the pathway dies.
+
+**The uptake ladder stops at 12 because measurement says it must, and this replaced the planned 8, 12, 18, 26.**
+
+    uptake Vmax   time to 30000 cumulative ATP
+    8             17m05s
+    9             15m11s
+    10            13m40s
+    11            12m26s
+    12            11m24s
+    14            11m03s
+    18            11m03s
+
+The knee is exactly at 12, and it is at 12 because `prep` runs at Vmax 12 in `src/content/act1/tuning.ts`. Above that, uptake delivers glucose the preparatory phase cannot consume. **Steps 3 and 4 of the planned ladder would have sold the player nothing.**
+
+This contradicts this log's Decisions section, which says uptake is rate-limiting by construction and therefore the one lever worth selling. That is true only up to 12. The tempting alternative was to ship the full ladder and let the last step teach saturation the hard way, and it was rejected: a purchase that does nothing is a purchase that does nothing, and the fact that it would *look* like it should work is exactly why it must not ship. The saturation lesson still lands, because buying capacity makes glucose visibly pile up inside the cell on the rail while ATP per second rises less than proportionally. **A future log that wants a longer capacity ladder has to sell preparatory-phase capacity too**, and that is the real finding here.
+
+**Step 5, the environment drain, resolved. `ACT1_GLUCOSE_ENV_INITIAL` raised from 10000 to 80000, and this is a DEFERRAL, not a fix.**
+
+Sized against the top of the ladder rather than against a feeling. Uptake runs near saturation while the environment is far above its Km of 500, so drain is roughly linear at Vmax, and 80000 over Vmax 12 is about 111 game-minutes of continuous maximum uptake. Re-measured through `npm run sim:drain` after the change:
+
+    uptake Vmax   crosses 400        env at end    atp at crossing
+    8             not in 150 min        9087.55    -
+    10            137m 04.9s               0.00    4.373e+0
+    12            114m 14.1s               0.00    1.661e+1
+
+Against docs/PROGRESSION.md's 45 to 90 minutes for act 1, a player who buys every upgrade the moment it is available and plays for the full 90 minutes still has roughly 24 minutes of headroom, and a player who buys nothing never approaches it at all.
+
+**Why the other two options lose.** A **replenishment boundary flux** is the biologically honest answer, since a cell in a microbial mat sits in a resupplied medium, but a reaction producing carbon from nothing breaks conservation on its first tick, and teaching the conservation test to treat `glucose_env` as a boundary is an edit to a V1 guard that a UI log has no business making in passing. **Repairing the bootstrap trap itself** is the real fix, and it is an economy decision: it means either a maintenance rate that backs off as ATP falls, or a floor under the preparatory phase, and both are exactly the sort of number docs/ECONOMY.md exists to own.
+
+**Stated plainly: the pathway can still reach an unrecoverable state, and the NOW.md blocking item stays open.** The trap has been moved beyond the horizon of act 1, not removed. Any future change that raises uptake capacity, lengthens the act, or lowers that number brings it straight back.
+
+**The canonical hash moved, deliberately, and is re-frozen.**
+
+    act 1 toy pathway   172f83fb   unchanged
+    act 1               e9b720a8 -> 657594cb
+
+**Exactly one thing changed it**: `ACT1_GLUCOSE_ENV_INITIAL`, from 10000 to 80000. Starting amounts are hashed state. No coefficient, no pool, no ordering, no rate and no kinetic form was touched. The reason is written into the assertion in `src/content/act1/__tests__/determinism.test.ts` rather than left as a bare number, because that line exists precisely to make a change like this visible. One other test moved with it: `pools.test.ts` asserted a hardcoded initial carbon total of 60000, and now reads the environment size from `tuning.ts`, since what that assertion is actually about is that all the carbon starts outside the cell at a weight of 6, not what the environment happens to be sized at this week.
+
+**Step 6, the 20000-tick stall. It recovers, and here is how.** 1000 game-seconds walled, which is 16.7 minutes, then ferment is bought:
+
+    at the moment ferment is bought
+      nad             4.941e-324    denormal
+      nadh            30.000000     the entire carrier pool, reduced
+      atp             4.941e-323    denormal
+      g3p              6.800728     THE WAY BACK IN
+      glucose       7929.28         piled up inside the cell
+      atp produced    60.000000     frozen at the ceiling for 16 minutes
+
+    payoff phase restarts after 2 ticks
+
+    100 game-seconds later
+      nad             16.317126
+      atp             16.608961
+      atp produced  4544.856375
+      payoff flux     22.684287 /s
+
+**The mechanism is the interesting part and it is now a test rather than an argument.** ATP is at denormal when the unlock lands, so the preparatory phase cannot pay its 2 ATP entry cost and cannot be what restarts the pathway. What saves it is that the stall *strands* g3p rather than consuming it: 6.8 units of triose sit in the pool for the whole sixteen minutes, so the moment NAD+ returns the payoff phase has substrate waiting, runs immediately, and makes the ATP the preparatory phase then needs. `src/ui/__tests__/stallRecovery.test.ts` asserts both the outcome and the mechanism, so a future balance change that consumes g3p during a stall fails here rather than silently making the wall unsolvable.
+
+Two ticks is 100 milliseconds. NOW.md flagged instant recovery as possibly anticlimactic; sixteen minutes of stall does not change that at all. Stage 7 judges it.
+
+**Step 3, the two failure states, distinguishable at a glance with no text label.** Reachable now without editing code, through `src/ui/scenario.ts`: `/?glucose=500` for starved, `/?ferment=on` to skip the wall. A development affordance, not DESIGN.md's Sandbox screen, and it changes nothing for a player who types no query string.
+
+    walled     ONE arrow flowing and four dead hairlines. Glucose piled at 30
+               inside the cell against a full environment. Every downstream
+               pool card reading exactly 0.00 in grey. Carrier fully saturated
+               teal, NAD+ 0.00 against NADH 30.00.
+
+    starved    ALL FIVE arrows flowing, slowly. Every intracellular pool near
+               zero, glucose 2.75, g3p 0.84, pyruvate 0.84, each net rate
+               hovering at -0.01 in red. Nothing accumulating anywhere.
+
+The silhouettes are not similar. Walled is one live arrow among corpses plus one large number; starved is a whole pathway alive and starving. V2 stage 5 said the flux column alone separates them, and the screen does the same thing with motion and colour instead of digits. Whether it reads that way to someone who has not just built it is stage 7's to answer.
+
+**The coach mark, and one deviation.** All four DESIGN.md anatomy parts render: heading with its badge inline, two paragraphs, a full-width action button, and the mandatory source row pointing at docs/SCIENCE.md Part 2. Both trigger behaviours are built behind `COACH_MARK_TRIGGER` in `src/ui/components/CoachMark.tsx`, currently `'auto'`, and neither is chosen. `auto` fires **once**, tracked in a ref rather than state, because the walled condition is true on every frame until the player acts and a mark that reopens every frame is not teaching.
+
+The deviation: it is rendered as an **absolutely positioned overlay** rather than inline in the card. Inline, in a 17rem rail, it came out at about twenty characters a line, which is readable and horrible against DESIGN.md's "comfortable in prose at 64ch". DESIGN.md's own screen inventory lists the coach mark as an overlay, so this is closer to the specification rather than further from it, and it also stops the mark shoving the six cards below it down the page when it opens.
+
+**Verify.** `npm test` **160 passed** across 18 files, up from stage 5's 156. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean, 229.33 kB JS and 17.85 kB CSS. `npm run dev` in a browser with no console errors: watched the wall arrive, the coach mark auto-open on it, the shelf light up at 60 of 55 ATP made with the uptake slot still dimmed at 60 of 1500, then bought lactate dehydrogenase from the coach mark's own action and watched all five arrows come alive, lactate climb at +22.59/s, the carrier return to a NAD+ 16.87 against NADH 13.13 mix with the blob's fill moving back down the redox axis, and ATP recover to 11.64.
 
 ---
 
@@ -553,7 +931,160 @@ recommendation.
 
 ## Stage 7 Report
 
-_Pending._
+**The play session.** Roughly 25 minutes of real time across four runs, notes taken while playing rather than reconstructed. Game time runs 1:1 with real time, so elapsed minutes below are both.
+
+    run 1   auto trigger, normal motion. Wall met, coach mark auto-opened,
+            bought lactate dehydrogenase from the coach mark's own action,
+            then ran on. Bought both uptake steps at 6.0min and 7.1min.
+            Sampled every minute to 8 minutes.
+    run 2   manual trigger, normal motion. Wall met, coach mark stayed shut,
+            opened by hand from the info affordance.
+    run 3   reduced motion forced on. Walled state read with no animation.
+    run 4   auto trigger again, after the shelf fix below. Bought from the
+            coach mark, then ran 8 minutes untouched with an affordable
+            upgrade deliberately left unbought.
+
+Also `/?glucose=500&ferment=on` for the starved state, which a player cannot otherwise reach now that the environment is sized past it.
+
+**One real defect found by playing, fixed.** Buying lactate dehydrogenase from the **coach mark's** action button left the shelf still showing an unbought slot reading "14157 of 55 ATP made". The shelf seeded its bought-state from the snapshot once at mount and updated it only in its own click handler, so two views of one fact existed and one was not watching. It now derives everything from the snapshot every frame and the click handlers set nothing. Exactly the class of bug that only appears when you use the thing two different ways, which is what step 1 is for.
+
+---
+
+### The two docs/BRIEF.md line 110 questions
+
+Standing caveat first, in the posture V2 stage 6 set: these readings come from the person who built it, who knows where the wall is and what solves it. That is the least reliable possible reader of whether a teaching beat teaches.
+
+**Does the NAD+ wall read as interesting rather than annoying? Yes, and it is the strongest thing in the build.**
+
+It is a genuine event with a beginning, a middle and a cause. The pathway reaches full flux, holds it, then decays over about a second and stops at roughly three game-seconds. What sells it is that the failure is visibly not starvation: the environment is still full, glucose is piling up *inside* the cell, and the uptake arrow keeps pumping at full rate while the four downstream arrows drop to hairlines. You are looking at a cell drowning in food that has stopped eating. That reads as a puzzle rather than as a punishment, which is the whole difference between interesting and annoying.
+
+The carrier card says why before any number is read. The blob goes from dull grey-green to vivid teal across three seconds as NAD+ becomes NADH, sampled frame by frame at `rgb(169 191 184)`, `rgb(134 191 178)`, `rgb(35 191 160)`, with the two electron dots fading in on the same axis. DESIGN.md calls this its single most important colour decision and it earns that.
+
+**Do saturating kinetics feel like a game? No, not yet, and the reason is not the kinetics.**
+
+The curves themselves behave and the bottleneck is legible. Buying uptake capacity produced an immediate, visible, correctly-shaped response: ATP per second 31.79 to 39.74, glucose per second 7.95 to 9.94, lactate +15.90 to +19.87, and then a re-settle within twenty seconds. Watching a rate step up and level off *is* reading a saturating system, and the second step gave less than the first.
+
+The problem is the gap between purchases. **Once act 1 is solved the screen stops changing entirely.** Every net rate reads exactly 0.00 except lactate, ATP per second is pinned at 31.79 to 31.80, and it stayed there for eight consecutive minutes with an affordable upgrade deliberately left unbought. The only thing in motion is a cumulative counter the player cannot see.
+
+That is correct simulation, and the flux-is-the-headline inversion is what surfaces it honestly rather than hiding it behind a stock that keeps climbing. It is also a game with two events in it and ten minutes of nothing in between. Saturating kinetics cannot feel like a game while there is nothing arriving for them to respond to. This is now NOW.md blocking item 2 and it belongs to docs/ECONOMY.md, not to an interface log.
+
+---
+
+### The four things NOW.md said V3 had to measure
+
+**1. Does the stall read as an interesting constraint or as the game breaking?** As a constraint. The distinguishing evidence is the glucose card: it is the one number still growing while everything else is dead, and a game that had simply broken would not keep one thing conspicuously working. The uptake arrow still flowing while four hairlines sit under it is the same statement in motion. Nothing about it reads as an error state.
+
+**2. Is the instantaneous recovery satisfying or anticlimactic? Satisfying, and the worry was misplaced.** Measured from a 20000-tick stall, 16.7 minutes: the payoff phase restarts after **2 ticks**, 100 milliseconds. On screen five dead arrows come alive in the same frame, lactate goes from 0.00 to +22.59/s, and the carrier blob starts travelling back down the redox axis. It does not read as a cheat because the reason is visible: the stall stranded 6.8 units of g3p in the pool for the whole sixteen minutes, so there was substrate waiting the instant NAD+ returned. A ramp would have been less honest and no more satisfying.
+
+**3. Does a player watching ATP per second jump while ATP per glucose does not move draw the intended conclusion?** The conclusion is available and it is not forced. On unlocking fermentation, ATP per second went 0.00 to 36.48 to 41.87 across four seconds while glucose per second stayed at exactly **7.95, unchanged**, in the headline readout immediately beside it. Two large numbers side by side, one of which moved enormously and one of which did not, is as clean a statement of "this bought throughput and not yield" as the screen can make without writing a sentence. **This is the one of the four I am least able to answer**, because knowing the answer in advance makes the display look more eloquent than it is. It needs a reader who is not me.
+
+**4. Are walled and starved distinguishable at a glance now that they are rendered?** Yes, unmistakably, with no text label.
+
+    walled     one arrow flowing, four grey hairlines with hollow heads.
+               glucose piled at 30 to 47 inside the cell against a full
+               environment. every downstream card reading exactly 0.00 in grey.
+               carrier fully saturated teal, NAD+ 0.00 against NADH 30.00.
+
+    starved    all five arrows flowing, slowly. every intracellular pool near
+               zero, glucose 2.75, g3p 0.84, pyruvate 0.84. every net rate a
+               small red negative. nothing accumulating anywhere.
+
+One is a pathway with a blockage; the other is a pathway with nothing in it. They do not resemble each other.
+
+**The coach mark trigger: `auto`, and here is why.** Under `manual` the cell stalls and **nothing on the screen explains it**. The shelf lights up and describes what lactate dehydrogenase does, but nothing says why you need it, and the only explanation is behind a 16px info affordance a first-time player has no reason to notice. Under `auto` the mark opens at the moment the thing it explains happens, fires exactly once, carries the fix as its own action button, and is dismissible. The failure mode of `auto` is interruption, and it cannot nag because it never reopens; the failure mode of `manual` is a player sitting in front of a dead cell with no way in. That asymmetry decides it. Recorded in NOW.md as chosen-but-weakly, because I am the wrong reader for exactly this question.
+
+---
+
+### Coherence sweep
+
+Fixed rather than reported, per the stage.
+
+- **Decorative motion was not reduced-motion gated.** The pathway dashes were handled in stage 5, but the 80ms button press transition was not, and neither would anything a later log added be. `src/index.css` now carries a global `prefers-reduced-motion` block that collapses transition and animation durations. It cannot reach the pathway dashes by accident because those are driven from JavaScript, and it should not: DESIGN.md's obligation is that informational motion is *replaced*, not disabled, and only `PathwayArrow` can put a number on the screen in its place.
+- **The shelf state bug** above.
+- Swept and clean: no `Math.random`, `Date.now` or `new Date` anywhere in `src/ui/` outside comments; no `toFixed`, `toPrecision` or `toLocaleString` in any `.tsx` outside `Figure.tsx`, both remaining mentions being comments explaining why the code avoids them. Gradients, blurred shadows, unbadged figures and stray colour tokens are all covered by tests and the lint rule rather than by this sweep.
+
+---
+
+### Verify
+
+`npm run typecheck` clean. `npm run lint` clean. `npm run build` clean. `npm run dev` in a browser with no console errors.
+
+**Tests: 160 passed across 18 files, against V2's 95.** 65 new.
+
+    runtime.test.ts           10   bridge fidelity, frame timing, the offline hole
+    designSystem.test.ts       8   shadows, gradients, the DESIGN.md colour parse
+    illustration.test.ts      24   rules 1 to 3 as properties over the pool table
+    blobTable.report.test.ts   1   derived geometry readout
+    pathway.test.tsx          18   the reduced-motion obligation
+    stallRecovery.test.ts      2   20000-tick recovery, outcome and mechanism
+    unlockPacing.report.test   2   the walled ATP ceiling, unlock pacing
+
+**Bundle, against V2's 193.37 kB.** V2's figure was JS alone, with no interface and nothing importing the content layer.
+
+    JS      229.44 kB   +36.07 kB   React actually used, plus the runtime, thirteen
+                                    components, the content and tuning tables and
+                                    the whole act 1 content layer
+    CSS      18.04 kB   +18.04 kB   the token block, the utilities it generates and
+                                    the reduced-motion block
+    fonts    68.86 kB   +68.86 kB   Fredoka 29.73 + Nunito 39.13, woff2, latin only
+    -------------------------------
+    total   316.34 kB  +122.97 kB
+
+Fonts are 56 percent of the growth and 22 percent of the payload, which is the price of self-hosting and is the right price: a Google Fonts link would show 0 kB here and a network dependency at first paint. JS gzips to 72.36 kB.
+
+**Hashes.**
+
+    toy pathway   172f83fb   unchanged, as required
+    act 1         e9b720a8 -> 657594cb   changed by stage 6, deliberately
+
+Stage 6 changed the pathway, which the stage spec explicitly permits reporting. Exactly one thing moved it: `ACT1_GLUCOSE_ENV_INITIAL` from 10000 to 80000, and starting amounts are hashed state. No coefficient, pool, ordering, rate or kinetic form was touched, and the reason is written into the assertion itself rather than left as a bare number. **The interface moved neither hash.** Everything V3 built reads simulation state and never writes it, which is what the stage 1 frame-timing test exists to keep true.
+
+---
+
+### DESIGN.md diff summary
+
+Status line replaced: it said "proposed, no code exists yet", which had been false since stage 2.
+
+New **"What survived contact"** section in three parts. *Implemented and working*: the tokens, type scale, spacing, shadow and radius rules; tabular figures; the badge contract and its release gate; illustration rules 1 to 3; flux-is-the-headline; motion as rate; the reduced-motion obligation; the no-gradient and hard-shadow rules. *Deferred deliberately*: illustration rules 4 to 6, the beast, the timeline, the teaching panel, every other screen. *What turned out to be wrong*, which is the valuable half: two dots on a blob read as a face and collide with rule 6's ROS; the "colour leaving" sentence is backwards against its own token definitions; the wordmark scale does not fit a persistent top bar; a coach mark cannot live inside a 17rem rail; `Needs source` yellow is correctly not in the palette and the document should say so; and nothing in the document covers rendering a system at steady state.
+
+Open question 3 **closed as stale**: it claimed the docs sit at the repository root and roughly 25 references were dead. They are in `docs/`, they resolve, and there was nothing to fix. Open question 6 **closed by mechanism**. New open question 7, the steady-state treatment, which is now the largest open visual question. Eleven rows added to the decisions log.
+
+### NOW.md diff summary
+
+Status rewritten: the slice is playable and one and a half questions are answered. Build state table: **V3 done 2026-07-29**. New **"What the interface does"** section, sibling to the kernel and content sections. "Why the UI waits" replaced by **"What the interface answered"**, carrying both answers with the who-is-reading-this caveat stated rather than implied. "The vertical slice": V3 done, slice complete.
+
+**On extending the build state table**, which line 30 made conditional on V3 answering the questions: **not extended, deliberately**, and the reason is recorded in the table itself. Question 1 came back negative, so writing a V6 act 2 row while act 1's own loop has a known hole in it would be planning on top of a defect. What the answers license is docs/ECONOMY.md, not more content.
+
+**Blocking** now has two items. Item 1, the ATP bootstrap trap, is **restated and left open**: V3 deferred it rather than fixing it, and the trap returns with any change that raises capacity, lengthens the act or lowers the environment size. Item 2 is new: **a solved act 1 is a static screen**, which is the finding the whole log existed to produce.
+
+**Open, not blocking** gained the coach mark trigger, the docs/ECONOMY.md debt now itemised at twenty numbers across two files, the uptake ladder's Vmax 12 ceiling and what it implies for act 1's next unlock, the backgrounded-tab hole, unlock state not being hashed and what that means for V4, the untested reduced-motion media query, and the two DESIGN.md items that did not survive contact. The instantaneous-recovery item is **closed with a measurement** rather than left open.
+
+**Next, in order** is now docs/ECONOMY.md, then V4, then V5, with ECONOMY.md first because both blocking items are its to resolve and building saves on an economy with a known hole means saving the hole.
+
+---
+
+### Step 8: is it time to write docs/ECONOMY.md?
+
+**Yes, and it should be the next thing written, ahead of V4.** NOW.md said it needed a playable prototype first. There is one. More than that, V3 produced two findings that are explicitly its to resolve and nobody else's: the ATP bootstrap trap, which is a balance decision between a maintenance rate that backs off as ATP falls and a floor under the preparatory phase; and the static mid-game, which is why question 1 came back negative. V3 could measure both and was right not to fix either.
+
+**This log does not write it.** The rows it would owe, twenty numbers across two files:
+
+    src/content/act1/tuning.ts
+      ACT1_VMAX               uptake 8, prep 12, payoff 26, ferment 26, maintain 50
+      ACT1_KM                 uptake 500, prep 4, payoff 2, ferment 2, maintain 20
+      ACT1_HILL_N             2
+      ACT1_NICOTINAMIDE_TOTAL 30
+      ACT1_GLUCOSE_ENV_INITIAL 80000        raised from 10000 by V3 stage 6
+
+    src/ui/tuning.ts
+      ZERO_FLUX_THRESHOLD       0.25
+      DASH_PIXELS_PER_FLUX_UNIT 6
+      DASH_LENGTH               8
+      FERMENT_ATP_THRESHOLD     55           bounded above by a measured 60
+      UPTAKE_VMAX_STEPS         8, 10, 12    bounded above by prep's Vmax of 12
+      UPTAKE_ATP_THRESHOLDS     1500, 12000
+
+Three of those are no longer free parameters and the divergence table should record why. `FERMENT_ATP_THRESHOLD` cannot reach 60, because a walled cell's cumulative ATP converges there and stops, so a higher threshold is unbuyable. `UPTAKE_VMAX_STEPS` cannot usefully exceed 12, because `prep` runs at 12 and uptake above it delivers glucose nothing can consume. And `ACT1_GLUCOSE_ENV_INITIAL` is sized against the top of that ladder, so it moves whenever the ladder does. Those three are a constraint system rather than three independent knobs, and that is the most useful thing V3 learned about act 1's economy.
 
 ---
 

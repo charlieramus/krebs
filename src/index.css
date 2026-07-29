@@ -1,1 +1,188 @@
 @import 'tailwindcss';
+
+/* ===========================================================================
+   FONTS, SELF-HOSTED
+
+   No link to fonts.googleapis.com and no @import of a remote stylesheet.
+   CLAUDE.md says no network dependency for core play and first paint is core
+   play. See src/ui/fonts/README.md for the licence and the source.
+
+   Both faces are variable, so one file covers the whole weight range DESIGN.md
+   asks for. font-display: swap because a cartoon that will not paint until a
+   font arrives is worse than a cartoon that repaints once.
+
+   The fallback stack behind each is a rounded system stack, in the direction's
+   own spirit rather than dropping to Arial. ui-rounded resolves to SF Pro
+   Rounded on Apple platforms and is ignored elsewhere.
+   =========================================================================== */
+
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('./ui/fonts/fredoka-latin-var.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('./ui/fonts/nunito-latin-var.woff2') format('woff2');
+}
+
+/* ===========================================================================
+   THE TOKENS
+
+   Every value below is transcribed from DESIGN.md, under the name DESIGN.md
+   gives it. Nothing here is invented.
+
+   A token that exists because a component wanted it is how a design system
+   becomes a suggestion, so this block does not grow to accommodate a call site.
+   If a component needs a value that is not here, either DESIGN.md is missing
+   something and DESIGN.md gets edited, or the component is wrong.
+   =========================================================================== */
+
+@theme {
+  /* ---- Surfaces. DESIGN.md, Colour, Surfaces. ------------------------- */
+  --color-page: #cfede9;
+  --color-cream: #fdfbe4;
+  --color-pink: #fbdfec;
+  --color-mint: #def3e5;
+  --color-sky: #ddeefb;
+  --color-lilac: #e9e4f9;
+  --color-white: #ffffff;
+
+  /* ---- Ink. One near-black for every outline and all text. ------------ */
+  --color-ink: #16162e;
+  --color-ink2: #5a5a78;
+  --color-ink3: #9494ac;
+
+  /* ---- Semantic. Carries simulation state. ---------------------------- */
+  --color-atp: #f5883c;
+  --color-reduced: #23bfa0;
+  --color-oxidized: #a9bfb8;
+  --color-substrate: #5aa9e6;
+  --color-loss: #e8503c;
+  --color-gain: #34b276;
+  /* Act 3 proton motive force. The name is DESIGN.md's and it is kept
+     verbatim. It does not collide with a Tailwind utility: v4 spells gradients
+     bg-linear-*, bg-radial-* and bg-conic-*, so bg-gradient is free. */
+  --color-gradient: #3fc9e0;
+  --color-nitrogen: #c3ce3c;
+
+  /* ---- Type. DESIGN.md, Typography. ----------------------------------- */
+  --font-display: 'Fredoka', ui-rounded, 'Segoe UI Variable Display', 'Trebuchet MS',
+    system-ui, sans-serif;
+  --font-body: 'Nunito', ui-rounded, 'Segoe UI Variable Text', 'Trebuchet MS', system-ui,
+    sans-serif;
+
+  /* The ranged sizes in DESIGN.md's scale are ranges because they are
+     responsive. clamp expresses that directly rather than needing a breakpoint
+     at every step. The fixed one, body at 15.5px, is not clamped. */
+  --text-wordmark: clamp(60px, 6.5vw, 104px);
+  --text-h2: clamp(26px, 3vw, 38px);
+  --text-card-title: clamp(15px, 1.2vw, 17px);
+  --text-headline-num: clamp(26px, 3.2vw, 40px);
+  --text-body: 15.5px;
+  --text-label: clamp(11px, 1vw, 12px);
+  --text-micro: clamp(9.5px, 0.9vw, 10.5px);
+
+  --tracking-wordmark: -0.03em;
+  --tracking-h2: -0.01em;
+  --tracking-headline-num: -0.02em;
+  --tracking-label: 0.1em;
+
+  /* ---- Spacing. DESIGN.md: base unit 4px, scale 2 4 8 12 16 24 32 48 64.
+
+     Setting the base unit rather than emitting nine named steps. Tailwind v4
+     multiplies this by the utility number, so the DESIGN.md scale is exactly
+     p-0.5 p-1 p-2 p-3 p-4 p-6 p-8 p-12 p-16 and every one of them lands on the
+     4px grid by construction. Naming --spacing-2 as 2px would make p-2 mean
+     2px, which reads as 8px to anyone who has used Tailwind before, and a
+     design system whose scale is a trap is a design system people work around.
+     ------------------------------------------------------------------- */
+  --spacing: 4px;
+
+  /* ---- Borders, shape, shadow. ---------------------------------------- */
+  --outline-card: 2.5px;
+  --outline-pill: 2px;
+
+  --radius-card: 16px;
+  --radius-button: 12px;
+  --radius-pill: 999px;
+
+  /* THE HARD OFFSET SHADOW. No blur, ever. DESIGN.md calls it load-bearing:
+     it produces the paper cutout read, and a blurred shadow collapses the
+     whole direction into generic soft UI immediately. There is a test that
+     fails if a third length appears in a box-shadow anywhere in src/ui/. */
+  --shadow-hard: 4px 4px 0 var(--color-ink);
+  --shadow-hard-pressed: 0 0 0 var(--color-ink);
+
+  /* ---- Motion. DESIGN.md, Motion. ------------------------------------- */
+  --duration-micro: 80ms;
+  --duration-short: 180ms;
+  --duration-medium: 320ms;
+  --duration-long: 600ms;
+
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-move: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===========================================================================
+   THE PAGE
+
+   Everything numeric goes through the Figure component, which applies tabular
+   figures itself. The declaration is repeated here on the root because a
+   number that escapes Figure should still align rather than be wrong in two
+   ways at once. That is a backstop, not a licence: the lint rule in
+   eslint.config.js is what actually holds the line.
+   =========================================================================== */
+
+:root {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.6;
+  color: var(--color-ink);
+  background-color: var(--color-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* ===========================================================================
+   REDUCED MOTION
+
+   DESIGN.md's obligation has two halves and they pull in opposite directions,
+   so both are implemented in different places.
+
+   Motion that CARRIES INFORMATION must not simply be disabled, because nothing
+   in the game may be encoded in movement alone. That is the flowing dashes on
+   the pathway arrows, and they are handled in src/ui/components/PathwayArrow.tsx,
+   which swaps them for a static arrow plus an explicit numeric rate. Not here:
+   this block cannot add a number to the screen.
+
+   Motion that is DECORATION should just stop. That is everything else, and at
+   present it is the 80ms button press. Killing it globally is correct and it
+   is also the safe default for whatever a later log adds, since a transition
+   nobody thought about is far more likely to be decorative than load-bearing.
+
+   The pathway dashes are driven from JavaScript rather than from a CSS
+   animation, so this rule cannot reach them by accident.
+   =========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
