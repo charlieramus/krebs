@@ -142,7 +142,41 @@ e9b720a8.
 
 ## Stage 1 Report
 
-_Pending._
+The bridge exists and the numbers move. `npm run dev` renders act 1 in a browser for the first time in the project's history, and what it renders is the walled state, because `ACT1_ENABLED.ferment` is false and stage 6 has not built the unlock yet. Watching NAD+ go from 30 to 0 in a browser window is the first thing this repository has ever done that a console could not.
+
+**Files.** `src/ui/runtime.ts` is the bridge, `src/ui/RuntimeContext.tsx` is the React side of it, `src/ui/drain.ts` is the step 6 measurement behind `npm run sim:drain`, `src/ui/__tests__/runtime.test.ts` is the guard, `src/App.tsx` is the deliberately ugly readout and `src/ui/README.md` no longer says the directory is empty. One kernel file changed, `src/sim/loop.ts`, and that is step 1's problem below.
+
+**The `recordAct1Tick` problem, and how it was solved.** `createLoop` now takes an optional read-only `TickObserver` and calls it immediately after each `tick`, inside the while loop. The runtime passes `recordAct1Tick` as that observer, so metering is exactly as frequent as ticking by construction rather than by the driver remembering to match it.
+
+Everything else considered lost on the same point. The meter reads `state.fluxes` and `state.scales`, which are scratch arrays the next tick overwrites, so by the time `advance` returns the only surviving snapshot is the last tick's. `lastTickCount` reports how many ticks ran but cannot recover the ones already overwritten, which is what the stage spec meant by it not being enough. Chunking the frame delta into tick-sized pieces so each `advance` runs at most one tick was rejected for a concrete reason rather than an aesthetic one: it changes the order the accumulator adds floats in, so a frame delivered as one 150ms delta and the same frame delivered as three 50ms deltas would no longer be bit-identical, which is exactly the property the second half of the test file exists to assert. Metering from pool deltas instead of fluxes was rejected because a pool touched by two reactions cannot attribute its change to either.
+
+The kernel change is small, optional, and additive, so every existing call site is untouched. The observer's contract is written into `loop.ts` in as many words: it may not write to simulation state, because a write there would make game state a function of how often the driver calls `advance`, which is the exact dependency the fixed timestep exists to remove. Flagging it here rather than burying it: this is a V1 file and V3 edited it.
+
+**Test count: 105, against V2's 95.** Ten new, all in `src/ui/__tests__/runtime.test.ts`, none of the existing 95 modified.
+
+The two properties the spec named both hold. Driving the runtime with 400 frames of 50ms produces pool amounts, a tick count and a state hash identical to calling `tick` 400 times directly. And 400 regular 50ms frames against an irregular scripted sequence of 16 different deltas summing to exactly the same 20000ms produce identical tick counts, identical pool amounts and an identical hash, while differing in frame count, which is the point: the display saw two different worlds and the simulation saw one. The irregular deltas are a fixed pattern rather than PRNG output, because a test that depends on a random sequence cannot be re-run against its own failure.
+
+Three tests beyond the spec, each for a failure that would otherwise be silent. Metering is asserted across three framings of the same 200 ticks, one tick per frame, ten ticks per frame and all 200 in a single frame, and all three agree to twelve decimal places on ATP produced, glucose taken up and lactate produced, with the ledger still reading exactly 4 gross per glucose. That is the test that would have caught the step 1 bug had it been written wrong. The backgrounded-tab hole is asserted rather than merely described: five minutes arriving in one frame runs exactly `MAX_CATCHUP_TICKS` ticks and routes the remaining 290000ms to `pendingOfflineMs`. And the first frame of a run credits zero elapsed time however late it arrives, which is what makes `stop` then `start` resume instead of dumping the paused interval into the accumulator.
+
+**The backgrounded tab, surfaced and not fixed.** `pendingOfflineMs` is on the snapshot, printed in the readout, and captioned on the page as game time lost to a backgrounded tab that V5 will own. It reads zero for every normal frame size.
+
+**Environment drain, measured through the runtime.** `npm run sim:drain`, ferment enabled, `glucose_env` starting at 10000, 120 game-minutes per row.
+
+    uptake Vmax    crosses 400    env at end    atp at crossing    atp at end
+    8 (default)      23m 21.2s          0.00           3.341e+0    4.941e-323
+    12               15m 34.1s          0.00           5.509e+0    4.941e-323
+    18               10m 22.8s          0.00           1.661e+1    3.953e-323
+    26                7m 11.1s          0.00           1.661e+1    4.941e-323
+
+This log's arithmetic guessed roughly 21 minutes at the default Vmax. The measured figure is 23m 21.2s, so the estimate was close and slightly optimistic. The 26 row is a placeholder for the top of the capacity ladder stage 6 has not designed yet, and it is where the other downstream Vmax values already sit, since selling uptake past the point where it stops being rate-limiting sells nothing. Stage 6 owns the real number.
+
+The trap is confirmed rather than inferred. Every row ends with `glucose_env` at exactly 0.00 and ATP at 4.9e-323, which is denormal, one or two ulps above zero. The cell does not recover in the remaining 90-plus minutes of any row. Against docs/PROGRESSION.md's 45 to 90 minute target for act 1, a player who buys the capacity upgrades at all reaches an unrecoverable state between 7 and 23 minutes in. Measured, not fixed, per the stage spec. Stage 6 decides.
+
+**A finding for stage 6, from the browser rather than the harness.** Under the walled state ATP also decays to exactly 0.000000 while `maintain` keeps hydrolysing, so by roughly 15 game-seconds the screen shows every flux at zero except `uptake`, glucose piling up inside the cell, NAD+ at zero and NADH at 30. V2 stage 4 only ever tested recovery from a 600-tick stall. Stage 6 step 6 asks for a 20000-tick stall, and this is the reason it matters: recovery has to come back through `payoff`, which needs g3p, which needs `prep`, which needs the ATP that is no longer there. Not investigated here, because stage 1 measures.
+
+**Verify.** `npm test` 105 passed across 12 files. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean, 207.25 kB JS and 9.77 kB CSS. `npm run dev` opened in a real browser: tick count read 43 then 308 then 547 across three reads, frames read 130 then 928 then 1644, so the display ran at roughly three frames per tick as expected at 60Hz over 20Hz, and the console carried no errors. ATP per glucose held at 4.000000000 gross and 2.000000000 net on screen throughout, including deep into the stall.
+
+**The act 1 canonical hash is still `e9b720a8`**, asserted in `src/content/act1/__tests__/determinism.test.ts` line 118 and passing. `172f83fb` is untouched and also passing. Nothing in the interface wrote to simulation state.
 
 ---
 
