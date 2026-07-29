@@ -513,7 +513,62 @@ important colour decision.
 
 ## Stage 4 Report
 
-_Pending._
+**There is no path data anywhere in `src/ui/components/Blob.tsx`.** No hand-authored shapes at all. A blob is handed a carbon weight and a phosphate weight and draws itself, and those weights are read out of `act1PoolDefinitions()`, which is the same conserved-quantity table the conservation test asserts against. Change glucose from six carbons to five and the picture changes in the same commit. That is what makes DESIGN.md's central claim a dependency in the code rather than a sentence in a document, and it is the thing this stage was for.
+
+**The derived geometry, printed by the code rather than transcribed beside it.** `src/ui/__tests__/blobTable.report.test.ts`, same posture as the conservation test's worst-drift readout.
+
+    pool            carbon   sides    phosphate    dots   shape
+    ------------------------------------------------------------
+    glucose_env         6         6           0       0   silhouette
+    glucose             6         6           0       0   silhouette
+    g3p                 3         3           1       1   silhouette
+    pyruvate            3         3           0       0   silhouette
+    lactate             3         3           0       0   silhouette
+    nad                 0         0           0       0   carrier
+    nadh                0         0           0       0   carrier
+    atp                 0         0           3       3   carrier
+    adp                 0         0           2       2   carrier
+    pi                  0         0           1       1   carrier
+
+Ten pools, eight cards. Sides equal carbons on all five carbon pools. Dots equal phosphate on all ten. The five zero-carbon pools get the carrier silhouette rather than a zero-sided polygon.
+
+`ATP = ADP + Pi` fell out of that table without being designed: three dots, two dots, one dot, and the arithmetic is visible on the rail. It is asserted in `illustration.test.ts` as a consequence of rule 2 holding over the real weights rather than as a separate claim, so if the phosphate column ever drifts, that is where it surfaces.
+
+**The test reads geometry, never claims.** It counts `L` commands in the rendered path and `data-role` circles in the rendered markup. It does not read a side-count attribute, because a component that reports its own side count can be wrong about it in exactly the way this test exists to catch. `data-role` says only which kind of shape was drawn. Rendered through `renderToStaticMarkup`, which required `Blob` to be a pure function of its props, and that turned out to be a load-bearing constraint rather than a convenience: the moment the illustration needed the runtime to draw itself, it would stop being testable as a property of the pool table.
+
+Twenty-four assertions across five groups. Rule 1 as a property over every carbon-bearing pool, plus the zero-carbon branch asserting no silhouette is emitted and a real carrier path is, plus a guard that both branches are non-empty so neither passes vacuously. Rule 2 over all ten pools. Rule 3 asserting NAD+ and NADH render byte-identical geometry and differ only in fill once the fill and the accessible label are normalised away. And two on irregularity: glucose's six vertices do not sit at a constant radius, and the same blob renders identically twice.
+
+**Rule 3 works, and the answer to the stage's question is yes.** The colour leaving is legible before the number is read, comfortably. Measured in the browser by sampling the fill attribute frame by frame:
+
+    t=0s   fill rgb(169 191 184)   electrons 0.00   NAD+ 29.99  NADH  0.01
+    t=1s   fill rgb(134 191 178)   electrons 0.26
+    t=2s   fill rgb( 35 191 160)   electrons 1.00   NAD+  0.00  NADH 30.00
+
+`oxidized` is a dull grey-green and `reduced` is a vivid teal, and they are far enough apart that peripheral vision catches the change on a card you are not looking at. Two screenshots of the same card three seconds apart are unmistakably different before you read either number. One silhouette, one fill, moving along the axis, exactly as DESIGN.md describes it.
+
+Two honest qualifications. First, **DESIGN.md's sentence is ambiguous and I had to pick a reading.** It says "when the redox pool drains, the player watches the NAD+ wall arrive as colour leaving", but NAD+ is the *desaturated* end of the axis, so as NAD+ drains, colour arrives rather than leaves. The implementation encodes the reduced fraction, so saturation rises into the wall and falls when fermentation runs. That is the reading that makes the encoding monotonic in one quantity, and the other reading would need the axis inverted against DESIGN.md's own token descriptions. Flagged for stage 7 rather than resolved here.
+
+Second, **the whole transition takes about three seconds and it happens at t=0.** With `ferment` disabled the pathway walls at roughly 3.05 game-seconds, so the entire redox story plays out before a player has finished looking at the screen and then never moves again. The encoding is correct and the pacing is not. That is not stage 4's to fix, it is a tuning consequence, and it is the strongest argument yet that `ACT1_NICOTINAMIDE_TOTAL` needs a docs/ECONOMY.md row.
+
+**Two illustration findings, both found by looking rather than by reasoning, both fixed.**
+
+**Blobs kept turning into faces.** The first version put NADH's two electron dots side by side in the upper half of the carrier, and the reduced carrier immediately read as a small character with two eyes. Then ATP's three phosphate dots in a horizontal row across the lower half read as eyes and a nose. DESIGN.md reserves faces for things that *are* characters: rule 6 gives ROS X eyes so hazards read as characters, and the beast has a face for the same reason. A carrier is not a character and a nucleotide is not a character. Electrons moved to a stacked pair on the upper-right edge, where they read as two particles being carried, which is what they are.
+
+The phosphate fix is the better of the two because the visual reason and the biological reason agreed. **Phosphates are now a diagonal chain rather than a row**, because ATP's three phosphates really are a chain, alpha to beta to gamma, and hydrolysis really does take the terminal one off the end. A row of three says they are interchangeable, which is what makes "spending energy removes a dot" read as arbitrary instead of as the end of a chain coming off. Spacing and radius were then tuned so consecutive links do not touch, because the first chain overlapped itself and three versus two stopped being readable, which is the only thing rule 2 actually asks for.
+
+**A regular hexagon reads as a diagram, and at first it was one.** Vertex wobble was raised from 0.13 radius and 0.11 angle to 0.19 and 0.16 after looking at the rail: at the original values glucose still read as a neat hexagon, which is the one thing DESIGN.md says it must not do. The wobble is a deterministic integer hash of seed and vertex index rather than a random number, so each molecule has its own permanent shape and nothing reshuffles between renders. `src/ui/` is exempt from the determinism guard by the carve-out in `eslint.config.js`, but the reasoning behind that guard still applies to anything a player looks at twice.
+
+**Flux headline, stock subscript, and a sign that reads as a sign.** Net rate in `headline` type, stock in `micro` underneath, on every card. The rate is coloured live: `gain` green rising, `loss` red falling, `ink2` flat below 1e-6. That is not a decoration chosen for this card, it is DESIGN.md's own definition of those two tokens, which name "rising, healthy" and "falling numbers" explicitly. A falling pool and a rising one are distinguishable across the room without reading the minus. The colour is written straight to the node from the snapshot through a new `useLiveNode` hook, so nothing on the rail re-renders at tick rate.
+
+**The two pair cards follow different rules, deliberately.** The nicotinamide card draws **one** blob, because rule 3 says NAD+ and NADH are the same silhouette and drawing two would be drawing the same shape twice and throwing the encoding away. The adenylate card draws **two**, because rule 2 governs that pair instead, and putting ATP and ADP side by side is the only thing that makes a countable dot difference visible at all. Both show two stocks under one headline.
+
+**A note on my own lint rule.** It caught `fraction.toFixed(3)` in `PoolCard.tsx`, where the number was an SVG opacity rather than anything a player reads. Rather than adding a disable comment, the code was changed to quantise the fraction to a hundred integer steps and compare those, which sidesteps the rule and is better code anyway: the attribute is now written only when it visibly changed, rather than sixty times a second with a float differing in its twelfth decimal place. The rule was right to fire and the right answer was not an exception.
+
+**The ugly table is gone.** The rail says everything it said and says it with shape and colour instead of six decimal places. `App.tsx` is now the DESIGN.md layout with placeholders for stage 5's pathway card and stage 6's shelf, and `min-width: 0` is already set on the main grid column per DESIGN.md line 150, applied now rather than in stage 5 where it would be a bug fix.
+
+**Two layout findings for stage 7.** The **wordmark at up to 104px is very large for a persistent top bar**; it is DESIGN.md's own scale and it is followed here, but on a screen that has to carry eight pool cards, a pathway and a shelf it takes a permanent 100px band for a word that never changes. And the **rail is 1400px tall at eight cards**, so the bottom three are below the fold on a laptop, which matters because the carrier card is the one the whole act turns on and it is card six. Both recorded rather than acted on, since stage 4's job is the rail and stage 7's is what did not survive contact.
+
+**Verify.** `npm test` 138 passed across 15 files, up from stage 3's 113, 25 new. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean, 217.19 kB JS and 17.33 kB CSS. `npm run dev` in a browser at 1500x1100 with no console errors, showing the walled state unmistakably: uptake at +7.62/s in green, environment at -7.62/s in red, everything downstream at 0.00 in grey, glucose piled at 21.01 inside the cell, NAD+ at 0.00 against NADH at 30.00 on a fully saturated teal carrier, and ATP at 0.00 against ADP at 40.00.
 
 ---
 

@@ -56,21 +56,24 @@ export function useRuntime(): Act1Runtime {
 }
 
 /**
- * Bind a DOM node's text content to the snapshot, updated every frame with no
- * render.
+ * Bind a DOM node to the snapshot, updated every frame with no render.
  *
- * The reader is held in a ref so that an inline arrow at the call site does not
- * resubscribe on every render. The subscription is keyed to the runtime alone.
+ * The general form. `apply` gets the element and the snapshot and may write
+ * anything: text, a fill, a class, a transform. It must not set React state, and
+ * it must not write to simulation state, which it has no reference to anyway.
+ *
+ * The callback is held in a ref so that an inline arrow at the call site does
+ * not resubscribe on every render. The subscription is keyed to the runtime.
  */
-export function useLive<E extends HTMLElement | SVGElement>(
-  read: (snapshot: Act1Snapshot) => string,
+export function useLiveNode<E extends HTMLElement | SVGElement>(
+  apply: (element: E, snapshot: Act1Snapshot) => void,
 ): RefObject<E | null> {
   const runtime = useRuntime();
   const ref = useRef<E>(null);
-  const readRef = useRef(read);
+  const applyRef = useRef(apply);
 
   useEffect(() => {
-    readRef.current = read;
+    applyRef.current = apply;
   });
 
   useEffect(
@@ -78,16 +81,27 @@ export function useLive<E extends HTMLElement | SVGElement>(
       runtime.subscribe((snapshot) => {
         const element = ref.current;
         if (element === null) return;
-        const next = readRef.current(snapshot);
-        // Comparing first is not a micro-optimisation. Writing textContent
-        // unconditionally invalidates layout for that node every frame even when
-        // the string did not change, and most of these strings do not change on
-        // most frames because the simulation ticks at 20Hz and the display runs
-        // at 60.
-        if (element.textContent !== next) element.textContent = next;
+        applyRef.current(element, snapshot);
       }),
     [runtime],
   );
 
   return ref;
+}
+
+/**
+ * Bind a DOM node's text content to the snapshot. The common case.
+ *
+ * Comparing before writing is not a micro-optimisation. Setting textContent
+ * unconditionally invalidates layout for that node every frame even when the
+ * string did not change, and most of these strings do not change on most frames,
+ * because the simulation ticks at 20Hz and the display runs at 60.
+ */
+export function useLive<E extends HTMLElement | SVGElement>(
+  read: (snapshot: Act1Snapshot) => string,
+): RefObject<E | null> {
+  return useLiveNode<E>((element, snapshot) => {
+    const next = read(snapshot);
+    if (element.textContent !== next) element.textContent = next;
+  });
 }
