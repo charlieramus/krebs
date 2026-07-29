@@ -196,7 +196,47 @@ imports anything from src/content/.
 
 ## Stage 2 Report
 
-_Pending._
+Three new files. No existing file touched.
+
+    src/content/README.md                        the one rule
+    src/content/act1/pools.ts                    ten pools, five quantities
+    src/content/act1/__tests__/pools.test.ts     7 tests
+
+**`src/content/README.md`.** States the rule as content depends on `src/sim/`, `src/sim/` never depends on content, and gives the reason rather than just the rule: a single import the other way turns the kernel into act 1's kernel, and every later act becomes a special case of act 1. Records that the ESLint determinism guard is scoped to `src/sim/**` and does not reach here, that content builds the descriptors the kernel runs so a `Math.pow` in a tuning file breaks determinism through a different door, and that stage 6 owns the call. Until then the rule applies here by discipline, which the README says in those words.
+
+**`src/content/act1/pools.ts`.** The ten pools from the balance sheet, in pathway order: environment, uptake, glycolysis, end product, then the two carrier pairs and free phosphate. That order is readability only; the kernel sorts conserved quantity names independently, and the test asserts a reversed definition list produces the same `conservedIds`, which is what stage 5's hash depends on.
+
+The redox convention is in the file header in full, at the top, with a pointer to the docs/SCIENCE.md Part 1 entry stage 1 wrote. It says plainly that it is a convention rather than a chemical property, that the zero point is chosen because it makes act 1's weights small integers, and warns that a weight guessed rather than derived will not fail loudly, it will fail as a conservation test that passes while the economy is wrong.
+
+Labels are molecule names only. `docs/CONTENT_STYLE.md` does not exist and inventing a voice before it lands would mean rewriting all ten.
+
+One weight needed a comment and got one. `g3p` carries phosphate 1, not 2. It is the triose the preparatory phase hands over, and the second phosphate the payoff phase needs comes from the `pi` pool at the GAPDH step, not from the carbon skeleton. Getting that wrong is the single easiest way to break the phosphate balance in stage 3 while everything still looks plausible.
+
+**The naming problem, recorded not acted on.** `docs/SIMULATION.md` line 90 reads "Carbon, phosphate and redox equivalents are conserved quantities." Under this decomposition `nicotinamide` and `adenylate` are conserved too, and they are the more useful pair, because they are what make the NAD+ wall a testable property rather than a felt one. `docs/SIMULATION.md` is not edited. The header of `pools.ts` records it and hands it to stage 6.
+
+**Five conserved totals at the initial amounts:**
+
+| Quantity | Total | Where it is |
+| --- | --- | --- |
+| carbon | 60000 | all of it in `glucose_env`, 10000 units at 6 each |
+| redox | 20000 | same place, 2 per environmental glucose |
+| phosphate | 140 | atp 3x20, adp 2x20, pi 1x40 |
+| nicotinamide | 10 | all as NAD+, none as NADH |
+| adenylate | 40 | atp 20, adp 20 |
+
+The cell starts empty. Every carbon and every electron pair is outside it, the nicotinamide pool is fully oxidised, and there is no lactate. Stage 4's wall is approached rather than started at, and there is a test asserting that.
+
+The test hand-computes all five against a probe set that is deliberately unlike the initial amounts, every pool non-zero, so a weight of zero cannot hide. All five are exact integers and the assertions use `toBe` rather than `toBeCloseTo`. The arithmetic is written out in comments beside each figure so a disagreement shows up as a disagreement, not as a matching bug on both sides.
+
+**Two things I decided rather than guessed, both flagged.**
+
+`ACT1_INITIAL` lives in `pools.ts`, not `tuning.ts`, because `tuning.ts` does not exist until stage 3 and stage 3 scopes it to "every Vmax, Km and the Hill n". Initial amounts are not in that list. They carry the same PROVISIONAL header treatment and the same docs/ECONOMY.md obligation. Stage 4 explicitly says the nicotinamide pool size belongs in `tuning.ts`, so that one number moves there when stage 4 sizes it, and `pools.ts` will import it.
+
+I did not write a test asserting no `src/sim/` file imports `src/content/`. Vitest runs in the node environment so it would work, but `tsconfig.json` sets `"types": ["vite/client"]`, which means `node:fs` does not resolve for `tsc` and the test would need a tsconfig change to typecheck. That is more than stage 2 should be moving. Verified by hand instead, and stage 6's coherence sweep is the right place to mechanize it.
+
+Verify. `npm test` 72 passed, up from V1's 65, 7 new. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean, bundle unchanged at 193.37 kB, which is expected since nothing imports the content layer yet.
+
+Import direction confirmed. Every import inside `src/sim/` is either relative within `src/sim/` or `vitest` or `node:process`. No file in `src/sim/` references `src/content/` in code or in prose.
 
 ---
 
