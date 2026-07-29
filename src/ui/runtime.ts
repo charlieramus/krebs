@@ -71,6 +71,26 @@ export interface Act1Snapshot {
   /** Ticks in which each pool ran short. Diagnostics, ACT1_POOL_IDS order. */
   readonly shortfallTicks: Int32Array;
 
+  /**
+   * Units per game-second produced into each pool, summed across every
+   * reaction that makes it. ACT1_POOL_IDS order.
+   *
+   * DERIVED FROM THE REACTION TABLE, not written down. "ATP per second" is
+   * `production[atp]`, which is the payoff phase's coefficient of 2 read out of
+   * `src/content/act1/reactions.ts` rather than typed into the display. A
+   * stoichiometry change moves the headline figure, which is the same posture
+   * `meter.ts` takes and for the same reason.
+   */
+  readonly production: Float64Array;
+  /**
+   * Units per game-second, production minus consumption, per pool. Signed.
+   *
+   * This is the flux DESIGN.md puts in the large type with the stock as a
+   * subscript. A pool at zero net rate is at steady state, which is a different
+   * statement from a pool at zero.
+   */
+  readonly netRate: Float64Array;
+
   /** The live meter. Same object every frame, filled in place by recordAct1Tick. */
   readonly meter: Act1Meter;
   /** Gross ATP per glucose that finished the pathway. The sourced figure is 4. */
@@ -185,11 +205,36 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     recordAct1Tick(ticked, probes, meter);
   });
 
+  /**
+   * Flat stoichiometry matrices, `reactionCount` rows by `poolCount` columns,
+   * built once from the reaction table.
+   *
+   * Same layout choice as `PoolRegistry.conservedWeights` and for the same
+   * reason: filling the snapshot is then one linear pass over contiguous memory
+   * with no object access, sixty times a second, allocating nothing.
+   */
+  const producedPer = new Float64Array(reactionCount * poolCount);
+  const consumedPer = new Float64Array(reactionCount * poolCount);
+  for (let r = 0; r < reactionCount; r += 1) {
+    const reaction = state.reactions[r];
+    if (reaction === undefined) continue;
+    for (const term of reaction.products) {
+      producedPer[r * poolCount + term.poolIndex] =
+        (producedPer[r * poolCount + term.poolIndex] as number) + term.coefficient;
+    }
+    for (const term of reaction.substrates) {
+      consumedPer[r * poolCount + term.poolIndex] =
+        (consumedPer[r * poolCount + term.poolIndex] as number) + term.coefficient;
+    }
+  }
+
   const snapshot: Act1Snapshot = {
     amounts: new Float64Array(poolCount),
     flux: new Float64Array(reactionCount),
     appliedFlux: new Float64Array(reactionCount),
     shortfallTicks: new Int32Array(poolCount),
+    production: new Float64Array(poolCount),
+    netRate: new Float64Array(poolCount),
     meter,
     atpPerGlucose: 0,
     netAtpPerGlucose: 0,
@@ -207,10 +252,21 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
   function fill(interpolation: number): void {
     snapshot.amounts.set(state.pools.amounts);
     snapshot.shortfallTicks.set(state.diagnostics.shortfallTicks);
+    snapshot.production.fill(0);
+    snapshot.netRate.fill(0);
     for (let r = 0; r < reactionCount; r += 1) {
       const flux = state.fluxes[r] as number;
+      const applied = flux * (state.scales[r] as number);
       snapshot.flux[r] = flux;
-      snapshot.appliedFlux[r] = flux * (state.scales[r] as number);
+      snapshot.appliedFlux[r] = applied;
+      if (applied === 0) continue;
+      const row = r * poolCount;
+      for (let p = 0; p < poolCount; p += 1) {
+        const made = applied * (producedPer[row + p] as number);
+        const used = applied * (consumedPer[row + p] as number);
+        snapshot.production[p] = (snapshot.production[p] as number) + made;
+        snapshot.netRate[p] = (snapshot.netRate[p] as number) + made - used;
+      }
     }
 
     const g3pDelta = (state.pools.amounts[g3pIndex] as number) - g3pInitial;

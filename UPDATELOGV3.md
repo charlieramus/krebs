@@ -240,7 +240,74 @@ firing against a deliberate violation, then remove the violation.
 
 ## Stage 2 Report
 
-_Pending._
+**Fonts, self-hosted, and no request leaves the origin.** `src/ui/fonts/` carries `fredoka-latin-var.woff2` at 29.73 kB and `nunito-latin-var.woff2` at 39.13 kB, with `OFL-Fredoka.txt` and `OFL-Nunito.txt` beside them and a README recording the exact CDN URLs and versions they were retrieved from on 2026-07-29. `@font-face` in `src/index.css` points at them by relative path with `font-display: swap`, and behind each sits a rounded system fallback, `ui-rounded` then `Segoe UI Variable` then `Trebuchet MS`, rather than a drop to Arial. There is no `fonts.googleapis.com` link and no remote `@import` anywhere.
+
+Two decisions worth stating rather than burying. Both files are the **variable** builds, so one file covers Fredoka 300 to 700 and Nunito 200 to 1000, against six static files for the Nunito range DESIGN.md asks for. And both are the **latin subset only**, because nothing in the game is written in another script and shipping cyrillic, greek, hebrew and vietnamese coverage nobody reads would roughly triple the bytes. Confirmed live in the browser: `document.fonts` reports `Fredoka@300 700` and `Nunito@200 1000`, and the wordmark computes to Fredoka at 91px.
+
+**The token table.** Every name below is DESIGN.md's, verbatim, and every colour value is asserted against DESIGN.md by a test rather than by my eye. Nothing was added that DESIGN.md does not define.
+
+    surfaces     page cream pink mint sky lilac white
+    ink          ink ink2 ink3
+    semantic     atp reduced oxidized substrate loss gain gradient nitrogen
+    type         --font-display --font-body
+                 --text-wordmark h2 card-title headline-num body label micro
+                 --tracking-wordmark h2 headline-num label
+    spacing      --spacing: 4px
+    borders      --outline-card 2.5px, --outline-pill 2px
+    radius       --radius-card 16, --radius-button 12, --radius-pill 999
+    shadow       --shadow-hard 4px 4px 0 ink, --shadow-hard-pressed 0 0 0 ink
+    motion       --duration-micro short medium long, --ease-enter exit move
+
+Three of those need a note. The **ranged type sizes are `clamp()`** rather than breakpoints, because DESIGN.md writes them as ranges (60 to 104px, 26 to 38px) and a range is what `clamp` means; the one fixed size, body at 15.5px, is not clamped. The **spacing scale is expressed as a base unit rather than nine named steps.** DESIGN.md gives base unit 4px and the scale 2, 4, 8, 12, 16, 24, 32, 48, 64, and Tailwind v4 multiplies `--spacing` by the utility number, so that scale is exactly `p-0.5 p-1 p-2 p-3 p-4 p-6 p-8 p-12 p-16` and every step lands on the grid by construction. Emitting `--spacing-2: 2px` would make `p-2` mean 2px where every Tailwind user alive reads it as 8px, and a scale that is a trap is a scale people work around. And `--color-gradient` **keeps DESIGN.md's name** despite the obvious collision worry: Tailwind v4 spells gradients `bg-linear-*`, `bg-radial-*` and `bg-conic-*`, so `bg-gradient` is free and means only the act 3 proton motive force colour.
+
+**Primitives**, in `src/ui/components/`. `Card` with a 2.5px ink outline, the hard offset shadow and radius 16, its `surface` prop restricted to the seven DESIGN.md surface names. `Pill` with a 2px outline and radius 999, deliberately carrying no shadow, because giving every small element the offset shadow makes a page read as a pile of stickers rather than a page with stickers on it. `Button` at radius 12, translating 3px into its own shadow on `:active` while the shadow drops to zero over `--duration-micro`. And `Figure`.
+
+**Figure is the one that matters and it took a shape the stage did not specify.** It applies `tabular-nums` itself and there is no way to render through it without that. But most figures on this screen change twenty times a second, and routing them through React state would re-render the tree at tick rate, which is exactly what stage 1 built the runtime to avoid. So Figure takes either a static `value` or a `read` function sampled from the snapshot every frame, and the live path writes text into its own node through `useLive` with no render at all. Both paths format through one `formatFigure`, so a live figure and a static one cannot disagree about how a number looks. It also normalises a denormal to zero and refuses to print `-0.00`, because a pool that has decayed to 4.9e-323 is zero as far as a reader is concerned and a minus sign in front of it is a distracting lie.
+
+**Mechanism (a): a test, `src/ui/__tests__/designSystem.test.ts`.** Three checks for shadows and two for gradients, over every `.ts`, `.tsx` and `.css` file in `src/ui/` plus `src/index.css` and `src/App.tsx`. Comments are stripped before scanning, because DESIGN.md's prose and this repository's comments both discuss blurred shadows and gradients by name precisely in order to forbid them, and a guard that makes documenting the rule a violation of it does not survive. The file also excludes itself, for the same reason and after the same failure: on first run it reported five gradient violations, all of them its own pattern literals.
+
+A fourth check went in beyond the stage's ask, and it is the strictest thing here. The test **parses DESIGN.md's Colour section** and asserts that `src/index.css` defines every colour it names, at exactly the value it gives, and defines no `--color-*` that DESIGN.md does not name. "Do not add tokens DESIGN.md does not define" is now a failing test rather than an instruction, and the dependency runs the right way: change DESIGN.md and the code fails until it catches up.
+
+**Mechanism (b): a lint rule, not a scanning test.** `no-restricted-syntax` in `eslint.config.js`, scoped to `src/**/*.tsx` with `Figure.tsx` the only exemption, banning `toFixed`, `toPrecision`, `toExponential`, `toLocaleString` and `String()` inside a JSX expression. A lint rule because the AST knows what a call is and a grep does not: `toFixed` in a comment, in a string, or in a template that never renders would all trip a scan, and a guard with false positives gets disabled. Scoped to `.tsx` so the harnesses and `drain.ts`, which print to a terminal rather than a page, are untouched.
+
+What it cannot see, stated rather than glossed: `{someNumber}` in JSX is indistinguishable from `{someString}` without type information, and typed linting across a React tree costs more than it buys. The rule catches *formatting*, which is where alignment is actually lost, and an unformatted float interpolated raw would produce ragged decimals that are obvious on sight. There is no carve-out for the leftover stage 1 table: its numbers were rerouted through Figure rather than exempted, because scaffolding is exactly where a formatting call survives long enough to be copied.
+
+**Both mechanisms fired against deliberate violations.** A blurred shadow, a Tailwind `shadow-lg`, a `bg-linear-to-br` and a `toFixed` in the wordmark were planted, then removed.
+
+    ×  no blurred shadows > declares no box-shadow or shadow token with a non-zero third length
+       + "src/ui/components/Card.tsx: dashed ? none : 4px 4px 12px"
+    ×  no blurred shadows > uses no Tailwind shadow utility that carries a blur
+       + "src/ui/components/Card.tsx: shadow-lg"
+    ×  no gradients > uses no Tailwind gradient utility
+       + "src/ui/components/Card.tsx: bg-linear-"
+       Tests  3 failed | 5 passed (8)
+
+    D:\Portfolio work\Development\krebs\src\ui\components\TopBar.tsx
+      60:16  error  DESIGN.md: every number goes through Figure, which applies
+                    tabular figures. Pass `value` or `read` to Figure instead of
+                    formatting here  no-restricted-syntax
+    ✖ 1 problem (1 error, 0 warnings)
+
+**Planting the violation caught a real hole in the scanner, which is the argument for planting it.** On the first attempt the blur-radius check did not fire. Its regex stopped the shadow value at the first quote, so against `boxShadow: dashed ? 'none' : '4px 4px 12px ...'` it read the condition and missed both branches. A CSS-in-JS shadow is a conditional expression more often than a bare string, so the check would have passed a blurred shadow in production while reporting a clean repository. Fixed to read to end of line and to strip function calls before splitting layers, so the commas inside `rgba()` no longer split one layer into three. Both violations then reported and both were removed; the suite is clean.
+
+**The top bar** is the first real surface. Wordmark in Fredoka 600 with `tracking-wordmark`, ATP per second and glucose per second as headline figures in Nunito 900, elapsed game time. Flux in the large type and **stock nowhere at all**, which is DESIGN.md's inversion taken literally: how much ATP is in the pool is a fact about the adenylate ceiling, not about how the cell is doing.
+
+Both headline rates are **derived from the reaction table**, not written down. Stage 2 added `production` and `netRate` to the snapshot, filled from flat stoichiometry matrices built once at construction, so "ATP per second" is the payoff phase's coefficient of 2 read out of `src/content/act1/reactions.ts` rather than typed into the display, and it falls to zero when the NAD+ wall arrives without the top bar knowing what NAD+ is. `netRate` is signed and is what stage 4's flux-headline pool cards will read.
+
+Two small findings. Elapsed time renders as **minutes with one decimal** rather than a clock face, because a clock face needs a zero-padded seconds field and a padded field is a second numeric format living outside Figure; minutes is also the unit docs/PROGRESSION.md specifies act 1's duration in. And the wordmark needed an **explicit `font-semibold`**: Tailwind's preflight resets `h1` to inherit its weight, which on a variable face renders 400 silently, and the first screenshot showed a Fredoka wordmark at the wrong weight with nothing obviously broken about it.
+
+**Bundle, against V2's 193.37 kB.** V2's figure was JS alone, since nothing imported the content layer and there was no interface at all.
+
+    JS      209.91 kB   +16.54 kB   React is now actually used, plus runtime,
+                                    components and the whole act 1 content layer
+    CSS      15.69 kB   +15.69 kB   the token block and the utilities it generates
+    fonts    68.86 kB   +68.86 kB   Fredoka 29.73 + Nunito 39.13, both woff2
+    ------------------------------
+    total   294.46 kB  +101.09 kB
+
+**Fonts are 68 percent of the growth** and 23 percent of the total payload. That is the price of self-hosting and it is the right price: a `<link>` to Google Fonts would show 0 kB in this table and a network dependency at first paint, which `CLAUDE.md` forbids. The fonts also load in parallel with the JS rather than blocking it, and `font-display: swap` means neither blocks paint.
+
+**Verify.** `npm test` 113 passed across 13 files, up from stage 1's 105, 8 new. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean. `npm run dev` opened in a browser at 1400x900: mint page ground, Fredoka 600 wordmark, ATP in `atp` orange and glucose in `substrate` blue as headline figures with tabular columns holding alignment as the digits change, and no console errors. The stage 1 table still sits underneath, still ugly, now formatted through Figure.
 
 ---
 
