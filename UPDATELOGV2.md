@@ -294,7 +294,44 @@ Part 2, stop and say so rather than adjusting the test.
 
 ## Stage 3 Report
 
-_Pending._
+Three new files, no existing file touched.
+
+    src/content/act1/reactions.ts                        four reactions, createAct1
+    src/content/act1/tuning.ts                           every rate in act 1
+    src/content/act1/__tests__/stoichiometry.test.ts     6 tests
+
+**The balance grid the test computes.** All five quantities across all four reactions, substrates on the left of the arrow and products on the right:
+
+    reaction       adenylate        carbon  nicotinamide     phosphate         redox
+    uptake            0 -> 0        6 -> 6        0 -> 0        0 -> 0        2 -> 2
+    prep              2 -> 2        6 -> 6        0 -> 0        6 -> 6        2 -> 2
+    payoff            2 -> 2        3 -> 3        1 -> 1        6 -> 6        1 -> 1
+    maintain          1 -> 1        0 -> 0        0 -> 0        3 -> 3        0 -> 0
+
+Twenty cells, twenty exact equalities, asserted with `toBe` rather than `toBeCloseTo`. The two that would be easiest to get wrong and hardest to notice are `prep` phosphate, where 2 ATP at weight 3 becomes 2 g3p at weight 1 plus 2 ADP at weight 2, and `payoff` phosphate, where g3p's single phosphate plus 2 ADP plus one free Pi becomes 2 ATP. Both close only because g3p carries phosphate 1 and the payoff phase draws the second phosphate from the `pi` pool at the GAPDH step, which is where it comes from in the sourced pathway.
+
+**The ledger, computed from the reaction table rather than asserted from memory: 4 ATP gross, 2 spent, 2 net, 2 NADH, 2 pyruvate.** That is `docs/SCIENCE.md` Part 2 lines 89 to 96 exactly, including the point it makes about the gross figure of 4 being the common confusion. Nothing in the test writes those numbers down twice: the payoff turn count is derived by dividing the g3p `prep` produces by the g3p one `payoff` turn consumes, which comes out at 2, and every ATP, NADH and pyruvate figure is that count times a coefficient read out of the table. **No disagreement with `docs/SCIENCE.md`, so there was nothing to stop for.**
+
+**Kinetics.** `prep` uses the Hill form, the other three use Michaelis-Menten. The attribution is written into a comment block on the reaction rather than left implicit, because `hill(...)` sitting in a file whose other coefficients are all sourced will otherwise read as sourced itself. What it says: the cooperativity belongs to PFK-1, which `docs/SCIENCE.md` Part 2 names as the committed step and the one enzyme where cooperativity matters enough to model; PFK-1 is step 3 of the five in the phase; this log does not decompose the phase, so the phase reaction carries the committed step's kinetics on its behalf. That makes the whole preparatory phase respond sigmoidally where in reality one step inside it does. Correct about which enzyme, wrong about what it is attached to, and it moves onto PFK-1 alone when the phase is decomposed.
+
+**`tuning.ts`.** Every Vmax, every Km and the one Hill n, in that file and nowhere else. The header states in four separate paragraphs that these are first-fit and unbalanced, that they are not laboratory measurements and are not derived from any, that `docs/SCIENCE.md` Part 1 forbids implying otherwise and says why literature values were rejected in the first place, and that each owes a row in the `docs/ECONOMY.md` divergence table once that document exists. It names `UPDATELOGV2.md` stage 3 as what introduced them.
+
+    uptake     Vmax  8   Km  500
+    prep       Vmax 12   K     4   n 2
+    payoff     Vmax 26   Km    2
+    maintain   Vmax 50   Km   20
+
+The ordering is the design and the magnitudes are not. `uptake` is deliberately the slowest step so the pathway is substrate-limited from the top and every downstream step has headroom, which is what lets a real constraint show up instead of being masked by an arbitrary ceiling elsewhere. `payoff` is above twice `prep` because two trioses arrive per glucose. `payoff`'s Km of 2 has to sit well below the nicotinamide total of 10, because NAD+ is one of its four substrates and they share one Km, so a Km near that pool's whole size would mean the payoff phase never approaches Vmax even with the carrier fully oxidised. `maintain`'s Vmax is sized so it can consume the pathway's entire net ATP output; if it could not, ATP would pile up against the fixed adenylate total, ADP would run out, and glycolysis would stall on the adenylate ceiling instead of on NAD+, putting the wrong wall in front of the player.
+
+**Wiring.** `createAct1(options)` mirrors `createToyPathway` down to the partial records: `initial`, `vmax`, `km`, `seed`, all optional, defaults from the content tables. Stage 5's conservation test can randomize this pathway through the same door it randomizes the toy one, without a second code path for real biology. Every pool index resolves through `PoolRegistry.indexOf`, never a literal, and there is a test asserting every index is an integer in range with a positive coefficient.
+
+**Two tests beyond the four the stage asked for.** One asserts NAD+ is consumed by exactly one reaction and produced by none, which is the shape of the whole act and the precondition stage 4 removes. One asserts the override shape matches `createToyPathway`'s, since stage 5 depends on it.
+
+**Checked that the pathway actually runs, since "first-fit values that let the pathway run" is only a claim if you look.** It runs and then it stalls, which is correct for a log with no fermentation in it. From a standing start the pathway lights up over the first game-second, `payoff` peaking around 11 flux at t=1.0s, and by t=2.0s NAD+ is at 0.00, NADH holds the entire nicotinamide total of 10, and `payoff` flux is 0.00. `glucose_env` is still at 9984 of 10000 and intracellular glucose is climbing, so the stall is not substrate starvation. ATP drains to 0 behind it, because `maintain` keeps hydrolysing after production stops, which is what a stalled cell does. All five conserved totals were exact at 1200 ticks: adenylate 40, carbon 60000, nicotinamide 10, phosphate 140, redox 20000.
+
+That is stage 4's wall arriving on its own at roughly 1.5 to 2 game-seconds without anything having been tuned for it. Whether that is fast enough to be legible or too fast to read is stage 4's call, and stage 4 owns the nicotinamide pool size.
+
+Verify. `npm test` 78 passed, up from 72, 6 new. `npm run typecheck` clean. `npm run lint` clean.
 
 ---
 
