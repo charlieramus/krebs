@@ -90,6 +90,25 @@ export function useLiveNode<E extends HTMLElement | SVGElement>(
 }
 
 /**
+ * Subscribe to the snapshot without a DOM node.
+ *
+ * For the rare thing that watches simulation state in order to change React
+ * state: a purchase becoming affordable, a stall beginning. The callback runs
+ * every frame, so it must compare before it sets, or it re-renders the tree
+ * sixty times a second and undoes the entire point of the runtime.
+ */
+export function useSnapshotEffect(effect: (snapshot: Act1Snapshot) => void): void {
+  const runtime = useRuntime();
+  const effectRef = useRef(effect);
+
+  useEffect(() => {
+    effectRef.current = effect;
+  });
+
+  useEffect(() => runtime.subscribe((snapshot) => effectRef.current(snapshot)), [runtime]);
+}
+
+/**
  * Bind a DOM node's text content to the snapshot. The common case.
  *
  * Comparing before writing is not a micro-optimisation. Setting textContent

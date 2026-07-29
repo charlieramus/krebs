@@ -12,11 +12,12 @@
 
 import { RuntimeProvider } from './ui/RuntimeContext';
 import { Badge } from './ui/components/Badge';
-import { Card } from './ui/components/Card';
 import { PathwayCard } from './ui/components/PathwayCard';
 import { PoolRail } from './ui/components/PoolRail';
+import { UnlockShelf } from './ui/components/UnlockShelf';
 import { TopBar } from './ui/components/TopBar';
 import { DISCLOSURE, NO_SAVES } from './ui/content';
+import { scenarioFromLocation } from './ui/scenario';
 
 /**
  * docs/SCIENCE.md Part 1 requires the disclosure in-game and says explicitly it
@@ -39,8 +40,12 @@ function Disclosure() {
 }
 
 export function App() {
+  // Development affordance, see src/ui/scenario.ts. With no query string this is
+  // an empty object and the player gets the real act.
+  const act1 = scenarioFromLocation(typeof window === 'undefined' ? '' : window.location.search);
+
   return (
-    <RuntimeProvider>
+    <RuntimeProvider options={{ act1 }}>
       <main className="min-h-screen bg-page text-ink">
         <TopBar />
 
@@ -52,9 +57,7 @@ export function App() {
 
           <div className="flex min-w-0 flex-col gap-4">
             <PathwayCard />
-            <Card surface="mint" dashed className="flex items-center justify-center p-8">
-              <span className="text-body text-ink3">Unlock shelf, stage 6.</span>
-            </Card>
+            <UnlockShelf />
           </div>
         </div>
 

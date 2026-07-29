@@ -43,7 +43,7 @@
  */
 
 import type { PoolDefinition } from '../../sim/pools';
-import { ACT1_NICOTINAMIDE_TOTAL } from './tuning';
+import { ACT1_GLUCOSE_ENV_INITIAL, ACT1_NICOTINAMIDE_TOTAL } from './tuning';
 
 export type Act1PoolId =
   | 'glucose_env'
@@ -156,9 +156,15 @@ const CONSERVED: Readonly<Record<Act1PoolId, Readonly<Record<string, number>>>> 
  *                and not a score. `maintain` hydrolyses ATP back to ADP and Pi,
  *                which is what a cell does with it. Cumulative ATP produced is
  *                a counter, not a pool, so it cannot leak into conservation.
+ *
+ *   glucose_env  the environment. Also in tuning.ts, and raised there from
+ *                10000 to 80000 by UPDATELOGV3.md stage 6 to move the ATP
+ *                bootstrap trap beyond the horizon of act 1. Read the comment
+ *                on it before changing it: it is a deferral rather than a fix,
+ *                and the NOW.md blocking item it defers is still open.
  */
 export const ACT1_INITIAL: Readonly<Record<Act1PoolId, number>> = {
-  glucose_env: 10000,
+  glucose_env: ACT1_GLUCOSE_ENV_INITIAL,
   glucose: 0,
   g3p: 0,
   pyruvate: 0,

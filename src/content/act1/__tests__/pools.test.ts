@@ -7,7 +7,7 @@ import {
   act1PoolDefinitions,
   type Act1PoolId,
 } from '../pools';
-import { ACT1_NICOTINAMIDE_TOTAL } from '../tuning';
+import { ACT1_GLUCOSE_ENV_INITIAL, ACT1_NICOTINAMIDE_TOTAL } from '../tuning';
 
 /**
  * The totals below are hand-computed, deliberately.
@@ -92,10 +92,17 @@ describe('act 1 pools', () => {
   it('totals each conserved quantity at the initial amounts', () => {
     const pools = new PoolRegistry(act1PoolDefinitions());
 
-    // All carbon and all redox start in the environment: 10000 glucose at 6
-    // carbon and 2 redox each, nothing yet inside the cell.
-    expect(pools.totalConserved('carbon')).toBe(60000);
-    expect(pools.totalConserved('redox')).toBe(20000);
+    // All carbon and all redox start in the environment, at 6 carbon and 2
+    // redox per glucose, with nothing yet inside the cell.
+    //
+    // Read from tuning.ts rather than restated. The environment size is a tuned
+    // number, raised from 10000 to 80000 by UPDATELOGV3.md stage 6, and a test
+    // that hardcodes it is a test that fails for the right reason in the wrong
+    // place: what this assertion is actually about is that all of the carbon
+    // starts outside the cell and that the weights are 6 and 2, not what the
+    // environment happens to be sized at this week.
+    expect(pools.totalConserved('carbon')).toBe(ACT1_GLUCOSE_ENV_INITIAL * 6);
+    expect(pools.totalConserved('redox')).toBe(ACT1_GLUCOSE_ENV_INITIAL * 2);
 
     // phosphate: atp 3*20=60, adp 2*20=40, pi 1*40=40.
     expect(pools.totalConserved('phosphate')).toBe(140);

@@ -21,7 +21,8 @@
 import process from 'node:process';
 import { TICK_MS } from '../sim/constants';
 import { setShortfallLogging } from '../sim/tick';
-import { ACT1_VMAX } from '../content/act1/tuning';
+import { ACT1_GLUCOSE_ENV_INITIAL } from '../content/act1/tuning';
+import { UPTAKE_VMAX_STEPS } from './tuning';
 import { createAct1Runtime } from './runtime';
 import { poolIndex } from './runtime';
 
@@ -31,14 +32,15 @@ const TRAP_THRESHOLD = 400;
 /**
  * Uptake Vmax values worth measuring.
  *
- * 8 is the shipped default in src/content/act1/tuning.ts. 26 is a placeholder
- * for the top of the enumerated capacity ladder stage 6 is likely to sell, since
- * it is where the other downstream Vmax values already sit and selling uptake
- * past the point where it stops being rate-limiting sells nothing. It is a guess
- * and stage 6 owns the real number. Measured here so stage 6 has both ends of
- * the range rather than one.
+ * Stage 1 measured a guessed range of 8, 12, 18 and 26, because the capacity
+ * ladder did not exist yet. It exists now, so this reads it: these are the Vmax
+ * values the game actually sells, and the last of them is the fastest the
+ * environment can be drained by a player who buys everything.
+ *
+ * The ladder stops at 12 because `prep` runs at Vmax 12 and uptake above that
+ * delivers glucose the preparatory phase cannot consume. See src/ui/tuning.ts.
  */
-const UPTAKE_STEPS = [ACT1_VMAX.uptake, 12, 18, 26];
+const UPTAKE_STEPS = UPTAKE_VMAX_STEPS;
 
 interface DrainResult {
   readonly uptakeVmax: number;
@@ -105,7 +107,7 @@ setShortfallLogging(false);
 
 console.log('');
 console.log('  krebs environment drain, measured through src/ui/runtime.ts');
-console.log(`  ferment enabled, glucose_env starting at 10000, ${maxMinutes} game-minutes each`);
+console.log(`  ferment enabled, glucose_env starting at ${ACT1_GLUCOSE_ENV_INITIAL}, ${maxMinutes} game-minutes each`);
 console.log(`  threshold ${TRAP_THRESHOLD}, the ATP bootstrap trap from NOW.md blocking item 1`);
 console.log('');
 console.log(

@@ -742,7 +742,103 @@ exactly what changed it, and freeze it.
 
 ## Stage 6 Report
 
-_Pending._
+**The act happens now.** The wall arrives, the shelf lights up, the coach mark opens on it, and buying lactate dehydrogenase brings a dead cell back inside two ticks.
+
+**Two things bought, neither with ATP.** `runtime.buyFerment()` flips the `enabled` flag `createAct1` already takes. `runtime.buyUptakeStep()` walks an enumerated ladder. Both refuse unless the cumulative meter has reached the threshold, and **neither subtracts from the adenylate pool**, which is stated in three places in the code because it is the thing a future contributor is most likely to helpfully break. Subtracting from a fixed, closed, conserved pool breaks the conservation test on the tick it happens; it is also the more honest statement about a cell, which does not save up ATP but produces it at a rate.
+
+**The tuning table.** Every number in `src/ui/tuning.ts`, all of them Tuned, each with its own reason string rather than a shared one, because "Tuned" without a reason is a badge that says nothing.
+
+| Value | Number | Tuned reason |
+| --- | --- | --- |
+| `ZERO_FLUX_THRESHOLD` | 0.25 | Below this an arrow reads as stopped rather than slow. A perception threshold, not a measurement |
+| `DASH_PIXELS_PER_FLUX_UNIT` | 6 | How fast the pathway looks. Chosen by watching it |
+| `DASH_LENGTH` | 8 | Dash and gap in pixels. One period is twice this |
+| `FERMENT_ATP_THRESHOLD` | 55 | Bounded above by the measured cumulative-ATP ceiling of a walled cell, which is 60. Above that the unlock is unbuyable |
+| `UPTAKE_VMAX_STEPS` | 8, 10, 12 | A finite ladder of three steps. Hard rule 3 forbids an upgrade with no last step |
+| `UPTAKE_ATP_THRESHOLDS` | 1500, 12000 | Spaced so the ladder is climbed across the session rather than in its first minute |
+| `ACT1_GLUCOSE_ENV_INITIAL` | 80000 | In `src/content/act1/tuning.ts`, because the environment is content. See step 5 below |
+
+**Two of those were set by measurement rather than by preference, and one of them overturned this log's own Decisions section.**
+
+**The ferment threshold is bounded from above by a hard fact.** With ferment disabled, the nicotinamide pool is the ceiling on everything: each NAD+ that becomes NADH yields its 2 ATP once and never again, so cumulative gross ATP converges to **exactly 60.000000** and stops there forever. Any threshold at or above 60 is unbuyable, and a player would sit at a wall whose solution they could never afford. `src/ui/__tests__/unlockPacing.report.test.ts` asserts that ceiling exists rather than trusting the comment. 55 puts the unlock in reach just as the pathway dies.
+
+**The uptake ladder stops at 12 because measurement says it must, and this replaced the planned 8, 12, 18, 26.**
+
+    uptake Vmax   time to 30000 cumulative ATP
+    8             17m05s
+    9             15m11s
+    10            13m40s
+    11            12m26s
+    12            11m24s
+    14            11m03s
+    18            11m03s
+
+The knee is exactly at 12, and it is at 12 because `prep` runs at Vmax 12 in `src/content/act1/tuning.ts`. Above that, uptake delivers glucose the preparatory phase cannot consume. **Steps 3 and 4 of the planned ladder would have sold the player nothing.**
+
+This contradicts this log's Decisions section, which says uptake is rate-limiting by construction and therefore the one lever worth selling. That is true only up to 12. The tempting alternative was to ship the full ladder and let the last step teach saturation the hard way, and it was rejected: a purchase that does nothing is a purchase that does nothing, and the fact that it would *look* like it should work is exactly why it must not ship. The saturation lesson still lands, because buying capacity makes glucose visibly pile up inside the cell on the rail while ATP per second rises less than proportionally. **A future log that wants a longer capacity ladder has to sell preparatory-phase capacity too**, and that is the real finding here.
+
+**Step 5, the environment drain, resolved. `ACT1_GLUCOSE_ENV_INITIAL` raised from 10000 to 80000, and this is a DEFERRAL, not a fix.**
+
+Sized against the top of the ladder rather than against a feeling. Uptake runs near saturation while the environment is far above its Km of 500, so drain is roughly linear at Vmax, and 80000 over Vmax 12 is about 111 game-minutes of continuous maximum uptake. Re-measured through `npm run sim:drain` after the change:
+
+    uptake Vmax   crosses 400        env at end    atp at crossing
+    8             not in 150 min        9087.55    -
+    10            137m 04.9s               0.00    4.373e+0
+    12            114m 14.1s               0.00    1.661e+1
+
+Against docs/PROGRESSION.md's 45 to 90 minutes for act 1, a player who buys every upgrade the moment it is available and plays for the full 90 minutes still has roughly 24 minutes of headroom, and a player who buys nothing never approaches it at all.
+
+**Why the other two options lose.** A **replenishment boundary flux** is the biologically honest answer, since a cell in a microbial mat sits in a resupplied medium, but a reaction producing carbon from nothing breaks conservation on its first tick, and teaching the conservation test to treat `glucose_env` as a boundary is an edit to a V1 guard that a UI log has no business making in passing. **Repairing the bootstrap trap itself** is the real fix, and it is an economy decision: it means either a maintenance rate that backs off as ATP falls, or a floor under the preparatory phase, and both are exactly the sort of number docs/ECONOMY.md exists to own.
+
+**Stated plainly: the pathway can still reach an unrecoverable state, and the NOW.md blocking item stays open.** The trap has been moved beyond the horizon of act 1, not removed. Any future change that raises uptake capacity, lengthens the act, or lowers that number brings it straight back.
+
+**The canonical hash moved, deliberately, and is re-frozen.**
+
+    act 1 toy pathway   172f83fb   unchanged
+    act 1               e9b720a8 -> 657594cb
+
+**Exactly one thing changed it**: `ACT1_GLUCOSE_ENV_INITIAL`, from 10000 to 80000. Starting amounts are hashed state. No coefficient, no pool, no ordering, no rate and no kinetic form was touched. The reason is written into the assertion in `src/content/act1/__tests__/determinism.test.ts` rather than left as a bare number, because that line exists precisely to make a change like this visible. One other test moved with it: `pools.test.ts` asserted a hardcoded initial carbon total of 60000, and now reads the environment size from `tuning.ts`, since what that assertion is actually about is that all the carbon starts outside the cell at a weight of 6, not what the environment happens to be sized at this week.
+
+**Step 6, the 20000-tick stall. It recovers, and here is how.** 1000 game-seconds walled, which is 16.7 minutes, then ferment is bought:
+
+    at the moment ferment is bought
+      nad             4.941e-324    denormal
+      nadh            30.000000     the entire carrier pool, reduced
+      atp             4.941e-323    denormal
+      g3p              6.800728     THE WAY BACK IN
+      glucose       7929.28         piled up inside the cell
+      atp produced    60.000000     frozen at the ceiling for 16 minutes
+
+    payoff phase restarts after 2 ticks
+
+    100 game-seconds later
+      nad             16.317126
+      atp             16.608961
+      atp produced  4544.856375
+      payoff flux     22.684287 /s
+
+**The mechanism is the interesting part and it is now a test rather than an argument.** ATP is at denormal when the unlock lands, so the preparatory phase cannot pay its 2 ATP entry cost and cannot be what restarts the pathway. What saves it is that the stall *strands* g3p rather than consuming it: 6.8 units of triose sit in the pool for the whole sixteen minutes, so the moment NAD+ returns the payoff phase has substrate waiting, runs immediately, and makes the ATP the preparatory phase then needs. `src/ui/__tests__/stallRecovery.test.ts` asserts both the outcome and the mechanism, so a future balance change that consumes g3p during a stall fails here rather than silently making the wall unsolvable.
+
+Two ticks is 100 milliseconds. NOW.md flagged instant recovery as possibly anticlimactic; sixteen minutes of stall does not change that at all. Stage 7 judges it.
+
+**Step 3, the two failure states, distinguishable at a glance with no text label.** Reachable now without editing code, through `src/ui/scenario.ts`: `/?glucose=500` for starved, `/?ferment=on` to skip the wall. A development affordance, not DESIGN.md's Sandbox screen, and it changes nothing for a player who types no query string.
+
+    walled     ONE arrow flowing and four dead hairlines. Glucose piled at 30
+               inside the cell against a full environment. Every downstream
+               pool card reading exactly 0.00 in grey. Carrier fully saturated
+               teal, NAD+ 0.00 against NADH 30.00.
+
+    starved    ALL FIVE arrows flowing, slowly. Every intracellular pool near
+               zero, glucose 2.75, g3p 0.84, pyruvate 0.84, each net rate
+               hovering at -0.01 in red. Nothing accumulating anywhere.
+
+The silhouettes are not similar. Walled is one live arrow among corpses plus one large number; starved is a whole pathway alive and starving. V2 stage 5 said the flux column alone separates them, and the screen does the same thing with motion and colour instead of digits. Whether it reads that way to someone who has not just built it is stage 7's to answer.
+
+**The coach mark, and one deviation.** All four DESIGN.md anatomy parts render: heading with its badge inline, two paragraphs, a full-width action button, and the mandatory source row pointing at docs/SCIENCE.md Part 2. Both trigger behaviours are built behind `COACH_MARK_TRIGGER` in `src/ui/components/CoachMark.tsx`, currently `'auto'`, and neither is chosen. `auto` fires **once**, tracked in a ref rather than state, because the walled condition is true on every frame until the player acts and a mark that reopens every frame is not teaching.
+
+The deviation: it is rendered as an **absolutely positioned overlay** rather than inline in the card. Inline, in a 17rem rail, it came out at about twenty characters a line, which is readable and horrible against DESIGN.md's "comfortable in prose at 64ch". DESIGN.md's own screen inventory lists the coach mark as an overlay, so this is closer to the specification rather than further from it, and it also stops the mark shoving the six cards below it down the page when it opens.
+
+**Verify.** `npm test` **160 passed** across 18 files, up from stage 5's 156. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean, 229.33 kB JS and 17.85 kB CSS. `npm run dev` in a browser with no console errors: watched the wall arrive, the coach mark auto-open on it, the shelf light up at 60 of 55 ATP made with the uptake slot still dimmed at 60 of 1500, then bought lactate dehydrogenase from the coach mark's own action and watched all five arrows come alive, lactate climb at +22.59/s, the carrier return to a NAD+ 16.87 against NADH 13.13 mix with the blob's fill moving back down the redox axis, and ATP recover to 11.64.
 
 ---
 

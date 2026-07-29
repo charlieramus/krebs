@@ -28,7 +28,14 @@
 
 import { TICK_MS, TICK_SECONDS } from '../sim/constants';
 import { createLoop, elapsedMs, type Loop } from '../sim/loop';
+import { michaelisMenten, type Kinetics } from '../sim/reactions';
 import type { SimulationState } from '../sim/state';
+import {
+  FERMENT_ATP_THRESHOLD,
+  UPTAKE_ATP_THRESHOLDS,
+  UPTAKE_VMAX_STEPS,
+  ZERO_FLUX_THRESHOLD,
+} from './tuning';
 import {
   atpPerCompletedGlucose,
   createAct1Meter,
@@ -126,9 +133,46 @@ export interface Act1Snapshot {
   lastTickCount: number;
   /** Frames driven since construction. Display-side only, never simulation state. */
   frameCount: number;
+
+  /** Whether lactate dehydrogenase has been bought. */
+  fermentUnlocked: boolean;
+  /** Index into UPTAKE_VMAX_STEPS. 0 is the shipped default and is not bought. */
+  uptakeStep: number;
+
+  /**
+   * The pathway is walled: the payoff phase has stopped and it is not because
+   * there is nothing to eat.
+   *
+   * DERIVED, NOT FLAGGED. Nothing in the simulation knows what a stall is, and
+   * it must not: a stall is a reading of simulation state, not a state the
+   * simulation is in. The three conditions are the ones V2 stage 5 found
+   * separate the walled failure from the starved one, and they are checked
+   * against the flux the tick applied rather than the flux it intended.
+   */
+  walled: boolean;
 }
 
 export type Act1SnapshotListener = (snapshot: Act1Snapshot) => void;
+
+/**
+ * Applied flux below which a reaction counts as stopped for the purpose of
+ * detecting a stall.
+ *
+ * Deliberately the same number the pathway arrows use to decide whether to draw
+ * themselves as moving. If the stall detector and the arrows disagreed, the
+ * coach mark could open while the arrows still looked alive, or the arrows could
+ * go inert with nothing explaining why. One threshold, one reading.
+ */
+const STOPPED_FLUX = ZERO_FLUX_THRESHOLD;
+
+/**
+ * NAD+ remaining below which the carrier counts as exhausted.
+ *
+ * A fraction of a single unit against a nicotinamide total of 30. Not zero,
+ * because the pool approaches zero asymptotically and never quite arrives, and
+ * a detector that waits for exactly zero waits forever.
+ */
+const WALLED_NAD = 0.05;
 
 export interface Act1RuntimeOptions {
   /** Passed through to createAct1. Enabled flags, Vmax overrides, initial amounts. */
@@ -157,6 +201,23 @@ export interface Act1Runtime {
    */
   frame(nowMs: number): void;
   subscribe(listener: Act1SnapshotListener): () => void;
+
+  /**
+   * Buy lactate dehydrogenase. Idempotent, and refuses if the cumulative meter
+   * has not reached the threshold.
+   *
+   * NOTHING IS SUBTRACTED FROM THE ATP POOL. The adenylate pool is fixed, closed
+   * and conserved, so taking ATP out of it to pay for this would break the
+   * conservation test on the tick it happened. That is the true reason and also
+   * the more honest statement about a cell: a cell does not save up ATP, it
+   * produces it at a rate. Do not "fix" this into a purchase.
+   */
+  buyFerment(): boolean;
+  /** Buy the next uptake capacity step, under the same rules. */
+  buyUptakeStep(): boolean;
+  /** Whether the meter has reached each threshold. Display only. */
+  canBuyFerment(): boolean;
+  canBuyUptakeStep(): boolean;
 }
 
 export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime {
@@ -180,6 +241,10 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    */
   const g3pIndex = state.pools.indexOf('g3p');
   const g3pInitial = state.pools.amounts[g3pIndex] as number;
+
+  const payoffReaction = reactionIndex('payoff');
+  const uptakeReaction = reactionIndex('uptake');
+  const nadPool = state.pools.indexOf('nad');
 
   /**
    * THE ONCE-PER-TICK PROBLEM, AND HOW IT IS SOLVED.
@@ -244,6 +309,9 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     pendingOfflineMs: 0,
     lastTickCount: 0,
     frameCount: 0,
+    fermentUnlocked: state.reactions[reactionIndex('ferment')]?.enabled ?? false,
+    uptakeStep: 0,
+    walled: false,
   };
 
   const listeners = new Set<Act1SnapshotListener>();
@@ -279,6 +347,22 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     snapshot.pendingOfflineMs = state.diagnostics.pendingOfflineMs;
     snapshot.lastTickCount = loop.lastTickCount;
     snapshot.frameCount += 1;
+
+    /**
+     * Walled, read off the state rather than flagged by it.
+     *
+     * Three conditions, and all three are needed. The payoff phase has stopped,
+     * so the pathway is not producing. Uptake has NOT stopped, which is what
+     * separates this from starvation: a starved cell has every flux low
+     * together, and a walled cell is importing at full rate. And the carrier is
+     * essentially all reduced, which is the cause rather than a symptom, so a
+     * pathway that stops for some other reason a later act invents does not get
+     * mislabelled as this one.
+     */
+    snapshot.walled =
+      (snapshot.appliedFlux[payoffReaction] as number) < STOPPED_FLUX &&
+      (snapshot.appliedFlux[uptakeReaction] as number) >= STOPPED_FLUX &&
+      (state.pools.amounts[nadPool] as number) < WALLED_NAD;
   }
 
   function notify(): void {
@@ -335,7 +419,77 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
         listeners.delete(listener);
       };
     },
+
+    canBuyFerment(): boolean {
+      return !snapshot.fermentUnlocked && meter.atpProduced >= FERMENT_ATP_THRESHOLD;
+    },
+
+    buyFerment(): boolean {
+      if (snapshot.fermentUnlocked) return false;
+      if (meter.atpProduced < FERMENT_ATP_THRESHOLD) return false;
+      setReactionEnabled(state, 'ferment', true);
+      snapshot.fermentUnlocked = true;
+      return true;
+    },
+
+    canBuyUptakeStep(): boolean {
+      const next = snapshot.uptakeStep + 1;
+      if (next >= UPTAKE_VMAX_STEPS.length) return false;
+      const threshold = UPTAKE_ATP_THRESHOLDS[snapshot.uptakeStep];
+      return threshold !== undefined && meter.atpProduced >= threshold;
+    },
+
+    buyUptakeStep(): boolean {
+      const next = snapshot.uptakeStep + 1;
+      if (next >= UPTAKE_VMAX_STEPS.length) return false;
+      const threshold = UPTAKE_ATP_THRESHOLDS[snapshot.uptakeStep];
+      if (threshold === undefined || meter.atpProduced < threshold) return false;
+      setReactionVmax(state, 'uptake', UPTAKE_VMAX_STEPS[next] as number);
+      snapshot.uptakeStep = next;
+      return true;
+    },
   };
+}
+
+/**
+ * Flip a reaction on. This is the whole unlock mechanism for `ferment`, and
+ * `Reaction.enabled` is mutable precisely so a later log could do this.
+ */
+function setReactionEnabled(
+  state: SimulationState,
+  id: Act1ReactionId,
+  enabled: boolean,
+): void {
+  const reaction = state.reactions[reactionIndex(id)];
+  if (reaction === undefined) throw new Error(`runtime: no reaction "${id}"`);
+  reaction.enabled = enabled;
+}
+
+/**
+ * Raise a reaction's Vmax by replacing its kinetics descriptor.
+ *
+ * THE CAST, AND WHY IT IS NARROW. `Reaction.kinetics` is readonly, which is
+ * correct for every other caller: the reaction table is a description of the
+ * pathway and nothing in the tick loop has any business rewriting it. An unlock
+ * is the one thing that legitimately does, and it does it here, in one place,
+ * through the same validating constructor the content layer uses, so an invalid
+ * Vmax throws at purchase time rather than producing NaN flux forever.
+ *
+ * This does NOT touch hashed state. src/sim/hash.ts covers pool amounts, the
+ * tick count and the PRNG, so buying an upgrade does not move the canonical
+ * hash. It does change how the simulation evolves from here, which means V4's
+ * save schema has to persist the unlock state or a reload will silently refund
+ * every purchase. Flagged here rather than left for V4 to discover.
+ */
+function setReactionVmax(state: SimulationState, id: Act1ReactionId, vmax: number): void {
+  const index = reactionIndex(id);
+  const reaction = state.reactions[index];
+  if (reaction === undefined) throw new Error(`runtime: no reaction "${id}"`);
+  const kinetics = reaction.kinetics;
+  if (kinetics.kind !== 'michaelis-menten') {
+    throw new Error(`runtime: "${id}" is not Michaelis-Menten and has no simple Vmax to raise`);
+  }
+  (reaction as { kinetics: Kinetics }).kinetics = michaelisMenten(vmax, kinetics.km);
 }
 
 /** Pool index by id, for a display that knows what it is looking at. */

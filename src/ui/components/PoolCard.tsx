@@ -26,15 +26,18 @@
  * moving property on this screen. Nothing here re-renders at tick rate.
  */
 
-import { useLiveNode } from '../RuntimeContext';
+import { useState } from 'react';
+import { useLiveNode, useRuntime, useSnapshotEffect } from '../RuntimeContext';
 import { poolIndex, type Act1Snapshot } from '../runtime';
 import type { Act1PoolId } from '../../content/act1/pools';
 import { Badge } from './Badge';
 import { Blob } from './Blob';
 import { Card } from './Card';
+import { CoachMark, COACH_MARK_TRIGGER, InfoAffordance, useCoachMark } from './CoachMark';
 import { Figure } from './Figure';
-import { MOLECULES, POOL_FIGURES } from '../content';
+import { MOLECULES, NAD_COACH_MARK, POOL_FIGURES } from '../content';
 import { carbonOf, phosphateOf, type PoolCardSpec } from '../poolCards';
+import { FERMENT_ATP_THRESHOLD } from '../tuning';
 
 /** Below this the pool is flat rather than moving, and the sign means nothing. */
 const FLAT_RATE = 1e-6;
@@ -163,18 +166,54 @@ function mixRedox(fraction: number): string {
 
 export function PoolCard({ spec }: { spec: PoolCardSpec }) {
   const headline = poolIndex(spec.headline);
+  const runtime = useRuntime();
+
+  // The one coach mark in the slice sits on the carrier card, because the
+  // carrier card is where the wall is visible.
+  const teaches = spec.kind === 'nicotinamide';
+  const coach = useCoachMark(teaches ? COACH_MARK_TRIGGER : 'manual');
+  const [canAct, setCanAct] = useState(false);
+  useSnapshotEffect((snapshot) => {
+    if (!teaches) return;
+    const next = !snapshot.fermentUnlocked && snapshot.meter.atpProduced >= FERMENT_ATP_THRESHOLD;
+    setCanAct((current) => (current === next ? current : next));
+  });
 
   return (
-    <Card surface={spec.surface} className="flex flex-col gap-2 p-3">
+    <Card surface={spec.surface} className="relative flex flex-col gap-2 p-3">
       <span className="flex items-center justify-between gap-2">
-        <span className="font-display font-semibold text-card-title leading-tight">
-          {spec.title.text}
+        <span className="flex items-center gap-1">
+          <span className="font-display font-semibold text-card-title leading-tight">
+            {spec.title.text}
+          </span>
+          {teaches ? (
+            <InfoAffordance onClick={coach.show} label={`About ${spec.title.text}`} />
+          ) : null}
         </span>
         {/* One badge per card. Every Figure below passes the same provenance
             with badgeDisplay="attached", so the contract holds without eight
             pills on one card. */}
         <Badge badge={spec.title.badge} />
       </span>
+
+      {/*
+        An overlay, not an inline block. DESIGN.md's screen inventory lists the
+        coach mark as an overlay and DESIGN.md's density rule wants prose at
+        comfortable width, and the left rail is 17rem. Rendered inline it came
+        out at about twenty characters a line, which is readable and horrible.
+        Absolutely positioned out of the column it sits at 42ch, and it no
+        longer shoves the six cards below it down the page when it opens.
+      */}
+      {teaches && coach.open ? (
+        <span className="absolute left-0 top-full z-20 mt-2 w-max max-w-[min(42ch,80vw)]">
+          <CoachMark
+            content={NAD_COACH_MARK}
+            onDismiss={coach.dismiss}
+            actionEnabled={canAct}
+            onAction={() => runtime.buyFerment()}
+          />
+        </span>
+      ) : null}
 
       <span className="flex items-center gap-2">
         <span className="flex shrink-0 items-center gap-1">

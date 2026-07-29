@@ -115,6 +115,13 @@ describe('act 1 determinism', () => {
     //
     // Fixture: createAct1({ seed: 20260729 }), 1200 ticks, setting ferment from
     // a PRNG roll every 50 ticks.
-    expect(hashState(runScript(CANONICAL_SEED, CANONICAL_TICKS))).toBe('e9b720a8');
+    //
+    // CHANGED ONCE, DELIBERATELY, AND HERE IS THE ENTRY THIS LINE EXISTS FOR.
+    // Was e9b720a8 from V1 through V3 stage 5. UPDATELOGV3.md stage 6 raised
+    // ACT1_GLUCOSE_ENV_INITIAL from 10000 to 80000 to move the ATP bootstrap
+    // trap in NOW.md blocking item 1 beyond the horizon of act 1, and starting
+    // amounts are hashed state, so the hash moved with it. Nothing else changed:
+    // no coefficient, no pool, no ordering, no rate. Re-frozen at 657594cb.
+    expect(hashState(runScript(CANONICAL_SEED, CANONICAL_TICKS))).toBe('657594cb');
   });
 });
