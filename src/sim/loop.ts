@@ -32,7 +32,26 @@ export interface Loop {
   readonly lastTickCount: number;
 }
 
-export function createLoop(state: SimulationState): Loop {
+/**
+ * Called immediately after each `tick`, before the next one runs.
+ *
+ * READ ONLY. Nothing this callback does may write to simulation state, because
+ * it runs inside the fixed-timestep loop and a write here would make game state
+ * a function of how often the driver calls `advance`, which is precisely the
+ * dependency the fixed timestep exists to remove.
+ *
+ * It exists because per-tick scratch state is only readable per tick. Added by
+ * UPDATELOGV3.md stage 1: `recordAct1Tick` reads `state.fluxes` and
+ * `state.scales`, which the next tick overwrites, so a caller that runs three
+ * ticks in one `advance` and meters afterwards counts the third tick three
+ * times and the first two not at all. `lastTickCount` reports how many ticks
+ * ran but cannot recover the two snapshots that were overwritten while they
+ * ran. Only the loop is in a position to observe them, so the loop hands them
+ * out.
+ */
+export type TickObserver = (state: SimulationState) => void;
+
+export function createLoop(state: SimulationState, onTick?: TickObserver): Loop {
   let accumulatorMs = 0;
   let lastTickCount = 0;
 
@@ -65,6 +84,7 @@ export function createLoop(state: SimulationState): Loop {
           break;
         }
         tick(state);
+        if (onTick !== undefined) onTick(state);
         accumulatorMs -= TICK_MS;
         ticksRun += 1;
       }

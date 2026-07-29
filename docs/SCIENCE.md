@@ -1,6 +1,6 @@
 # Science
 
-Last updated: 2026-07-27
+Last updated: 2026-07-29
 
 Biological ground truth for the project. Every quantitative claim in player-facing text traces back to this document.
 
@@ -72,7 +72,49 @@ Single-substrate framing. Most reactions modeled below actually involve multiple
 
 ## What is deliberately wrong and why
 
-To be filled in as balance decisions are made. Each entry needs the real value, the game value and the pacing reason. Cross-referenced with the divergence table in docs/ECONOMY.md.
+Each entry needs the real value, the game value and the reason. Cross-referenced with the divergence table in docs/ECONOMY.md once that document exists.
+
+Note on what this section is. CLAUDE.md hard rule 2 forbids editing this document during a balance pass, because a balance pass that rewrites its own ground truth is not a balance pass. The four entries below are not balance decisions. They are structural modeling choices that were already made in code and were sitting undisclosed, and disclosing them is what Part 1 exists for. No tuned number appears below. When tuned numbers arrive they go in docs/ECONOMY.md with a divergence row and this section gains a pointer, not a value.
+
+### Multi-substrate reactions take the minimum of their saturation terms
+
+Added 2026-07-29, disclosing a choice made in V1.
+
+Real: multi-substrate enzymes follow ordered or random bi-bi mechanisms. Their rate laws are derived from the mechanism and are neither the minimum nor the product of single-substrate Michaelis-Menten terms.
+
+Game: flux is Vmax times the smallest of the reaction's per-substrate saturation terms. Every other substrate is ignored once the limiting one is identified.
+
+Reason: it makes the bottleneck a single nameable pool. The player points at NAD+ and says that is what is stopping it, which is the whole lesson of act 1. Taking the product instead would spread the constraint across every substrate simultaneously and the NAD+ wall would read as a general slowdown rather than as one specific empty pool. The simplification is visible to the player as a sharper corner in the response curve than a real enzyme would have.
+
+### One Km per reaction, shared across all of its substrates
+
+Added 2026-07-29, disclosing a choice made in V1. It rides along with the entry above.
+
+Real: an enzyme has a separate Km for each substrate, and they commonly differ by orders of magnitude. A reaction saturating in one substrate at micromolar levels may still be far from saturated in another at millimolar levels.
+
+Game: one kinetics descriptor per reaction, holding one Km, applied to whichever substrate turns out to be limiting.
+
+Reason: the honest alternative is a per-substrate parameter set, which multiplies the number of tuned values by the substrate count and makes the divergence table unreadable, for a distinction the player cannot see. It is an economy of description rather than a pacing choice. Combined with the entry above, this means a reaction's response curve is a single shape evaluated against whichever pool is scarcest.
+
+### Redox is counted as electron pairs relative to the fully fermented state
+
+Added 2026-07-29 for the act 1 content layer.
+
+Real: oxidation state is a property of individual atoms and there is no single scalar "redox content" of a molecule. Electron bookkeeping in metabolism is done per reaction, in specified carriers, not as a conserved quantity of the whole system.
+
+Game: `redox` is a conserved quantity with an integer weight per pool, counting electron pairs against a zero point set at the fully fermented state. Glucose carries 2, lactate carries 1, NADH carries 1 and NAD+ carries 0. Glucose to 2 lactate is therefore redox neutral, and glucose to 2 pyruvate plus 2 NADH balances.
+
+Reason: it turns the NAD+ constraint into a conservation law the engine can test rather than a behaviour the designer has to remember to preserve. If a future reaction manufactures or destroys reducing power by accident, the conservation test fails on the first tick instead of the imbalance showing up hours later as a broken economy. The zero point is a convention chosen because it makes the act 1 numbers small integers, not because the fully fermented state is physically privileged.
+
+### Glucose uptake is modeled as untyped transport
+
+Added 2026-07-29 for the act 1 content layer.
+
+Real: bacteria import glucose by specific mechanisms with specific costs. The phosphotransferase system, which is the common route in many bacteria and plausible for an organism of this period, phosphorylates glucose during transport at the cost of one phosphoenolpyruvate, which is itself a glycolytic intermediate. Other organisms use ATP-driven or gradient-driven transporters with different costs.
+
+Game: glucose moves from an environmental pool to an intracellular pool with no transporter named and no energetic cost charged.
+
+Reason: this document does not cover the mechanism, so naming a transporter would be asserting something unsourced, and charging a PEP cost would change the act 1 ATP ledger away from the sourced net of 2 per glucose. The cost is set to zero and disclosed rather than guessed. If a transporter is sourced later, this entry becomes a real divergence row with a real number.
 
 ---
 

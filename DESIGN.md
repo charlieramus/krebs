@@ -1,6 +1,6 @@
 # Design System
 
-Last updated: 2026-07-28
+Last updated: 2026-07-29
 Direction: Honest Cartoon
 Status: proposed, no code exists yet
 
@@ -222,29 +222,41 @@ The map is the real geological timeline, rendered as a vertical scroll.
 
 Structure per stop, left to right: the date, the spine with a node, then a card carrying a cartoon figure, a one-line description and its badges. Act stops get a coloured node and a tinted card. The current position is marked with the beast in its current state and a `You are here` label.
 
-Stops as drafted:
+Stops, sourced against docs/SCIENCE.md Part 6 on 2026-07-29:
 
-    Now              modern eukaryotic cell           locked until completion
-    ~1.6 Ga          first accepted eukaryote fossils Needs source
-    ~2.0 to 1.5 Ga   endosymbiosis, act 3             Contested
-    ~2.4 Ga          Great Oxidation Event, act 2     Sourced
-    ~2.7 Ga          oxygenic photosynthesis          Needs source
-    ~3.5 Ga          stromatolites, act 1 start       Sourced
-    ~4.0 Ga          hydrothermal vents               Needs source, Contested
+    Now                modern eukaryotic cell                     locked until completion
+    ~1.7 to 1.5 Ga     early aerobic eukaryotes                   Sourced
+    ~2.2 to 1.5 Ga     endosymbiosis, act 3                       Sourced, Contested
+    ~2.4 to 2.0 Ga     Great Oxidation Event, act 2               Sourced
+    no date            oxygenic photosynthesis                    Sourced, Contested
+    ~3.48 to 3.43 Ga   microbial mats, act 1 start                Sourced
+    no date            alkaline hydrothermal vents                Sourced, Contested
 
-**The rule that keeps this from becoming an evolution game: a figure earns its place by its metabolism, not its morphology.** Stromatolites qualify because they are microbial mats doing photosynthesis. Banded iron formations qualify because they are the physical fossil of the oxygen event. Cyanobacteria qualify because they made the oxygen that nearly kills the player in act 2. Nothing goes on the timeline for being an interesting looking animal. Applying this rule keeps docs/PILLARS.md intact as the feature grows.
+Four of those changed on sourcing and the changes are the point rather than housekeeping.
+
+**The oxygenic photosynthesis stop loses its date and keeps its place.** The ~2.7 Ga figure came from biomarkers shown in 2015 to be younger contamination, and the precursor lipids were never diagnostic for cyanobacteria anyway. docs/SCIENCE.md Part 6 stop 3 recommends putting no number on it: place it below the GOE, state that oxygen production must predate atmospheric accumulation, and say plainly that when it started is unresolved. This is the one stop on the view that shows a live dispute instead of asserting a figure, so the card is designed around the absence. The date column reads `unresolved` in the same weight as a real date rather than being left blank, because a blank reads as missing data and this is a finding.
+
+**The act 1 stop is relabeled.** Stromatolite morphology shows microbial mat construction and supports no physiological inference on its own, and any photosynthesis at 3.48 to 3.43 Ga was more plausibly anoxygenic. The stop is microbial mats and anoxygenic phototrophy, not oxygen production. Date confirmed against the Dresser and Strelley Pool formations.
+
+**The vent stop is a hypothesis, not an event.** It is on the timeline because it is a proposal about where chemiosmosis came from, which is the act 3 teaching beat. Its date column reads `hypothesis`. Two separate uncertainties, the timing of the origin of life and the mechanism itself, were being compressed into one number, and the view should not compress them.
+
+**The GOE stop keeps banded iron as its figure and moves the number onto the card.** Banded iron does not cleanly mark the GOE: peak deposition is roughly 2.5 Ga, just before atmospheric oxygenation, and deposition runs on to roughly 1.85 Ga. The alternative visual, the redox-sensitive detrital mineral record, is the cleaner marker and is close to undrawable as a cartoon figure. So the figure is the banded iron formation, whose striped silhouette reads at card size, and the card states the peak explicitly as the immediate pre-GOE maximum while the date column carries the GOE range itself. Figure and label carry different facts and the label is where the honesty lives.
+
+**The eukaryote stop is reframed from morphology to metabolism.** "First accepted eukaryote fossils" got on the timeline for cells looking a certain way, which the admission rule below rules out. The same fossils, roughly 1.75 to 1.4 Ga, are almost entirely restricted to oxygenated bottom waters. Early eukaryotes were benthic aerobes. Lead with the oxygen dependency and the stop passes on its own terms, and closes a game about acquiring aerobic respiration on a metabolic note.
+
+**The rule that keeps this from becoming an evolution game: a figure earns its place by its metabolism, not its morphology.** Microbial mats qualify because mat construction is metabolic behaviour, though note that the mats themselves are morphology and it is the anoxygenic phototrophy on the card that earns the place. Banded iron formations qualify because they are the physical record of biologically produced oxygen meeting dissolved iron. Cyanobacteria qualify because they made the oxygen that nearly kills the player in act 2. Nothing goes on the timeline for being an interesting looking animal. Applying this rule keeps docs/PILLARS.md intact as the feature grows, and applying it in 2026-07-29's sourcing pass is what moved the eukaryote stop off morphology.
 
 **The axis is non-linear and must say so.** All four acts sit between roughly 4.0 and 1.5 Ga, so a linear axis would spend most of its length on eras containing no gameplay. The axis is therefore weighted to the Precambrian. That misrepresents deep time, so the compression is disclosed on the view itself, in the same way and for the same reason that tuned reaction rates are disclosed. Silent compression of a real timescale is exactly the failure mode this project exists to avoid.
 
-Only ~3.5 Ga and ~2.4 Ga currently trace to docs/SCIENCE.md. Every other date on this view carries `Needs source` until an entry exists.
+Every stop on this view now traces to docs/SCIENCE.md Part 6. No `Needs source` badge survives here. Two of the seven carry no date at all, which is a sourcing result rather than a gap, and the view has to render an absent date as deliberately as it renders a present one.
 
 ## Open questions
 
 1. **Working title.** docs/BRIEF.md still says TBD and no naming shortlist file exists. "krebs" names an Act 3 mechanic that unlocks roughly four hours in, and the first 45 to 90 minutes are anaerobic glycolysis where the Krebs cycle does not exist. The wordmark is drawn as `krebs` on that assumption.
-2. **Act 2 has no Fe-S target in the core pathway.** docs/PROGRESSION.md says ROS damage should preferentially target iron-sulfur cluster enzymes. Correct, but none of the ten glycolytic enzymes contain an Fe-S cluster, so as specified the crisis cannot touch the player's main pathway. The mockups instead land damage on pyruvate:ferredoxin oxidoreductase and ferredoxin, which are genuinely among the most oxygen-labile proteins in biology. That routes the crisis back into NAD+ recycling and makes the Act 1 wall return, which reads as a callback rather than an arbitrary spike. **Needs a docs/SCIENCE.md entry before it is built.**
+2. ~~**Act 2 has no Fe-S target in the core pathway.**~~ Closed 2026-07-29. docs/SCIENCE.md Part 3 sourced it and docs/PROGRESSION.md act 2 now carries the result. The answer is not the one the mockups assumed: the target inside the player's own pathway is GAPDH by thiol oxidation, not an iron-sulfur enzyme, because glycolysis has none. The mockups' PFOR and ferredoxin damage is still correct for the pyruvate disposal chain and still routes the crisis back into NAD+ recycling, so the visual holds. What changes is that damage now has two mechanisms with different defenses, and the damage state on the beast and on the enzyme cards has to distinguish them. That is a V-something interface problem, not an open question.
 3. **Cross-document paths are broken.** Every doc references `docs/SCIENCE.md` and similar, but the files sit at the repository root. Roughly 25 dead references, including CLAUDE.md's own index. Either move the files into `docs/` or rewrite the references. Not yet done.
 4. **Berkeley Mono is not used.** An earlier direction proposed it. The cartoon direction has no monospace role, since Nunito with tabular figures covers numeric display. Revisit only if a code or terminal surface appears.
-5. **Five timeline dates are unsourced.** ~4.0 Ga, ~2.7 Ga, ~2.0 to 1.5 Ga and ~1.6 Ga all carry `Needs source`. They are drafted from general knowledge and are not yet traceable to docs/SCIENCE.md, which means they currently violate hard rule 1. Either add docs/SCIENCE.md entries with citations or cut the stops. The endosymbiosis window in particular is contested in the literature and docs/SCIENCE.md already says so, so its range needs care rather than a single figure.
+5. **Two timeline stops have no date and the view has no component for that.** Closed as a sourcing question on 2026-07-29, reopened as a smaller design one. All five previously unsourced dates now trace to docs/SCIENCE.md Part 6, and no stop carries `Needs source`. But sourcing killed two dates rather than supplying them: oxygenic photosynthesis is unresolved and the vent stop is a hypothesis rather than a dated event. The date column is currently specified as a date. It needs a second treatment for `unresolved` and `hypothesis` that reads as a deliberate statement at the same visual weight, not as a missing value, and the non-linear axis has to place an undated stop by ordering constraint alone. Not yet designed.
 6. **The release gate for `Needs source` does not exist.** The badge is specified but nothing enforces it. A build check that fails on any surviving `Needs source` should be written before content authoring starts, otherwise the badge is documentation rather than a gate.
 
 ## Decisions log
@@ -264,3 +276,6 @@ Only ~3.5 Ga and ~2.4 Ga currently trace to docs/SCIENCE.md. Every other date on
 | 2026-07-28 | Non-linear axis, disclosed on the view | All gameplay sits between 4.0 and 1.5 Ga. Compression is necessary but silent compression of a real timescale is the failure mode this project exists to avoid. |
 | 2026-07-28 | Added Needs source badge, development only | Makes unsourced content loud during development and gives hard rule 1 a mechanical release gate. |
 | 2026-07-28 | Act 3 transition drawn on the beast | The one irreversible step in the game gets one irreversible visual change, on the thing the player has been running all along. |
+| 2026-07-29 | GOE stop keeps banded iron, with the peak labelled as pre-GOE maximum | docs/SCIENCE.md Part 6 stop 4 offers two options. Banded iron peaks at roughly 2.5 Ga, just before oxygenation, and runs on to roughly 1.85 Ga, so it does not mark the event. The cleaner marker, the redox-sensitive detrital mineral record, has no legible cartoon silhouette. Banded iron has an unmistakable striped one. Keep the figure, put the correction on the card. |
+| 2026-07-29 | Two timeline stops ship with no date | The 2.7 Ga oxygenic photosynthesis figure failed on contamination and the vent stop is a hypothesis about mechanism, not a dated event. Asserting a number to fill the column is the exact failure mode this project exists to avoid. An absent date is a finding and gets rendered as one. |
+| 2026-07-29 | Eukaryote stop reframed to early aerobic eukaryotes | It was on the timeline for cell morphology, which the metabolism-not-morphology rule forbids. The same fossils are restricted to oxygenated bottom waters, so the metabolic framing was available and is a better closing beat. |

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "sim": "vite-node src/sim/harness.ts --",
+    "sim:act1": "vite-node src/content/act1/harness.ts --",
     "test": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
