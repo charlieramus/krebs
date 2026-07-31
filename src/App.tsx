@@ -14,9 +14,10 @@ import { RuntimeProvider } from './ui/RuntimeContext';
 import { Badge } from './ui/components/Badge';
 import { PathwayCard } from './ui/components/PathwayCard';
 import { PoolRail } from './ui/components/PoolRail';
+import { SavePanel } from './ui/components/SavePanel';
 import { UnlockShelf } from './ui/components/UnlockShelf';
 import { TopBar } from './ui/components/TopBar';
-import { DISCLOSURE, NO_SAVES } from './ui/content';
+import { DISCLOSURE } from './ui/content';
 import { scenarioFromLocation } from './ui/scenario';
 
 /**
@@ -27,10 +28,6 @@ import { scenarioFromLocation } from './ui/scenario';
 function Disclosure() {
   return (
     <footer className="max-w-prose px-8 pb-8 font-body text-micro leading-6 text-ink2">
-      <p className="mb-2 flex items-center gap-1">
-        {NO_SAVES.text}
-        <Badge badge={NO_SAVES.badge} />
-      </p>
       <p className="flex flex-wrap items-start gap-1">
         <span>{DISCLOSURE.text}</span>
         <Badge badge={DISCLOSURE.badge} />
@@ -58,6 +55,7 @@ export function App() {
           <div className="flex min-w-0 flex-col gap-4">
             <PathwayCard />
             <UnlockShelf />
+            <SavePanel />
           </div>
         </div>
 

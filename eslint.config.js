@@ -18,49 +18,50 @@ import tseslint from 'typescript-eslint';
  * Michaelis-Menten needs only multiply, divide and add, all exactly specified
  * under IEEE754. The Hill equation uses integer exponents and repeated
  * multiplication.
+ *
+ * The guard is in two halves, split by V4 stage 6, because the arithmetic half
+ * and the clock half turn out to have different correct scopes once a save layer
+ * exists. See the src/save/** block below.
  */
+
+/** Hard rules 4 and 5. Applies everywhere the guard applies, with no exemptions. */
+const arithmeticRules = [
+  {
+    object: 'Math',
+    property: 'random',
+    message:
+      'CLAUDE.md hard rule 4: use the seeded PRNG in src/sim/prng.ts. Determinism is a tested property.',
+  },
+  {
+    object: 'Math',
+    property: 'pow',
+    message:
+      'CLAUDE.md hard rule 5: Math.pow is implementation-approximated. Use repeated multiplication.',
+  },
+  {
+    object: 'Math',
+    property: 'exp',
+    message:
+      'CLAUDE.md hard rule 5: Math.exp is implementation-approximated and breaks cross-browser determinism.',
+  },
+  {
+    object: 'Math',
+    property: 'log',
+    message:
+      'CLAUDE.md hard rule 5: Math.log is implementation-approximated and breaks cross-browser determinism.',
+  },
+];
+
+const CLOCK_MESSAGE =
+  'docs/SIMULATION.md Part 5: wall-clock time enters only at the loop boundary, never inside sim code.';
+
 const determinismRules = {
   'no-restricted-properties': [
     'error',
-    {
-      object: 'Math',
-      property: 'random',
-      message:
-        'CLAUDE.md hard rule 4: use the seeded PRNG in src/sim/prng.ts. Determinism is a tested property.',
-    },
-    {
-      object: 'Math',
-      property: 'pow',
-      message:
-        'CLAUDE.md hard rule 5: Math.pow is implementation-approximated. Use repeated multiplication.',
-    },
-    {
-      object: 'Math',
-      property: 'exp',
-      message:
-        'CLAUDE.md hard rule 5: Math.exp is implementation-approximated and breaks cross-browser determinism.',
-    },
-    {
-      object: 'Math',
-      property: 'log',
-      message:
-        'CLAUDE.md hard rule 5: Math.log is implementation-approximated and breaks cross-browser determinism.',
-    },
-    {
-      object: 'Date',
-      property: 'now',
-      message:
-        'docs/SIMULATION.md Part 5: wall-clock time enters only at the loop boundary, never inside sim code.',
-    },
+    ...arithmeticRules,
+    { object: 'Date', property: 'now', message: CLOCK_MESSAGE },
   ],
-  'no-restricted-globals': [
-    'error',
-    {
-      name: 'Date',
-      message:
-        'docs/SIMULATION.md Part 5: wall-clock time enters only at the loop boundary, never inside sim code.',
-    },
-  ],
+  'no-restricted-globals': ['error', { name: 'Date', message: CLOCK_MESSAGE }],
 };
 
 export default tseslint.config(
@@ -90,6 +91,42 @@ export default tseslint.config(
     // because it is not part of the tested state.
     files: ['src/sim/**/*.{ts,tsx}', 'src/content/**/*.{ts,tsx}'],
     rules: determinismRules,
+  },
+  {
+    /**
+     * THE SAVE LAYER, AND WHY IT GETS A DIFFERENT SCOPE. Added by V4 stage 6.
+     *
+     * V2 stage 6 extended the guard from src/sim/** to src/content/** because
+     * the argument was identical: content builds the descriptors the kernel
+     * runs, so a Math.pow there reaches the same arithmetic through a different
+     * door. The argument for src/save/** is NOT identical, and pretending it was
+     * would have produced the wrong rule.
+     *
+     * The arithmetic half applies in full. A save carries pool amounts, a PRNG
+     * state and a tick count, all of which go straight back into the tick loop
+     * on restore, so Math.random, Math.pow, Math.exp and Math.log are as
+     * unwelcome here as in tick.ts. There is no legitimate use for any of them
+     * in serialising a number.
+     *
+     * The clock half applies with ONE EXEMPTION, and the exemption is the whole
+     * reason this directory sits outside the original guard.
+     * docs/SAVE_SCHEMA.md Part 3 makes `meta.lastSavedAt` the only wall-clock
+     * input in the entire system, so exactly one file has to read a clock. That
+     * file is src/save/meta.ts. Exempting the directory would have been the easy
+     * answer and it would have thrown away the property worth keeping, which is
+     * not "save code may read the clock" but "the places that read the clock are
+     * countable". There is one, and now nothing else in the save layer can
+     * become the second by accident.
+     */
+    files: ['src/save/**/*.{ts,tsx}'],
+    ignores: ['src/save/meta.ts'],
+    rules: determinismRules,
+  },
+  {
+    // meta.ts keeps the arithmetic half. It is exempt from the clock rules and
+    // from nothing else.
+    files: ['src/save/meta.ts'],
+    rules: { 'no-restricted-properties': ['error', ...arithmeticRules] },
   },
   {
     /**

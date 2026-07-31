@@ -1,6 +1,6 @@
 # Now
 
-Last updated: 2026-07-29
+Last updated: 2026-07-31
 
 Where the project actually is. Read this before the spec docs.
 
@@ -10,7 +10,9 @@ If this file disagrees with a spec doc, the spec doc wins and this file is stale
 
 ## Status
 
-**The slice is playable.** `npm run dev` gives an act 1 screen: a top bar, eight pool cards, the pathway with dashes flowing at the rate each reaction is running, an unlock shelf and one coach mark. The NAD+ wall arrives about three seconds in, the coach mark opens on it, and buying lactate dehydrogenase brings the cell back inside two ticks.
+**The slice is playable and it persists. A refresh no longer costs the run.** `npm run dev` gives an act 1 screen: a top bar, eight pool cards, the pathway with dashes flowing at the rate each reaction is running, an unlock shelf, one coach mark and a save panel. The NAD+ wall arrives about three seconds in, the coach mark opens on it, and buying lactate dehydrogenase brings the cell back inside two ticks. The game autosaves every thirty seconds, on the way out of a tab, and the instant anything is bought.
+
+Verified in a real browser rather than only in tests: played to 89950 ms of game time with lactate at 904.663 and fermentation bought, refreshed, and game time continued from 89950 rather than resetting. Lactate kept climbing, the unlock stayed bought, no console errors.
 
 V3 answered one of the two questions in docs/BRIEF.md line 110 and half of the other. See "What the interface answered" below, which replaces the old "Why the UI waits" section. The short version: the NAD+ wall reads as interesting, and saturating kinetics do not yet feel like a game, because once act 1 is solved the screen stops changing.
 
@@ -23,7 +25,7 @@ One sentence per log. The "does not" column is the fence each stage doc inherits
 | V1 | The engine kernel: constants, seeded PRNG, pools, reactions, tick, loop, conservation and determinism tests | Any content, any interface, saves | Done 2026-07-28 |
 | V2 | Act 1 content: glucose uptake, glycolysis, the NAD+ pool, lactate fermentation | Any interface, the ethanol branch, glycogen storage | Done 2026-07-29 |
 | V3 | The first interface, only what is needed to play the slice and answer the two questions in docs/BRIEF.md line 110 | The timeline, the beast, the rest of DESIGN.md, saves | Done 2026-07-29 |
-| V4 | Persistence: save and load against docs/SAVE_SCHEMA.md version 1, plus the migration harness and its fixture test | Offline progress, any network or account | Not started |
+| V4 | Persistence: save and load against docs/SAVE_SCHEMA.md version 1, plus the migration harness and its fixture test | Offline progress, any network or account | Done 2026-07-31 |
 | V5 | Offline progress: steady-state detection, the analytic jump to the next event, and validation of STEADY_EPSILON and STEADY_WINDOW | New content, any interface beyond a return summary | Not started |
 | V6+ | Unplanned, deliberately | Anything written here now would be fiction | Held |
 
@@ -104,6 +106,34 @@ Not built, deliberately: the ethanol branch, glycogen storage, the ten-enzyme de
 
 65 tests were added, taking the suite from V2's 95 to 160.
 
+## What the save layer does
+
+`src/save/`, added by V4. May import `src/sim/`. Nothing in `src/sim/` or `src/content/` imports it except `src/content/act1/save.ts`, which is the act 1 mapping and the only file allowed to know both sides.
+
+    schema.ts      the version 1 shape, readonly throughout, SCHEMA_VERSION as the literal 1
+    codec.ts       serialize and deserialize. Canonical field order, structural validation
+    storage.ts     localStorage behind an injected interface. Verify-then-swap, one backup slot
+    migrations.ts  the ordered chain, its runner, and parseAndMigrate, which storage calls
+    autosave.ts    a timer, visibilitychange, and every purchase. Not beforeunload
+    offline.ts     now minus lastSavedAt, capped. Accumulated and credited to nothing
+    meta.ts        the wall clock and the build id. The only file in the project that reads Date
+    tuning.ts      the autosave interval. The third provisional-number file
+    fixture.ts     `npm run save:fixture`, the recorded procedure for a fixture
+
+**The committed version 1 fixture is the most valuable thing in the directory and it is the part least visible from the code.** `src/save/__tests__/fixtures/v1.json` is a real act 1 run, four game-minutes deep, past the NAD+ wall, fermenting, one rung up the capacity ladder. Hard rule 7 makes a real predecessor save a precondition for every future schema change, and **a version 1 fixture can only be captured while version 1 is what the code produces.** Miss the window and whoever writes version 2 is fabricating the thing they are supposed to be migrating, on a save nobody can recreate. Never delete it, never edit it, never regenerate it. `src/save/__tests__/fixtures/README.md` says the same thing at length and says how to make the next one.
+
+Hard rule 7 is mechanism now rather than discipline. `schemaVersionGate.test.ts` asserts a committed fixture for every version from 1 to `SCHEMA_VERSION`, a migration for every step between them, and every fixture loading through the chain into a state that passes the same validation a fresh save does. Bumping the version without both fails the suite. Proved by bumping to 2 in a scratch edit and reading the failure.
+
+One thing the fixture does that act 1 does not do by itself, disclosed rather than hidden: it draws seven values from the PRNG after the run. **Act 1 consumes no random numbers**, so a real run of any length ends with `rng.state` exactly equal to `rng.seed`, and a fixture like that cannot exercise the field docs/SAVE_SCHEMA.md Part 5 calls the one most likely to be dropped. The same fact shapes `reloadDeterminism.test.ts`, which drives a scripted PRNG consumer for the same reason and asserts the bare fact directly so nobody has to rediscover it.
+
+Determinism across reload is a 36-case sweep on hash equality, four seeds by three lengths by three split points, plus a split during the NAD+ stall and three during fermentation recovery. Both mutilations Part 5 warns about, dropping `rng.state` and dropping `tickCount`, were confirmed to fail and are kept as permanent divergence tests.
+
+109 tests were added, taking the suite from V3's 160 to 269. Bundle 251.29 kB, 78.79 kB gzipped, up from V3's 229.44 kB and 72.36 kB.
+
+The ESLint determinism guard now covers `src/save/**` too, in two halves. Hard rules 4 and 5 apply in full, because a save carries pool amounts and a PRNG state that go straight back into the tick loop. The clock ban applies everywhere except `src/save/meta.ts`, because docs/SAVE_SCHEMA.md Part 3 makes `lastSavedAt` the only wall-clock input in the system and exactly one file has to read it. The property worth keeping is not "save code may read the clock", it is that the places that read the clock are countable. There is one.
+
+Not built, deliberately: offline progress, cloud sync, accounts, compression, and any value under `enzymes` or `environment` that act 1 does not honestly make true.
+
 ## What exists
 
     docs/BRIEF.md          orientation, the idea and the reasoning
@@ -123,6 +153,7 @@ Not built, deliberately: the ethanol branch, glycogen storage, the ten-enzyme de
     UPDATELOGV1.md         the kernel build log, five stages, all reported
     UPDATELOGV2.md         the act 1 content log, six stages, all reported
     UPDATELOGV3.md         the first interface log, seven stages, all reported
+    UPDATELOGV4.md         the persistence log, six stages, all reported
 
 Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system-20260728/`. `preview-cartoon.html` is the current direction. `preview.html` is a rejected earlier direction kept for comparison.
 
@@ -154,7 +185,21 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - Content lives in `src/content/` and the kernel never imports it. The arrow points one way, permanently.
 - ATP is a flux, not a score. The adenylate pool is fixed and closed and `maintain` hydrolyses ATP back to ADP and phosphate. Cumulative production is a counter beside the simulation, never a pool inside it.
 
+## Settled 2026-07-31, by V4
+
+- Storage keys are permanent from here: `krebs.save.active`, `krebs.save.backup`, `krebs.save.temp`. The prefix is the repository name and deliberately not the game's title, which is still TBD. A prefix that was never claiming to be the title cannot go stale, and renaming one orphans every save in existence with no error and no way back.
+- `progression.unlocked` is the single source of truth for what has been bought. Reaction enabled flags and the uptake capacity step are derived from it at load and are never persisted alongside it. Two copies of one fact is the specific way save formats rot.
+- Act 1 unlock ids are contract surface now: `ferment`, and `uptake-capacity-N` per rung of the ladder.
+- The write path is verify-then-swap and a corrupt primary is never promoted into the backup slot. That last part is not in docs/SAVE_SCHEMA.md and the crash-state enumeration is what surfaced it: promoting a corrupt active destroys the only recoverable copy on the first autosave after the corruption is noticed.
+- Recovery from backup is an offer, not an action. A corrupt save starts a new game in memory and both slots stay on disk untouched until the player says otherwise.
+- After an import or an accepted recovery the session is sealed: the autosave timer and both listeners are torn down and every write path refuses. Without it, `beforeunload` fires during the post-import reload and autosaves the stale session over the file that was just imported.
+- `beforeunload` is wired and is explicitly not load-bearing. It does not fire reliably in any modern browser, and the one place it demonstrably did fire, it destroyed data.
+- Measured session values are exempt from the badge contract, declared at the call site through `Figure`'s `measured` prop. No fourth badge kind was added. See DESIGN.md.
+- The determinism guard is now in two halves with different scopes. See "What the save layer does".
+
 ## Blocking
+
+**V4 found nothing new for this list.** Both items below are the ones V3 left, both belong to docs/ECONOMY.md, and neither is touched by persistence. That is the point of the ordering note at the end of this file: saves were built on top of an economy known to have a hole in it, so the hole is now saved too.
 
 1. **Act 1 as tuned has an unrecoverable state. Still open, now deferred rather than fixed.** Below roughly 400 environmental glucose, baseline maintenance drains ATP faster than the pathway can bootstrap. ATP decays to denormal, the preparatory phase can no longer pay its 2 ATP entry cost, and nothing restarts it: `prep` needs ATP and `payoff` needs the g3p that only `prep` makes. Glucose keeps arriving and the cell stays dead.
 
@@ -171,11 +216,14 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 ## Open, not blocking
 
 - **Working title is still TBD.** docs/BRIEF.md line 4 says so and no naming shortlist exists. The wordmark is drawn as `krebs`, but the Krebs cycle unlocks roughly four hours in and does not exist during act 1.
-- **docs/ECONOMY.md is now unblocked and should be written next.** There is a playable prototype, which is the thing it was waiting for. Twenty provisional numbers across two files owe it a divergence row: eleven in `src/content/act1/tuning.ts` (five Vmax, five Km, the Hill coefficient) plus the nicotinamide total and the environment size, and six in `src/ui/tuning.ts` (the zero-flux threshold, dash speed, dash length, the ferment threshold, the uptake ladder and its two thresholds). Both files exist as single files full of provisional numbers specifically so the divergence table has two places to point rather than twenty. The tension with hard rule 2 is now resolvable rather than merely recorded.
+- **docs/ECONOMY.md is still unblocked and still unwritten, and V4 added to what it owes.** There is a playable prototype, which is the thing it was waiting for. **Twenty-two provisional numbers across three files** owe it a divergence row: thirteen in `src/content/act1/tuning.ts` (five Vmax, five Km, the Hill coefficient, the nicotinamide total and the environment size), seven in `src/ui/tuning.ts` (the zero-flux threshold, dash speed, dash length, the ferment threshold, the uptake ladder, its two thresholds, and now the offline report threshold), and one in `src/save/tuning.ts` (the autosave interval). Each of the three exists as a single file full of provisional numbers specifically so the divergence table has three places to point rather than twenty-two. The tension with hard rule 2 is resolvable rather than merely recorded, and it has been resolvable for two logs now.
 - **The coach mark trigger is chosen but weakly.** `COACH_MARK_TRIGGER` in `src/ui/components/CoachMark.tsx` is `'auto'`, picked in V3 stage 7 because under `'manual'` nothing on the screen explains the stall at all and the player has to find a 16px info affordance. Both behaviours are built and switching is a one-word edit. The choice was made by the person who built it, which is the least reliable possible reader.
 - **The uptake ladder stops at 12 because `prep` runs at Vmax 12.** Above that, uptake delivers glucose the preparatory phase cannot consume, measured: Vmax 12 reaches 30000 cumulative ATP in 11m24s and Vmax 18 reaches it in 11m03s. A longer capacity ladder needs preparatory-phase capacity to be sellable too. That is the shape of act 1's next unlock and it is a real design lead rather than a defect.
-- **A backgrounded tab silently loses game time.** Elapsed time above `MAX_CATCHUP_TICKS` routes to `diagnostics.pendingOfflineMs`, which nothing in V3 consumes. Surfaced on the snapshot and asserted by a test rather than fixed, because V5 owns the offline path. Five minutes in one frame runs 200 ticks and hands 290000ms to a field nobody reads.
-- **Buying an unlock is not part of hashed state, and V4 has to persist it.** `setReactionVmax` replaces a reaction's kinetics descriptor and `setReactionEnabled` flips a flag; neither touches pool amounts, the tick count or the PRNG, so the canonical hash does not move. It does change how the simulation evolves, so a reload without persisted unlock state silently refunds every purchase.
+- **A backgrounded tab still loses game time. The hole is narrower and it is not closed.** What changed: `pendingOfflineMs` now survives a reload, and real time away is measured at load, capped at `MAX_OFFLINE_HOURS` and added to the same field. So the time is no longer thrown away, it is recorded, and it accumulates across sessions rather than resetting. What has not changed: **nothing spends it.** Not one tick of it is simulated, the player still sees no progress for it, and the field just grows. Narrower means the accounting is now honest, not that the player gets their time back. V5 owns spending it, and it now starts from a real number instead of from zero.
+- **The offline delta is accumulated and never credited, on purpose.** `time.offlineCreditedMs` is 0 in every save this build writes. The save panel says the time away is being kept and not spent, which is the honest sentence, and it will stay wrong-sounding until V5 makes it true.
+- **The autosave interval is 30 seconds and it is provisional.** `AUTOSAVE_INTERVAL_MS` in `src/save/tuning.ts`, reasoned from the unlock pacing measurement rather than measured. Along with `OFFLINE_REPORT_THRESHOLD_MS` in `src/ui/tuning.ts` it takes the docs/ECONOMY.md debt to twenty-two provisional numbers across three files.
+- **A development-time tick rate change costs one tick of game time per save, and that is the price of the rule rather than a defect.** `elapsedGameMs` is a whole multiple of the TICK_MS that wrote it, so reconstruction is exact while the rate is unchanged and floors when it is not. Storing milliseconds decouples the duration from `TICK_RATE_HZ`, which is what hard rule 6 depends on; it does not decouple the alignment. A save with a remainder is not corrupt and the loader must never treat it as corrupt. Written into docs/SAVE_SCHEMA.md Part 3 by V4.
+- ~~**Buying an unlock is not part of hashed state, and V4 has to persist it.**~~ Closed 2026-07-31. It still is not hashed state, which is why it needed saying: `setReactionVmax` and `setReactionEnabled` touch no pool, no tick count and no PRNG, so a reload that dropped unlock state would pass every determinism test in the project while silently refunding every purchase. `progression.unlocked` persists it and the runtime re-applies the capacity Vmax at load. Two tests in `reloadDeterminism.test.ts` fail on purpose without each half.
 - **The media query behind reduced motion has never run in a browser.** The reduced path itself was verified by forcing the flag, and it works. `usePrefersReducedMotion` is small and ordinary, but small and ordinary is not tested, and `Emulation.setEmulatedMedia` is not on the browse tool's CDP allowlist. It needs one check through real OS settings.
 - **DESIGN.md's "colour leaving" sentence is backwards as written.** It says the player watches the NAD+ wall arrive as colour leaving, but `oxidized` is the desaturated end of the axis, so as NAD+ drains colour arrives. V3 encodes the reduced fraction, which is monotonic and reads well, but it is not what the sentence says. Recorded in DESIGN.md's "What survived contact".
 - **The wordmark scale does not fit a persistent top bar.** DESIGN.md gives it 60 to 104px, which is a hero scale, and on the act screen it takes a permanent 100px band for a word that never changes. Implemented as specified and recorded as wrong.
@@ -186,11 +234,10 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Next, in order
 
-1. **docs/ECONOMY.md.** It has been waiting for a playable prototype and there is one. It owns two things V3 could only report: the ATP bootstrap trap in blocking item 1, which is a balance decision rather than an interface one, and the static mid-game in blocking item 2, which is the reason question 1 came back negative. Twenty provisional numbers across `src/content/act1/tuning.ts` and `src/ui/tuning.ts` owe it divergence rows.
-2. **V4, persistence**, against docs/SAVE_SCHEMA.md version 1, plus the migration harness and its fixture test. Note that unlock state is not part of hashed state and has to be persisted separately, or a reload refunds every purchase.
-3. **V5, offline progress**, and the `STEADY_EPSILON` and `STEADY_WINDOW` validation, which is the first thing it has to do.
+1. **docs/ECONOMY.md.** Recommended by V3 stage 7, not acted on, and V4 has now added a row to what it owes rather than writing it. It owns two things no log so far has been able to: the ATP bootstrap trap in blocking item 1, which is a balance decision rather than an interface one, and the static mid-game in blocking item 2, which is the reason question 1 came back negative. Twenty-two provisional numbers across `src/content/act1/tuning.ts`, `src/ui/tuning.ts` and `src/save/tuning.ts` owe it divergence rows.
+2. **V5, offline progress.** Its first task is still validating `STEADY_EPSILON` and `STEADY_WINDOW` against a real configuration, which have been unvalidated placeholders since V1. Act 1 has been that configuration since V2 and is now a configuration that **can be saved mid-run**, which is exactly what makes the docs/SIMULATION.md Part 3 validation practical to write: the piecewise steady state path can be checked against a full-fidelity replay from a saved state, on hash equality, using the harness `reloadDeterminism.test.ts` already established. V5 also inherits a real accumulated `pendingOfflineMs` rather than a zero.
 
-docs/ECONOMY.md goes first rather than V4 because both blocking items are its to resolve, and building saves on top of an economy known to have a hole in it means saving the hole.
+docs/ECONOMY.md went first before V4 and it did not get written, so V4 built saves on top of an economy known to have a hole in it, which means the hole is now saved too. That was the predicted cost and it is now the actual one. It should go first before V5 for the same reason and with one more log's worth of evidence behind it.
 
 ## The vertical slice
 
@@ -201,6 +248,8 @@ Done in V1: fixed timestep accumulator, pools, Michaelis-Menten flux, two-phase 
 Done in V2: one pool, glycolysis, the NAD+ constraint, fermentation.
 
 Done in V3: the interface. **The slice is complete.**
+
+Done in V4, outside the slice: persistence. Every property this project treats as tested is now tested across a reload as well, which is a stronger claim than any earlier log could make.
 
 Out of scope for the slice: saves, offline progress, the timeline, the beast, and the parts of DESIGN.md the slice did not need.
 

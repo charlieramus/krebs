@@ -218,12 +218,100 @@ export const DISCLOSURE: Entry = {
   badge: sourced(`${PART1}, required disclosure text`),
 };
 
-/**
- * No saves in V3. DESIGN.md does not cover this and neither does docs/SCIENCE.md,
- * because it is a fact about the build rather than about a cell. Say it on
- * screen rather than letting a player discover it by refreshing.
- */
-export const NO_SAVES: Entry = {
-  text: 'No saves yet. A refresh loses the run.',
-  badge: tuned('A statement about this build, not about biology. Saves land in V4'),
-};
+/* ===========================================================================
+   SAVE MANAGEMENT. UPDATELOGV4.md stage 5.
+
+   DESIGN.md's screen inventory: "Save management, export to file, import,
+   backup recovery on failed parse".
+
+   Every string here is a statement about the BUILD rather than about a cell,
+   which is the same case V3's "No saves yet" line was in and it takes the same
+   badge treatment: Tuned, with a reason that says so. The numbers these
+   sentences sit beside are a different question, and it is the one stage 5
+   decided: a value measured from the player's own session and the wall clock is
+   exempt from the badge contract and goes through `Figure`'s `measured` prop.
+   See src/ui/components/Figure.tsx.
+   =========================================================================== */
+
+const ABOUT_THE_BUILD = 'A statement about this build, not about biology';
+
+export const SAVE = {
+  heading: {
+    text: 'Save',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  autosaved: {
+    text: 'Saved automatically',
+    badge: tuned(`${ABOUT_THE_BUILD}. Autosave interval is provisional and lives in src/save/tuning.ts`),
+  },
+  neverSaved: {
+    text: 'Not saved yet',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  exportAction: {
+    text: 'Export to file',
+    badge: tuned(`${ABOUT_THE_BUILD}. Exported saves are plain readable JSON`),
+  },
+  importAction: {
+    text: 'Import from file',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+
+  /* Storage that cannot promise anything. docs/PILLARS.md rule 7 rules out a
+     backend, so an honest warning is the entire mitigation and it must not be
+     silent. */
+  storageUnavailable: {
+    text: 'This browser is not letting the game store anything. The run will not survive this tab.',
+    badge: tuned(`${ABOUT_THE_BUILD}. There is no backend to fall back to, by design`),
+  },
+  storageFull: {
+    text: 'Browser storage is full. The run will not survive this tab, and the save already on disk has not been touched.',
+    badge: tuned(`${ABOUT_THE_BUILD}. The existing save is preserved by the write order`),
+  },
+
+  /* The three load outcomes that are not an ordinary load. */
+  recoveryOffer: {
+    text: 'The save could not be read. There is a backup from just before it.',
+    badge: tuned(`${ABOUT_THE_BUILD}. The unreadable save is kept rather than deleted`),
+  },
+  recoveryAction: {
+    text: 'Load the backup',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  unreadable: {
+    text: 'The save could not be read and neither could the backup. Both have been left exactly as they are.',
+    badge: tuned(`${ABOUT_THE_BUILD}. Nothing is overwritten, so the files stay available`),
+  },
+  future: {
+    text: 'This save was written by a newer version of the game. It has not been loaded and it has not been changed.',
+    badge: tuned(`${ABOUT_THE_BUILD}. Guessing at a newer format is how saves get destroyed`),
+  },
+
+  /* The offline delta. Honest in both directions: no reward is implied and no
+     loss is implied, because neither is true. */
+  away: {
+    text: 'Away for',
+    badge: tuned(`${ABOUT_THE_BUILD}. Time away is measured, not simulated`),
+  },
+  awayNotSimulated: {
+    text: 'None of it has been simulated. It is being kept, not spent.',
+    badge: tuned(`${ABOUT_THE_BUILD}. Offline progress lands in V5`),
+  },
+  awayCapped: {
+    text: 'Time away is capped, and the cap was reached.',
+    badge: tuned(`${ABOUT_THE_BUILD}. The cap is MAX_OFFLINE_HOURS in docs/SIMULATION.md Part 6`),
+  },
+  clockBackwards: {
+    text: 'The system clock moved backwards since the last save, so no time away was counted.',
+    badge: tuned(`${ABOUT_THE_BUILD}. docs/SAVE_SCHEMA.md Part 3 says credit zero rather than error`),
+  },
+
+  importFailed: {
+    text: 'That file is not a save this version can read. Nothing was changed.',
+    badge: tuned(`${ABOUT_THE_BUILD}. A failed import never touches the existing save`),
+  },
+  importFuture: {
+    text: 'That file was written by a newer version of the game. Nothing was changed.',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+} as const satisfies Readonly<Record<string, Entry>>;

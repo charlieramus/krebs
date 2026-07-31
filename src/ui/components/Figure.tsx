@@ -38,15 +38,7 @@ const SIZE_CLASS: Readonly<Record<FigureSize, string>> = {
   micro: 'text-micro font-body font-bold',
 };
 
-export interface FigureProps {
-  /**
-   * REQUIRED. DESIGN.md says an unsourced number should look visibly broken
-   * because the badge slot is empty. A required prop is stronger than that: it
-   * does not compile. There is no default and there must never be one, because
-   * a default is a decision about provenance made by whoever wrote the
-   * component rather than by whoever wrote the number.
-   */
-  badge: BadgeSpec;
+interface FigureBaseProps {
   /**
    * Where the badge is drawn.
    *
@@ -82,6 +74,43 @@ export interface FigureProps {
 }
 
 /**
+ * PROVENANCE IS REQUIRED AND IT HAS TWO ANSWERS.
+ *
+ * V3 made the badge a required prop so an unsourced number does not compile.
+ * V4 is the first log to render a number the badge contract was not designed
+ * for: "you were away for 3 hours" is a quantitative claim in player-facing
+ * text, which CLAUDE.md hard rule 1 and docs/PILLARS.md rule 4 govern, and it
+ * traces to the system clock rather than to docs/SCIENCE.md. There is no source
+ * to cite and no divergence row it could owe, because it is not a game-authored
+ * number at all.
+ *
+ * THE DECISION, made in UPDATELOGV4.md stage 5 and written into DESIGN.md rather
+ * than left to each component: **a value measured from the player's own session
+ * and the wall clock is exempt from the badge contract.** The contract governs
+ * claims about biology and about the game's own tuning, and a readout of how long
+ * this tab was closed is neither.
+ *
+ * THE EXEMPTION IS NARROW AND THIS IS THE LINE. It covers real elapsed time away,
+ * save timestamps and storage sizes. It does NOT cover anything the simulation
+ * produced. Pool amounts stay badged because they are output of a model whose
+ * rates are tuned. Elapsed GAME time stays badged because its badge is a claim
+ * about the mapping to real time, which docs/SCIENCE.md Part 1 says does not
+ * exist, and that claim is still worth making.
+ *
+ * NO FOURTH BADGE KIND WAS INVENTED. The pill vocabulary is unchanged, three
+ * shipping states and one development-only one. What changed is that provenance
+ * now has two possible answers and the author still has to give one: exactly one
+ * of `badge` or `measured` is required, so an exempt figure is a decision at the
+ * call site rather than a default. `measured` takes a sentence saying what is
+ * being measured, so it cannot be used as a silent escape hatch.
+ */
+export type FigureProps = FigureBaseProps &
+  (
+    | { badge: BadgeSpec; measured?: undefined }
+    | { badge?: undefined; measured: string }
+  );
+
+/**
  * The one formatting function. Live and static both call it.
  *
  * `toFixed` rather than Intl.NumberFormat: no locale-dependent grouping
@@ -101,6 +130,7 @@ export function formatFigure(value: number, decimals: number, signed: boolean): 
 
 export function Figure({
   badge,
+  measured,
   badgeDisplay = 'inline',
   value,
   read,
@@ -118,8 +148,9 @@ export function Figure({
     <span
       // The trace is on the figure itself, not only on the badge, so hovering
       // the number answers "where did this come from" even where the badge is
-      // attached to a container.
-      title={badgeTrace(badge)}
+      // attached to a container. A measured value answers the same question with
+      // what was measured, since there is no document to point at.
+      title={badge === undefined ? `Measured: ${measured}` : badgeTrace(badge)}
       className={`inline-flex items-baseline gap-0.5 tabular-nums ${SIZE_CLASS[size]} ${className}`}
     >
       {read === undefined ? (
@@ -130,7 +161,9 @@ export function Figure({
       {unit === undefined ? null : (
         <span className="text-micro font-bold text-ink2 tabular-nums">{unit}</span>
       )}
-      {badgeDisplay === 'inline' ? <Badge badge={badge} className="ml-1 self-center" /> : null}
+      {badge !== undefined && badgeDisplay === 'inline' ? (
+        <Badge badge={badge} className="ml-1 self-center" />
+      ) : null}
     </span>
   );
 }
