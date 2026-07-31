@@ -1,6 +1,6 @@
 # Save Schema
 
-Last updated: 2026-07-27
+Last updated: 2026-07-31
 Current schema version: 1
 
 The data contract. Treated as frozen in the same sense as the MyLifeInARepo contract: additive changes are cheap, breaking changes require a migration and a test, and nothing ships that can silently corrupt a save.
@@ -47,6 +47,8 @@ Retain the previous save as a single backup slot. On a failed parse of the prima
 
 Illustrative rather than exhaustive. Field names are the contract, the structure below is the intended organization.
 
+Fields marked `// V4` were added by UPDATELOGV4.md when version 1 was implemented. They are additive, so under Part 1's policy they required no version bump, and the version stayed 1. They are recorded here because Part 2 is the contract's description of itself and a description that lags the code by a release is how the two stop agreeing.
+
     {
       schemaVersion: 1,
 
@@ -58,7 +60,8 @@ Illustrative rather than exhaustive. Field names are the contract, the structure
 
       time: {
         elapsedGameMs:    number,   // total game time simulated, integer ms
-        offlineCreditedMs: number   // cumulative, for stats and audit
+        offlineCreditedMs: number,  // cumulative, for stats and audit
+        pendingOfflineMs: number    // V4. accumulated, not yet credited
       },
 
       rng: {
@@ -94,18 +97,31 @@ Illustrative rather than exhaustive. Field names are the contract, the structure
       stats: {
         totalAtpProduced: number,
         glucoseConsumed:  number,
-        eventsProcessed:  number
+        eventsProcessed:  number,
+
+        // V4. The rest of the act 1 counter set. Unlocks are gated on the
+        // cumulative meter, so a meter that does not survive a reload either
+        // re-locks something the player bought or lets them buy it twice.
+        atpSpent:         number,
+        atpMaintained:    number,
+        glucoseTakenUp:   number,
+        lactateProduced:  number,
+        nadhProduced:     number
       },
 
       diagnostics: {
         offlineFallbackCount: number,  // steady state not reached, see docs/SIMULATION.md Part 3
-        negativePoolScalingEvents: number
+        negativePoolScalingEvents: number,
+        scalingCapHits:   number       // V4. shortfall scaling hit its pass cap
       },
 
       settings: {
         // UI only. Never affects simulation.
+        // Empty at version 1. Values are scalars: boolean, number or string.
       }
     }
+
+`tickCount` is absent and that is deliberate. See Part 3, "Time is stored in milliseconds, never in ticks". It is reconstructed at load as `elapsedGameMs / TICK_MS`.
 
 ---
 
@@ -116,6 +132,12 @@ Illustrative rather than exhaustive. Field names are the contract, the structure
 This is the single most important rule in the file.
 
 Storing tick counts would make TICK_RATE_HZ load-bearing for save compatibility. Changing the tick rate would then silently rescale every existing save. Storing milliseconds decouples the two, which is what allows the rate to be tuned freely during development and frozen cleanly at launch. See docs/SIMULATION.md Part 1.
+
+**It decouples the duration. It does not decouple the tick alignment.** Added by V4, which is the log that had to implement the reconstruction and found the gap.
+
+`elapsedGameMs` is always a whole multiple of the TICK_MS that produced it, so dividing is exact while the rate is unchanged. Change TICK_MS from 50 to 40 during development and a save written at 60050 ms reconstructs to 1501.25 ticks, which is not a tick count. Load therefore floors to the whole tick and discards the sub-tick remainder, which is at most one tick of game time.
+
+A save whose `elapsedGameMs` is not a whole multiple of the current TICK_MS **is not corrupt and must not be rejected as corrupt.** It is the cost this rule was chosen to pay, and corruption handling has to be able to tell the two apart.
 
 ## lastSavedAt is the only wall-clock input
 
@@ -133,7 +155,9 @@ Pool ids, enzyme ids and unlock ids are contract surface. Once a build ships wit
 
 ## Diagnostics are not decoration
 
-offlineFallbackCount and negativePoolScalingEvents record simulation conditions that should not occur in a well-tuned build. They persist so that a player-submitted save file carries evidence of a balance bug. Surface them in a development overlay.
+offlineFallbackCount, negativePoolScalingEvents and scalingCapHits record simulation conditions that should not occur in a well-tuned build. They persist so that a player-submitted save file carries evidence of a balance bug. Surface them in a development overlay.
+
+**negativePoolScalingEvents is a projection and it cannot be inverted.** Added by V4. The kernel counts shortfall ticks per pool and the schema stores one number, so the mapping is a sum. A restored session therefore carries the saved total as a baseline and adds its own work to it, and the per-pool breakdown is session-scoped. The total is what the field has always meant, so nothing about the contract changes; what changes is that a reader now knows the number spans the whole history of the save and the breakdown does not.
 
 ## Settings never affect simulation
 

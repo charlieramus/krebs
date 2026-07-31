@@ -830,7 +830,137 @@ canonical hashes unchanged.
 
 ## Stage 6 Report
 
-_Pending._
+**Coherence sweep.** Nothing to fix. No `Math.random`, `Math.pow`, `Math.exp` or `Math.log` anywhere in `src/save/`. `Date` appears in exactly one file, `src/save/meta.ts`, once. Grep for imports of `src/save/` across `src/sim/` and `src/content/` returns one file, `src/content/act1/save.ts`, which is the sanctioned one. The arrow points the same way it has since V2.
+
+**The ESLint decision, and it is a partial scope rather than a yes or no.**
+
+V2 stage 6 extended the guard from `src/sim/**` to `src/content/**` on an argument that was identical to the original: content builds the descriptors the kernel runs, so a `Math.pow` there reaches the same arithmetic through a different door. **The argument for `src/save/**` is not identical, and treating it as identical would have produced the wrong rule**, which is what the spec warned about.
+
+The guard is now two halves with two scopes:
+
+- **Hard rules 4 and 5 apply to `src/save/**` in full, no exemptions.** A save carries pool amounts, a PRNG state and a tick count, all of which go straight back into the tick loop on restore, so these four are as unwelcome here as in `tick.ts`. There is no legitimate use for any of them in serialising a number.
+- **The clock ban applies to `src/save/**` with exactly one file exempted**, `src/save/meta.ts`. docs/SAVE_SCHEMA.md Part 3 makes `meta.lastSavedAt` the only wall-clock input in the entire system, so one file has to read a clock. Exempting the whole directory was the easy answer and it throws away the property actually worth keeping, which is not "save code may read the clock" but **"the places that read the clock are countable"**. There is one, and nothing else in the save layer can become the second by accident.
+
+Proved with two probes, one in each scope. Verbatim:
+
+```
+D:\Portfolio work\Development\krebs\src\save\probe.ts
+  2:23  error  'Math.random' is restricted from being used. CLAUDE.md hard rule 4: use the seeded PRNG in src/sim/prng.ts. Determinism is a tested property  no-restricted-properties
+  3:22  error  'Math.pow' is restricted from being used. CLAUDE.md hard rule 5: Math.pow is implementation-approximated. Use repeated multiplication         no-restricted-properties
+  4:22  error  Unexpected use of 'Date'. docs/SIMULATION.md Part 5: wall-clock time enters only at the loop boundary, never inside sim code                  no-restricted-globals
+  4:22  error  'Date.now' is restricted from being used. docs/SIMULATION.md Part 5: wall-clock time enters only at the loop boundary, never inside sim code  no-restricted-properties
+  5:25  error  Unexpected use of 'Date'. docs/SIMULATION.md Part 5: wall-clock time enters only at the loop boundary, never inside sim code                  no-restricted-globals
+
+D:\Portfolio work\Development\krebs\src\save\probeMeta.ts
+  3:23  error  'Math.random' is restricted from being used. CLAUDE.md hard rule 4: use the seeded PRNG in src/sim/prng.ts. Determinism is a tested property  no-restricted-properties
+
+✖ 6 problems (6 errors, 0 warnings)
+```
+
+The second probe is the interesting one: under the `meta.ts` scope `Date.now()` passes and `Math.random()` still fails, which is the exemption being narrow rather than a hole. Both probes deleted, config reverted, `npm run lint` clean.
+
+**Verify.** `npm run typecheck`, `npm run lint`, `npm run build` and `npm test` all clean.
+
+| | V3 | V4 |
+| --- | --- | --- |
+| Tests | 160 across 18 files | **269 across 24 files** |
+| Bundle | 229.44 kB, 72.36 kB gzipped | **251.29 kB, 78.79 kB gzipped** |
+
+109 tests added: 29 codec, 23 storage, 12 migrations, 9 schema version gate, 12 reload determinism, 24 persistence. The 21.85 kB of bundle growth is the save layer and the panel reaching the app for the first time; stages 1 to 4 added nothing to the bundle at all, because nothing imported them yet.
+
+**Both canonical hashes are unchanged.** The act 1 hash is `657594cb` and the toy pathway hash is `172f83fb`, asserted in `src/content/act1/__tests__/determinism.test.ts` and `src/sim/__tests__/determinism.test.ts`, both passing. Note again that the act 1 figure this log's stage 4 spec asks about, `e9b720a8`, has been stale since V3 stage 6 raised `ACT1_GLUCOSE_ENV_INITIAL`; that is a defect in the spec text, not in the code, and nothing in V4 moved either hash.
+
+---
+
+### Walking a save by hand
+
+The save below is `src/save/__tests__/fixtures/v1.json`, the committed version 1 fixture: a real act 1 run, four game-minutes deep, past the NAD+ wall, fermenting, one rung up the capacity ladder.
+
+**`schemaVersion: 1`.** The first field read and the only one read before anything else is parsed. If it were absent the loader would have nothing to branch on and would have to guess the shape from the fields, which is how a newer save gets misinterpreted instead of refused.
+
+**`meta.createdAt: 1785585600000`.** Epoch ms, written once at new game and never rewritten. Nothing reads it today. If it were absent nothing would break now, which is exactly why it has to be written now: it is the only record of when a run began and it cannot be reconstructed later.
+
+**`meta.lastSavedAt: 1785586200000`.** The only wall-clock input in the system. Absent, offline duration is uncomputable and V5 has no boundary to work from; the game would still load and the player's time away would silently become nothing.
+
+**`meta.buildId: "v4-fixture"`.** Diagnostic. Never branched on, and Part 2 says so. Absent, a player-submitted save file stops saying which build wrote it. Branching on it would make it a second version field, and there already is one.
+
+**`time.elapsedGameMs: 240000`.** Four game-minutes, and the reason `tickCount` is not in this file. Absent, the tick count reconstructs to zero and the run restarts while every pool stays where it was, which is a state the simulation has never been in.
+
+**`time.offlineCreditedMs: 0`.** Honest: V4 credits nothing. Absent, V5 has no running total to add to.
+
+**`time.pendingOfflineMs: 0`.** Additive, V4. Zero here because the fixture was produced by a harness that never exceeded the catch-up cap. In a real save this is game time a hidden tab lost plus real time away. Absent, both are thrown away on every reload, which is the V3 hole this field closes half of.
+
+**`rng.algorithm: "mulberry32"`, `rng.seed: 20260729`, `rng.state: 4251286828`.** The state is the field Part 5 says is most often dropped, and this fixture is the only artifact in the project that can prove it matters, because act 1 never advances the generator on its own. Absent, the restore rebuilds from the seed and the run continues on a different random sequence. Every pool amount would look right and the future would be wrong.
+
+**`progression.act: 1`.** One of four. Absent, the loader cannot tell which act's content to build.
+
+**`progression.unlocked: ["ferment", "uptake-capacity-1"]`.** Insertion ordered, and the order is the purchase order: lactate dehydrogenase costs 55 cumulative ATP and the first capacity step costs 1500. **The single most load-bearing field in the file that the canonical hash cannot see.** Absent, both purchases are silently refunded and every determinism test in the project still passes.
+
+**`progression.transitionTaken: false`, `progression.shuttleChoice: null`.** Endosymbiosis is act 3 and there is no shuttle to choose in act 1. Both are honestly true rather than placeholders, which is the difference between a field and a lie.
+
+**`pools`, ten entries by id.** `glucose_env: 77853.598…` is the environment drawn down from 80000. `lactate: 4073.488…` is the end product piling up, which is what a fermenting cell looks like. `nad: 16.317…` and `nadh: 13.682…` sum to exactly the nicotinamide total of 30, and `atp: 16.608…` plus `adp: 23.391…` sum to exactly 40. Those two sums are the conserved quantities that make the act 1 wall a testable property, and a save that broke either would be a save that restores into a cell violating conservation on its first tick. Written by id, never by index, because reordering the definition list is a readability change and reordering ids is a migration. Absent, a pool defaults to `ACT1_INITIAL` and the loader reports it in `missingPools`.
+
+**`enzymes: {}`.** No enzyme objects exist until the preparatory phase is decomposed into its ten steps. An empty object is the true statement; an invented level would not be.
+
+**`environment.oxygenLevel: 0`, `environment.scheduleIndex: 0`.** Act 1 really is anaerobic. This zero is a fact about the world, not a default.
+
+**`stats.totalAtpProduced: 8174.342…`.** The meter's `atpProduced` under the schema's permanent name, and the one name mismatch in the whole mapping, mapped explicitly rather than spread. **Absent, V3's unlock gating breaks in both directions**: the cumulative counter is what unlocks are thresholded against, so a reset meter re-locks what the player bought and lets them buy it again.
+
+**`stats.glucoseConsumed: 2050.427…`** is the denominator that means anything, glucose committed to the pathway rather than imported. **`stats.glucoseTakenUp: 2146.401…`** is imports, and the 96-unit gap between them is glucose inside the cell that has not entered glycolysis yet. During a stall that gap is the whole story.
+
+**`stats.eventsProcessed: 0`.** Offline events, V5.
+
+**`stats.atpSpent: 4100.854…`, `atpMaintained: 4076.879…`, `lactateProduced: 4073.488…`, `nadhProduced: 4087.171…`.** Additive, V4. The rest of the meter. `atpProduced` minus `atpSpent` is the net, and 8174.34 against 4100.85 is almost exactly the sourced 4-gross-to-2-net ratio, which is the ledger surviving into the save. Absent, the yield readouts restart from zero mid-run and ATP per glucose reads as a collapse.
+
+**`diagnostics.offlineFallbackCount: 0`.** V5.
+
+**`diagnostics.negativePoolScalingEvents: 0`.** A projection: the kernel counts shortfall ticks per pool and this is their sum over the whole history of the save. It cannot be inverted, so a restored session carries this as a baseline and adds its own. Zero here means this run never ran a pool short, which is what a well-tuned pathway should look like.
+
+**`diagnostics.scalingCapHits: 0`.** Additive, V4. The sharper of the two signals: non-zero means the shortfall scaling loop hit its pass cap, which is a balance bug. Part 3 says diagnostics are not decoration, and these two are why a player-submitted save is worth having.
+
+**`settings: {}`.** UI only, never affects simulation. Empty because V3 shipped no persisted setting: reduced motion is read from the OS media query rather than stored. Carried through a restore unchanged rather than dropped, so a build that adds one and a build that does not can share a file without either deleting the other's work.
+
+**`tickCount` is absent** and that is the single most important rule in docs/SAVE_SCHEMA.md. Storing it would make `TICK_RATE_HZ` load-bearing for save compatibility, which is exactly what hard rule 6 depends on not being true.
+
+### Walking one load of it
+
+`createSaveStore().load()` reads `krebs.save.active`, gets a string, and hands it to `parseAndMigrate`.
+
+`parseSave` parses the JSON. `readSchemaVersion` reads `1` **before any other field is looked at**. It is not greater than `SCHEMA_VERSION`, so this is not a future save; it is not less, so the migration chain has nothing to do and `runMigrations` is skipped entirely. `deserialize` then validates every field structurally, rebuilds the object in canonical order through the same constructor `serialize` uses, and returns `ok`. The rebuild is not ceremony: it drops any extra keys a hostile or newer file carried, so nothing downstream holds a reference to the raw parse.
+
+`restoreAct1` takes it from there. Every key in `pools` is checked against `ACT1_POOL_IDS`; all ten are known, so nothing is corrupt. Each of the ten is read by id into an `initial` map. None are missing, so `missingPools` is empty.
+
+`deriveAct1Unlocks(["ferment", "uptake-capacity-1"])` runs. `ferment` matches the fermentation id, so `fermentEnabled` is true. `uptake-capacity-1` parses to step 1, and the highest step present wins rather than the count, so a save missing an intermediate id lands on the rung the player reached. Nothing is unrecognised, so `unknown` is empty. **Nothing in the file said `enabled: true` anywhere**; the flag is derived here and only here.
+
+`createAct1` is called with those initial amounts, `enabled: { ferment: true }` and the saved seed. Every other reaction takes its flag from `ACT1_ENABLED`, the shipped pathway, so a save cannot switch on a reaction the build ships off or off one it ships on.
+
+`state.prng.state` is assigned `4251286828 >>> 0`. This is the two-line step that the whole of stage 4 exists to prove is necessary.
+
+`tickCount` is reconstructed: `Math.floor(240000 / 50)` is exactly 4800, and `discardedMs` is 0 because 240000 is a whole multiple of the current `TICK_MS`. **If `TICK_MS` had moved to 40 since the save was written**, this would floor to 6000 and discard 0 ms, or on a less tidy number discard up to one tick; that is not corruption and the loader must not treat it as such.
+
+`pendingOfflineMs` and `scalingCapHits` are assigned onto `state.diagnostics`. `negativePoolScalingEvents` cannot go there, because the kernel's version is per pool, so it rides on `carried` and the next capture adds this session's work to it.
+
+The meter is rebuilt field by field, `totalAtpProduced` back to `atpProduced` and the other six straight across. V3's unlock shelf reads this on its first frame and correctly shows both purchases as bought.
+
+Back in the runtime: `restoredOk.unlocks.uptakeStep` is 1, so `setReactionVmax(state, 'uptake', UPTAKE_VMAX_STEPS[1])` runs and uptake's Vmax goes to 10. **The ladder lives in the interface's tuning and content may not import it, so content reports the step and the runtime applies the number.** Without these four lines the reaction runs at 8 while the snapshot claims step 1, which is the silent refund.
+
+`computeOfflineDelta(1785586200000, now)` runs once. Negative credits zero; positive caps at `MAX_OFFLINE_HOURS`; the result is added to `state.diagnostics.pendingOfflineMs` and **nothing simulates it**.
+
+The g3p baseline for the completed-glucose correction is set to 0 rather than to the restored 13.68, because the meter is cumulative from the true start of the run.
+
+Then `start()` runs, the loop begins at tick 4800, and autosave arms its timer and its two listeners. The walkthrough and the code agree.
+
+---
+
+**docs/SAVE_SCHEMA.md**, edited additively. Last updated line moved to 2026-07-31. `time.pendingOfflineMs`, the five extra `stats` fields and `diagnostics.scalingCapHits` added to Part 2, each marked `// V4`, with a note above the block explaining what the marker means. A line recording that `tickCount` is absent on purpose, pointing at Part 3. Part 3 gained two paragraphs: the tick alignment cost, which is a gap V4 found by being the log that had to implement the reconstruction, and the statement that `negativePoolScalingEvents` is a projection that cannot be inverted.
+
+**This is documentation catching up with an additive change rather than a schema change.** Part 1's policy says an additive change new code can handle by defaulting a missing field does not require a version bump. Every field added above is exactly that: absent, the loader defaults it and reports it. **Hard rule 7 is therefore not in play.** Part 1 is untouched. The version stays 1, and `schemaVersionGate.test.ts` would have failed the suite if it had not.
+
+**DESIGN.md.** The screen inventory entry for save management now says it shipped as a panel on the act screen rather than a screen, with a paragraph under the inventory giving the reason and the two content rules that came out of building it. The badge contract section gained the measured-value exemption, written as a rule with its boundary stated: it covers the player's own session and the wall clock, it stops at the simulation, and no fourth pill was added. Four rows in the decisions log, dated 2026-07-31.
+
+**NOW.md.** Status rewritten: the slice persists, with the real-browser reload evidence. Build state table marks V4 done. A new "What the save layer does" section, sibling to the kernel, content and interface sections, naming the fixture and saying why it matters and why it cannot be created later. A "Settled 2026-07-31, by V4" section with ten entries. The Blocking section says plainly that V4 found nothing new for it and that both remaining items are docs/ECONOMY.md's. In "Open, not blocking": the backgrounded tab hole rewritten to say **narrower and not closed**, with what changed (the time is now recorded and accumulates across sessions) and what did not (nothing spends it, and the player still gets no progress for it); the offline delta accumulated and never credited; the autosave interval and its debt; and the tick alignment cost of a development-time rate change. The unlock-state item is struck as closed with the evidence. "Next, in order" is now two items, with V5's first task still the `STEADY_EPSILON` and `STEADY_WINDOW` validation and a note that a mid-run save is what makes that Part 3 validation practical to write.
+
+**docs/ECONOMY.md is not written**, and the recommendation is restated rather than acted on. V3 stage 7 made it. V4 added one row to what it owes and then a second, so the count is now **twenty-two provisional numbers across three files**: thirteen in `src/content/act1/tuning.ts`, seven in `src/ui/tuning.ts` including the new `OFFLINE_REPORT_THRESHOLD_MS`, and one in `src/save/tuning.ts`, the autosave interval. Both act 1 blocking items are still its to resolve. Building saves on top of an economy known to have a hole in it means the hole is now saved too, which was the predicted cost when V3 recommended writing it first, and is now the actual one.
 
 ---
 

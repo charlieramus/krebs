@@ -108,6 +108,16 @@ Three shipping states, applied to every quantitative claim in player-facing text
 
 This makes docs/PILLARS.md rule 4 a component problem rather than a discipline problem. Any figure rendered without a badge looks visibly broken, because the badge slot is empty.
 
+**Measured session values are exempt, and this is a rule rather than a note.** Added 2026-07-31 by V4, the first log to render a number the contract was not designed for.
+
+A value measured from the player's own session and the wall clock carries no badge. It is declared exempt explicitly, at the call site, through `Figure`'s `measured` prop, which takes a sentence saying what is being measured. Exactly one of `badge` or `measured` is required, so provenance is still a decision that does not compile if it is skipped. It now has two possible answers instead of one.
+
+The contract governs claims about biology and claims about the game's own tuning. "You were away for 5 hours" is neither. There is no document it could cite and no docs/ECONOMY.md divergence row it could owe, because it is not a game-authored number at all, and badging it would imply provenance is an open question about it.
+
+**The exemption is narrow and this is the line.** It covers real elapsed time away, save timestamps and storage sizes. It does not cover anything the simulation produced. Pool amounts stay badged, because they are the output of a model whose rates are tuned. Elapsed *game* time stays badged, because its badge is a claim about the mapping to real time, which docs/SCIENCE.md Part 1 says does not exist, and that claim is still worth making.
+
+No fourth pill was added. The vocabulary above is unchanged and the release gate is untouched.
+
 `Needs source` exists so that unsourced content is loud during development rather than invisible. It is a dashed yellow badge because dashed borders read as unfinished everywhere else in this system. **The release build must fail if any `Needs source` badge survives into it.** That check is the mechanical enforcement of hard rule 1 and it should be written before any content is.
 
 ## Coach marks
@@ -182,6 +192,7 @@ No authentication. No accounts. No backend. docs/PILLARS.md rule 7 holds.
     Unlock shelf        dashed slots, part of the act screen
     Offline return      what happened while away, with the event sequence
     Save management     export to file, import, backup recovery on failed parse
+                        Built by V4 as a panel on the act screen, not a screen
     About               required disclosure text from docs/SCIENCE.md Part 1
     Endgame summary     what was built, the real timeline, sources, simplifications
     Sandbox             all unlocks, adjustable environment
@@ -189,6 +200,10 @@ No authentication. No accounts. No backend. docs/PILLARS.md rule 7 holds.
 The timeline is a second view, not the main screen. It answers "where am I and how much is left", which the act screens cannot, and it gives ATP a visible destination.
 
 The offline return screen shows the event sequence, not just a total. docs/SIMULATION.md left this open. The piecewise steady state algorithm produces a genuine bounded event list, so showing it is both honest and instructive: it teaches that metabolism is homeostatic between shocks rather than smoothly accumulating.
+
+**Save management is a panel, not a screen.** Decided 2026-07-31 by V4, which built it. Everything it has to say is a handful of lines and two buttons: whether storage is durable, how long the player was away, a recovery offer when the primary save failed to parse, export, and import. A dedicated screen for that is navigation the player has to find in order to be told something they mostly do not need to know, and the one time it matters, a corrupt save, is the one time it must not be behind a click. It uses Card, Button, Figure and Badge and introduces no new visual vocabulary.
+
+Two things about it that are content rules rather than layout ones. The return line says the time away has been kept and not spent, and implies neither a reward nor a loss, because until offline progress exists neither is true. And it does not announce an absence shorter than a minute: a refresh is a positive delta of a second or two, and a panel that announces a non-event on every reload teaches the player to stop reading the one panel that has to be believed when something has actually gone wrong.
 
 ## The cell as beast
 
@@ -319,3 +334,7 @@ Illustration rules 4 to 6, because act 1 has no enzyme objects, no damage and no
 | 2026-07-29 | Zero flux changes the arrow's treatment rather than its speed | A dash animation that asymptotically slows reads as "working slowly" when the truth is "stopped", and stopped is the walled state. Misreading it breaks act 1's teaching beat before the player reaches it. |
 | 2026-07-29 | Reduced motion dims a stopped arrow as well as stating its rate | Colour is not motion, so it costs a reduced-motion player nothing. Without it the reduced path carried the same reading minus the obvious part. |
 | 2026-07-29 | The coach mark is an overlay, positioned out of its column | The left rail is 17rem and the mark rendered inline at about twenty characters a line, against this document's own 64ch prose rule. The screen inventory already called it an overlay. |
+| 2026-07-31 | Measured session values are exempt from the badge contract | The contract governs claims about biology and about the game's own tuning. Time away traces to the system clock, has no document to cite and owes no divergence row, so a badge on it would imply provenance is an open question about it. Declared at the call site through `Figure`'s `measured` prop, so exactly one of `badge` or `measured` is still required. No fourth pill was added. |
+| 2026-07-31 | The exemption stops at the simulation | Pool amounts and elapsed game time stay badged. A pool amount is the output of a model whose rates are tuned, and game time's badge is a claim about its mapping to real time, which docs/SCIENCE.md Part 1 says does not exist. Only the player's own session is exempt. |
+| 2026-07-31 | Save management is a panel on the act screen, not its own screen | Everything it says is a few lines and two buttons, and the one case that matters, a corrupt save, must not be behind a click. |
+| 2026-07-31 | The return line never announces an absence shorter than a minute | A refresh is a positive offline delta, so the panel announced "Away for 0 min" on every reload. True, and noise. A panel that cries wolf on every reload will not be believed on the day it says something went wrong. |
