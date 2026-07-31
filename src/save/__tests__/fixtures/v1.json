@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "createdAt": 1785585600000,
+    "lastSavedAt": 1785586200000,
+    "buildId": "v4-fixture"
+  },
+  "time": {
+    "elapsedGameMs": 240000,
+    "offlineCreditedMs": 0,
+    "pendingOfflineMs": 0
+  },
+  "rng": {
+    "algorithm": "mulberry32",
+    "seed": 20260729,
+    "state": 4251286828
+  },
+  "progression": {
+    "act": 1,
+    "unlocked": [
+      "ferment",
+      "uptake-capacity-1"
+    ],
+    "transitionTaken": false,
+    "shuttleChoice": null
+  },
+  "pools": {
+    "glucose_env": 77853.5982197197,
+    "glucose": 95.97458505882689,
+    "g3p": 13.68292215324192,
+    "pyruvate": 13.68292215230058,
+    "lactate": 4073.488546138107,
+    "nad": 16.31707784769942,
+    "nadh": 13.68292215230058,
+    "atp": 16.608971573994832,
+    "adp": 23.391028426005143,
+    "pi": 29.708106272762876
+  },
+  "enzymes": {},
+  "environment": {
+    "oxygenLevel": 0,
+    "scheduleIndex": 0
+  },
+  "stats": {
+    "totalAtpProduced": 8174.342936580805,
+    "glucoseConsumed": 2050.427195221823,
+    "eventsProcessed": 0,
+    "atpSpent": 4100.854390443646,
+    "atpMaintained": 4076.879574563168,
+    "glucoseTakenUp": 2146.4017802806497,
+    "lactateProduced": 4073.488546138107,
+    "nadhProduced": 4087.1714682904026
+  },
+  "diagnostics": {
+    "offlineFallbackCount": 0,
+    "negativePoolScalingEvents": 0,
+    "scalingCapHits": 0
+  },
+  "settings": {}
+}

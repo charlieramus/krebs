@@ -23,6 +23,7 @@
  */
 
 import { deserialize, serialize } from './codec';
+import { parseAndMigrate } from './migrations';
 import type { SaveV1 } from './schema';
 
 /* ===========================================================================
@@ -313,7 +314,7 @@ export function createSaveStore(options: SaveStoreOptions = {}): SaveStore {
       }
       // An active slot that vanished with a backup still present is the one
       // crash state that loses the newer save, and the backup is still a save.
-      const backup = deserialize(backupText);
+      const backup = parseAndMigrate(backupText);
       if (backup.kind === 'ok') {
         activeKnownGood = false;
         return { kind: 'recoverable', save: backup.save, reason: 'the save slot is empty' };
@@ -326,7 +327,7 @@ export function createSaveStore(options: SaveStoreOptions = {}): SaveStore {
       };
     }
 
-    const active = deserialize(activeText);
+    const active = parseAndMigrate(activeText);
 
     if (active.kind === 'ok') {
       activeKnownGood = true;
@@ -342,7 +343,7 @@ export function createSaveStore(options: SaveStoreOptions = {}): SaveStore {
 
     const backupText = store.getItem(STORAGE_KEYS.backup);
     if (backupText !== null) {
-      const backup = deserialize(backupText);
+      const backup = parseAndMigrate(backupText);
       if (backup.kind === 'ok') {
         return { kind: 'recoverable', save: backup.save, reason: active.reason };
       }
@@ -375,7 +376,7 @@ export function createSaveStore(options: SaveStoreOptions = {}): SaveStore {
       if (backupText === null) {
         return { kind: 'failed', reason: 'there is no backup to recover', durable };
       }
-      const backup = deserialize(backupText);
+      const backup = parseAndMigrate(backupText);
       if (backup.kind !== 'ok') {
         return { kind: 'failed', reason: 'the backup does not parse either', durable };
       }

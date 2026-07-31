@@ -137,16 +137,19 @@ function copyEnzymes(enzymes: SaveEnzymesV1): SaveEnzymesV1 {
    DESERIALISE
    =========================================================================== */
 
+export type ParsedSave =
+  | { readonly kind: 'ok'; readonly value: Record<string, unknown> }
+  | { readonly kind: 'corrupt'; readonly reason: string };
+
 /**
- * Parse and validate. Takes a JSON string, or an already-parsed value so an
- * imported file or a migrated object can be checked through the same door.
+ * JSON in, an object out, with no opinion about what is in it.
  *
- * THE VERSION IS READ FIRST, before anything else is validated, exactly as
- * docs/SAVE_SCHEMA.md Part 1 requires. A save from a newer build is refused on
- * the strength of one integer, with no attempt to interpret fields whose meaning
- * this build does not know.
+ * Exported because the migration chain in migrations.ts has to read the version
+ * off a save it cannot yet validate: a version 3 save does not have the version
+ * 5 shape and validating it against one would report a schema history as a
+ * corruption.
  */
-export function deserialize(input: unknown): DeserializeResult {
+export function parseSave(input: unknown): ParsedSave {
   let value: unknown = input;
 
   if (typeof value === 'string') {
@@ -161,11 +164,41 @@ export function deserialize(input: unknown): DeserializeResult {
     return { kind: 'corrupt', reason: `save must be an object, got ${describe(value)}` };
   }
 
+  return { kind: 'ok', value };
+}
+
+/**
+ * The version, or null if the field is not a positive integer.
+ *
+ * docs/SAVE_SCHEMA.md Part 1: "It is the first field read and it is read before
+ * anything else is parsed."
+ */
+export function readSchemaVersion(value: Record<string, unknown>): number | null {
   const version = value['schemaVersion'];
-  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) return null;
+  return version;
+}
+
+/**
+ * Parse and validate at the CURRENT version. Takes a JSON string, or an
+ * already-parsed value so an imported file or a migrated object can be checked
+ * through the same door.
+ *
+ * THE VERSION IS READ FIRST, before anything else is validated, exactly as
+ * docs/SAVE_SCHEMA.md Part 1 requires. A save from a newer build is refused on
+ * the strength of one integer, with no attempt to interpret fields whose meaning
+ * this build does not know.
+ */
+export function deserialize(input: unknown): DeserializeResult {
+  const parsed = parseSave(input);
+  if (parsed.kind !== 'ok') return parsed;
+  const value = parsed.value;
+
+  const version = readSchemaVersion(value);
+  if (version === null) {
     return {
       kind: 'corrupt',
-      reason: `schemaVersion must be a positive integer, got ${describe(version)}`,
+      reason: `schemaVersion must be a positive integer, got ${describe(value['schemaVersion'])}`,
     };
   }
 
@@ -176,10 +209,11 @@ export function deserialize(input: unknown): DeserializeResult {
   if (version < SCHEMA_VERSION) {
     /**
      * A save older than this build. It is not corrupt, it needs migrating, and
-     * migrating is stage 3's chain rather than this file's business: the codec
-     * knows one version and the chain knows the history. `loadSave` runs the
-     * chain before it gets here, so a caller only reaches this line by handing
-     * an unmigrated old save straight to the codec.
+     * migrating is migrations.ts's business rather than this file's: the codec
+     * knows one version and the chain knows the history. `parseAndMigrate` runs
+     * the chain before it gets here, and it is what storage calls, so a caller
+     * only reaches this line by handing an unmigrated old save straight to the
+     * codec.
      *
      * Unreachable at version 1, because there is nothing below 1. The branch
      * exists so that the day there is something below the current version, the
