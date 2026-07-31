@@ -286,7 +286,49 @@ the test count.
 
 ## Stage 2 Report
 
-_Pending._
+`src/save/storage.ts` and `src/save/__tests__/storage.test.ts`. localStorage sits behind a three-method `KeyValueStore` interface and is injected, so every test in the file drives a plain map and none of them touches a browser global. That is what makes the crash-state enumeration expressible at all: a store that dies after its second write is a four-line object here and is not something you can ask a real browser for.
+
+The store reads no clock. `write` takes a save whose `meta.lastSavedAt` the caller has already set, which keeps wall-clock time at the boundary where docs/SIMULATION.md Part 5 puts it and leaves stage 5 to wire it. It also carries no prose: it reports `durable` and a `NonDurableReason` of `unavailable` or `quota`, and the words a player reads stay in `src/ui/content.ts` with every other player-facing string, which is where V3 put them and where the badge contract can see them.
+
+**The storage keys, and they are permanent from here.**
+
+```
+  krebs.save.active     the save
+  krebs.save.backup     the previous save, one slot
+  krebs.save.temp       written first, verified, swapped in, never loaded from
+```
+
+`STORAGE_PREFIX` is `krebs.save.` and it is contract surface exactly as pool ids and unlock ids are: a player's progress is addressed by that string and renaming it orphans every save in existence with no error and no way back. **The prefix is the repository name and deliberately not the game's title**, which docs/BRIEF.md line 4 still records as TBD. A prefix derived from a title nobody has chosen would either change when the title lands, which orphans saves, or survive as a stale name forever. A prefix that was never claiming to be the title cannot go stale.
+
+**The write path** runs Part 1's order exactly: write to temp, read it back, byte-compare and parse it, promote the current active into backup, swap temp into active, drop temp. The byte-compare catches a store that silently truncates and the parse catches one that does not. The active slot is not touched until step 5, which is after the new bytes have proved they survive a round trip through storage.
+
+**The crash-state enumeration.** The write path is recorded as an ordered list of mutations and every prefix of that list is replayed onto a fresh store and loaded from. Writing over an existing save produces four mutations, asserted as such so the table cannot silently gain a step:
+
+| Died after | Storage holds | `load()` returns | Lost |
+| --- | --- | --- | --- |
+| 0 of 4, before anything | active = previous | `loaded`, previous save, 10000 ms | the write in flight |
+| 1 of 4, `set temp` | active = previous, temp = new | `loaded`, previous save, 10000 ms | the write in flight |
+| 2 of 4, `set backup` | active = previous, backup = previous, temp = new | `loaded`, previous save, 10000 ms | the write in flight |
+| 3 of 4, `set active` | active = new, backup = previous, temp = new | `loaded`, new save, 30000 ms | nothing |
+| 4 of 4, `remove temp` | active = new, backup = previous | `loaded`, new save, 30000 ms | nothing |
+
+Every reachable state loads a valid save and there is no window in which neither the old nor the new one comes back. The worst case is the write that was in flight, which is the interval since the last autosave. A stale temp key survives two of the five states and nothing ever loads from it; the next clean write overwrites it and then removes it, which is asserted rather than assumed.
+
+The first write of a fresh game is enumerated too. It is three mutations rather than four, because there is nothing to promote: crashing before the active swap leaves `new-game`, which is exactly what it was.
+
+**One thing the spec did not name and the enumeration made obvious.** Step 4 promotes the active slot into the backup slot. If the active slot is corrupt, that promotion overwrites a good backup with garbage on the first autosave after the corruption is noticed, which destroys the only recoverable copy while the recovery offer is still on screen. The store therefore tracks whether the active slot is known to parse, set on a successful write, set on a successful load, cleared when a load finds it bad, and starting false. A corrupt primary is never promoted. Re-parsing the active slot on every write would be the other way to do it and it doubles the parse cost of something that runs on a timer. There is a test whose entire name is `never promotes a corrupt primary into the backup slot`.
+
+**The load path** has five outcomes and they are not interchangeable. `loaded` is the ordinary case. `future` is a save from a newer build: not loaded, not guessed at, not migrated downward, and specifically not silently replaced by an older backup, which would be a silent downgrade. `new-game` is nothing stored, which is not an error. `unreadable` is both slots failing, and both stay on disk byte for byte. `recoverable` is a corrupt primary with a good backup and it is an **offer rather than an action**: the save comes back attached to the outcome, nothing has moved, and the caller asks. Part 1 says offer recovery rather than silently starting a new game, and offering means the player decides.
+
+`acceptRecovery` promotes the backup into active and moves the corrupt primary into the backup slot rather than deleting it. That looks backwards and is not: it is the only copy of the evidence, the backup has just vacated that slot, and the alternative is throwing away the one artifact that would let anyone diagnose it.
+
+**Storage that is not there.** `probeLocalStorage` wraps the access itself, not just the write, because private browsing and disabled-storage settings throw on reading the global, and it does a probe write and delete because Safari's private mode presents an object whose every write throws. Absent storage, disabled storage and `QuotaExceededError` all fall back to an in-memory store, and the contents of the three keys are **copied into it** rather than abandoned, so a quota failure mid-session does not make the running game believe there is no save. `quotaLike` checks four spellings, `QuotaExceededError`, `NS_ERROR_DOM_QUOTA_REACHED`, code 22 and code 1014, because getting it wrong means telling the player storage is missing when the disk is full, which is a different sentence.
+
+The quota case is tested against a store whose every `setItem` throws, and the assertion is on the raw map: `krebs.save.active` still holds the previous save byte for byte, and no temp key was left behind. That is a property of the write ORDER rather than an accident, and it is the reason the read-back cannot be skipped for speed.
+
+**Verify.** `npm run typecheck` clean, `npm run lint` clean, `npm run build` clean with the bundle unchanged at 229.44 kB, 72.36 kB gzipped, since nothing in this stage is imported by the app yet. `npm test` 212 passed across 20 files, up from stage 1's 189 across 19. The 23 new tests are all in `src/save/__tests__/storage.test.ts`.
+
+Every Part 5 case that belongs to this stage is covered and each one asserts twice, once on the outcome and once on the raw storage map: truncated JSON, malformed JSON, a structurally wrong save whose reason names `pools.nad`, a future `schemaVersion`, backup recovery from a corrupted primary, a quota failure mid-write, and storage absent entirely. The tick alignment case from this log's named section is in there too, and it loads `ok`: a save whose `elapsedGameMs` is 17 ms off a whole tick is a development-time rate change and is not corruption.
 
 ---
 
