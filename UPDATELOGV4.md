@@ -545,7 +545,82 @@ the act 1 canonical hash is still e9b720a8 and the toy pathway hash 172f83fb.
 
 ## Stage 4 Report
 
-_Pending._
+`src/save/__tests__/reloadDeterminism.test.ts`, twelve tests. The comparison is on `hashState` strings and never on pool values, because the whole point of Part 5's last item is that a comparison on pool amounts alone passes with the RNG state dropped.
+
+**The finding that would have made this whole file theatre, found before it was written rather than after.**
+
+Act 1 consumes no random numbers. `src/sim/tick.ts` never touches the PRNG, confirmed by grep, so a real act 1 run of any length finishes with `prng.state` exactly equal to `prng.seed`. Every test in this file would have passed with `rng.state` deleted from the save entirely, not because the save is correct but because the field never moves. The one Part 5 calls out as most likely to be skipped would have been present, green, and worth nothing.
+
+V1 stage 5 named the same hole from the other side, and `src/content/act1/__tests__/determinism.test.ts` already closed it with a fixed input script: every 50 ticks, roll the PRNG and SET `ferment` from the result, so the roll value reaches the pools rather than only the bookkeeping. This file reuses that shape, and where a scenario needs `ferment` held still it draws from the stream anyway and discards the value. The bare fact is asserted directly, in a test called `the guard exists because act 1 does not use the PRNG at all`, so a future reader does not have to rediscover why the script is there.
+
+It is the same finding stage 3 recorded about the fixture and it has the same shape: the PRNG is a field act 1 cannot exercise on its own, so anything that depends on it exercising has to arrange it and say so.
+
+**One thing about the harness is worth naming.** The script is a function of `state.tickCount` rather than of a loop counter. A restore that reconstructed the tick count wrongly then rolls on the wrong ticks as well as hashing wrongly, which is what a real game would do, and it is what makes the tickCount mutilation fail for the right reason instead of only because the hash covers the field.
+
+**The sweep. 36 cases:** 4 seeds by 3 lengths by 3 split points.
+
+```
+  seeds   1, 7, 20260729, 4294967295
+  lengths 400, 1200, 4000 ticks
+  splits  10%, 50%, 90%
+```
+
+Every case runs N ticks uninterrupted and hashes, then runs to the split, captures, serializes, deserializes, restores into a fresh simulation, runs the remainder and hashes that. Identical strings in all 36. The reload goes through the real codec, not a shortcut, so the round trip under test is the one the game performs.
+
+Two more splits beyond the grid. **During the NAD+ stall**, which is the split most likely to hide a dropped field, because the pools are static and the RNG is the only thing still moving: the test asserts the stall is real, NAD+ below 0.05 and NADH unchanged across a hundred ticks, and that `prng.state` moved over the same interval, before it asserts the hashes match. **During fermentation recovery**, at 2 ticks, 10 ticks and 100 ticks after the wall comes down, because V3 measured the payoff phase restarting after 2 ticks and a split at 1502 lands inside the recovery rather than after it.
+
+**Saving between frames.** The runtime advances whole ticks and holds a sub-tick accumulator remainder, which is render state and is deliberately not saved. A run driven 500 whole ticks and then 30 ms into the next one, saved at that moment, restored and continued, hashes identically to an uninterrupted 1000. That is the property that makes stage 5's autosave timer safe to fire whenever it likes rather than only on a tick boundary. A second test pins the mechanism: a 49 ms remainder never reaches `elapsedGameMs`, because it is derived from the tick count rather than accumulated.
+
+**The mutilations. Both fail, and here they are verbatim.**
+
+Dropping `rng.state` from the round trip, so `restoreAct1` reconstructs the generator from the seed alone:
+
+```
+ ❯ src/save/__tests__/reloadDeterminism.test.ts (12 tests | 7 failed)
+   ✓ reload determinism, the premise > the guard exists because act 1 does not use the PRNG at all
+   × reload determinism, the sweep > matches an uninterrupted run at every seed, length and split point
+     → seed 1, 400 ticks, split at 200: expected '15c7943b' to be '3fc9a722'
+   × reload determinism, the sweep > survives a split during the NAD+ stall, where the RNG is the only thing moving
+     → expected '6c499300' to be '63c118af'
+   × reload determinism, the sweep > survives a split during fermentation recovery
+     → expected '23c78dec' to be 'ffa76dcc'
+   × reload determinism, saving mid-tick > is unchanged by a sub-tick accumulator remainder
+     → expected '4bd1e9ec' to be '0f4c302d'
+```
+
+Dropping `tickCount`, so the restore reconstructs it as zero:
+
+```
+ ❯ src/save/__tests__/reloadDeterminism.test.ts (12 tests | 7 failed)
+   × reload determinism, the sweep > matches an uninterrupted run at every seed, length and split point
+     → seed 1, 400 ticks, split at 40: expected '9b657243' to be '3fc9a722'
+   × reload determinism, the sweep > survives a split during the NAD+ stall, where the RNG is the only thing moving
+     → expected '5c9dd378' to be '63c118af'
+   × reload determinism, the sweep > survives a split during fermentation recovery
+     → expected '497f2039' to be 'ffa76dcc'
+   × reload determinism, saving mid-tick > is unchanged by a sub-tick accumulator remainder
+     → expected 'c3e4a9d2' to be '0f4c302d'
+```
+
+Both mutilations were scratch edits to `src/content/act1/save.ts`, reverted, and the suite is clean again. Neither passed, so there is no finding about the hash to report: `hashState` covers all three of pool amounts, tick count and PRNG state, and dropping any one of them is visible.
+
+The same three mutilations also exist as **permanent tests**, asserting divergence rather than being one-off probes, so the file would notice if the hash ever stopped covering one of these fields. A fourth is the control: an unmutilated round trip must NOT diverge, because not every omission is a defect and the sub-tick remainder is the one field deliberately not carried.
+
+**Unlocks are not hashed state, and that gets its own two tests.** V3's `src/ui/runtime.ts` flagged it: `setReactionVmax` replaces a kinetics descriptor and `setReactionEnabled` flips a flag, and neither touches a pool, the tick count or the PRNG, so buying an upgrade does not move the canonical hash. A reload that dropped unlock state would therefore pass every determinism test in the project while silently refunding every purchase. Both are now demonstrated failing on purpose and then passing: a capacity step not re-applied at restore diverges, and the same restore with the Vmax re-applied the way the runtime does matches; a `ferment` purchase captured with an empty unlock list diverges, and captured with `['ferment']` matches. This is NOW.md's open item `Buying an unlock is not part of hashed state, and V4 has to persist it`, closed with evidence.
+
+**The Part 5 checklist, all five accounted for.**
+
+| Part 5 test | Where | Which test |
+| --- | --- | --- |
+| Round trip | `src/save/__tests__/codec.test.ts` | `restores every field of a played save and re-captures it identically`, plus byte identity |
+| Migration chain | `src/save/__tests__/schemaVersionGate.test.ts` | `loads every fixture through the chain to the current version` and `produces from every fixture a state that passes the same validation a fresh save does` |
+| Corruption | `src/save/__tests__/storage.test.ts` | truncated, malformed and a future `schemaVersion`, each asserting the raw slot is untouched; the structural cases are in `codec.test.ts` |
+| Backup recovery | `src/save/__tests__/storage.test.ts` | `offers recovery from backup rather than silently starting a new game`, plus `never promotes a corrupt primary into the backup slot` |
+| Determinism across reload | `src/save/__tests__/reloadDeterminism.test.ts` | the 36-case sweep, the stall split, the recovery split and the mid-tick save |
+
+**The canonical hashes, and a correction to this stage's own spec.** The toy pathway hash is `172f83fb`, unchanged, in `src/sim/__tests__/determinism.test.ts`. **The act 1 canonical hash is `657594cb`, not `e9b720a8` as this stage's spec asks me to confirm.** The spec is out of date rather than the code: V3 stage 6 raised `ACT1_GLUCOSE_ENV_INITIAL` from 10000 to 80000 to move the ATP bootstrap trap beyond the horizon of act 1, starting amounts are hashed state, and the hash moved with it. NOW.md records the move in bold, `src/content/act1/__tests__/determinism.test.ts` line 120 carries the divergence entry, and nothing in V4 has touched either hash. Flagged rather than quietly reported as matching, per CLAUDE.md's working style.
+
+**Verify.** `npm run typecheck` clean, `npm run lint` clean, `npm run build` clean with the bundle unchanged at 229.44 kB, 72.36 kB gzipped. `npm test` 245 passed across 23 files, up from stage 3's 233 across 22.
 
 ---
 
