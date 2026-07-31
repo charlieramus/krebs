@@ -695,7 +695,62 @@ produced by editing lastSavedAt in the exported file.
 
 ## Stage 5 Report
 
-_Pending._
+Where persistence becomes visible. `src/save/autosave.ts`, `src/save/offline.ts`, `src/save/meta.ts`, `src/save/tuning.ts`, `src/ui/components/SavePanel.tsx`, persistence wired into `src/ui/runtime.ts`, and the save strings added to `src/ui/content.ts`. No new visual vocabulary: Card, Button, Figure and Badge, all V3's, and not one colour, radius or motion value that DESIGN.md does not already name.
+
+**Autosave** is `src/save/autosave.ts`, wired into the runtime rather than into React, for the reason V3 put the loop outside React: a save is not a render, and a component unmounting must not be able to stop the game saving. Three triggers. A timer at `AUTOSAVE_INTERVAL_MS`. `visibilitychange` to hidden, and only to hidden, because a tab becoming visible has nothing new to write. And every unlock purchase, immediately, because losing a purchase is the loss a player notices and it is the one thing autosave should never be thirty seconds late for.
+
+`beforeunload` is wired as a best-effort extra and **it is not load-bearing.** It is skipped on mobile backgrounding, on tab discard under memory pressure, and by the bfcache path on iOS Safari. Delete it and every guarantee here is unchanged, because `visibilitychange` to hidden fires first in every case where a tab actually goes away. It later turned out to be worse than useless in one specific place, which is the second finding below.
+
+**The autosave interval is 30 seconds** and it lives in `src/save/tuning.ts`, a new third tuning file with the same header treatment as the other two. Act 1's two purchases sit roughly one and roughly seven minutes in, measured in `unlockPacing.report.test.ts`, so half a minute never costs a whole beat, and purchases save independently anyway, which makes this really the granularity of losing progress TOWARD the next one. It owes docs/ECONOMY.md a divergence row. The count is now twenty-one provisional numbers across three files. A second number joined the pile late, see below, taking it to twenty-two.
+
+**The measured cost of a write. Median 0.016 ms, worst 0.060 ms over 200 writes, against a 16.667 ms frame at 60Hz**, on a 981-byte save. That is capture, canonical serialize, the write, the verification read-back, the byte compare and a full structural parse, which is the whole of Part 1's verify-then-swap path. **The honest caveat: the store underneath is a Map, not localStorage**, because the measurement runs in node. What is measured is everything except the browser's own storage I/O, and that is the part I did not measure rather than the part I am claiming is free. Nothing about the number suggests dropping the read-back, which Part 1 requires and which is what makes the crash-state enumeration in stage 2 true.
+
+**The offline delta**, `src/save/offline.ts`. Now minus `meta.lastSavedAt`, once, at the boundary. A negative delta credits zero and does not error, because a player whose machine changed time zone has done nothing wrong and a game that refuses to load is a worse answer. The positive side caps at `MAX_OFFLINE_HOURS`, which already existed in `src/sim/constants.ts`. Then it is added to `state.diagnostics.pendingOfflineMs` and **nothing else happens to it.** V4 does not simulate a single tick of it. That is the seam: V5 starts from a real accumulated number rather than from zero, and the time players spend away during the V4 release is not silently thrown out. A test asserts the accumulation survives a second reload rather than being recomputed from zero.
+
+**The badge exemption, decided and mechanised rather than left to each component.**
+
+"You were away for 5 hours" is a quantitative claim in player-facing text, which hard rule 1 and docs/PILLARS.md rule 4 govern, and it traces to the system clock rather than to docs/SCIENCE.md. **The decision: a value measured from the player's own session and the wall clock is exempt from the badge contract.** The contract governs claims about biology and about the game's own tuning, and a readout of how long this tab was closed is neither. There is no source it could cite and no divergence row it could owe, because it is not a game-authored number at all. Badging it would imply provenance is an open question about it, which is the opposite of true.
+
+**The exemption is narrow and this is the line.** It covers real elapsed time away, save timestamps and storage sizes. It does not cover anything the simulation produced. V3's existing figures are not re-badged and should not be: pool amounts stay badged because they are output of a model whose rates are tuned, and elapsed GAME time stays badged because its badge is a claim about the mapping to real time, which docs/SCIENCE.md Part 1 says does not exist, and that claim is still worth making.
+
+**No fourth badge kind was invented**, per the spec's instruction not to paper over it. The pill vocabulary is unchanged: three shipping states and one development-only one, and `vite/needsSourceGate.ts` is untouched. What changed is that `Figure` now requires exactly one of `badge` or `measured`, so provenance still does not compile if it is skipped; it just has two possible answers, and the author has to pick one at the call site. `measured` takes a sentence saying what is being measured, so it cannot be a silent escape hatch, and it becomes the `title` attribute: `Measured: real time between the last save and this load, from the system clock`. Stage 6 writes the rule into DESIGN.md with a decisions-log row.
+
+**Save management.** Export writes readable JSON through a Blob, per Part 4, where there is nothing to protect. Import goes through a real file input wrapped in a styled label rather than a Button clicking a hidden input through a ref, because the native control is the accessible one. An import runs the full stage 1 deserialize, the stage 3 migration chain and then the act 1 mapping, which is the only layer that knows an unknown pool id is a corruption, and **nothing is written until all three have passed**. A future-version import gets the same refusal a future-version load gets. Backup recovery is offered rather than applied: the runtime starts a new game in memory, the corrupt primary and the good backup both stay on disk untouched, and the player presses the button.
+
+**Two things the browser found that no test would have.** `npm run dev`, played, refreshed, on a real page.
+
+**One: an import was silently undone by its own reload.** `importSave` writes the imported file to the active slot and the interface reloads. `beforeunload` fires on that reload and autosaves the still-running session over the file that was just imported. The import appears to succeed, the page comes back, and the player is looking at the save they were trying to replace. Accepting a backup had the identical hole. Fixed by **sealing**: after an import or an accepted recovery the timer and both listeners are torn down and every remaining write path refuses, so there is nothing left that can write rather than a reload that has to outrun the things that can. It is also the honest state to be in, since once the active slot holds a save this session did not produce, this session is stale by definition. Two tests now cover it, and both dispatch `beforeunload` and fire the timers after the import to prove the writes are refused rather than merely late. This is the sharpest possible illustration of `beforeunload` not being load-bearing: its only observable effect here was to destroy data.
+
+Writing those two tests exposed a defect in the test harness itself, which is worth recording because it was hiding the bug. Its `stopTimer` was a no-op and its listener teardown returned an empty function, so a stopped runtime's autosave stayed alive in the harness and a test that fired every timer was writing from the wrong runtime. Both now really remove.
+
+**Two: the panel announced a non-event on every refresh.** A reload takes a second or two, which is a positive offline delta, so it dutifully rendered "Away for 0 min" every single time. The number was true and the sentence was noise, and a save panel that cries wolf on every reload teaches the player to stop reading the one panel that has to be believed when something has actually gone wrong. `OFFLINE_REPORT_THRESHOLD_MS` is now 60000 in `src/ui/tuning.ts`, one minute, because the readout's own resolution is minutes and there is no point announcing a duration that rounds to zero. That is the twenty-second provisional number and it owes a divergence row too. In the same pass, a restored session that had not yet autosaved was reporting "Not saved yet" on a screen the reload had visibly just restored, which is technically true and reads as a failure; it now reports on whether a save EXISTS rather than on whether this session wrote one.
+
+**The real reload, measured.** Loaded the page, waited for the first autosave: `krebs.save.active` appeared at 1005 bytes with `elapsedGameMs` 30000. Bought lactate dehydrogenase, and the save updated instantly at 49650 ms rather than on the next 30-second boundary, with `unlocked: ["ferment"]` and `totalAtpProduced` 60.000000000000014, which is exactly V3's measured cumulative-ATP ceiling for a walled cell. Played on to 89950 ms with lactate at 904.663, then refreshed. **Game time continued from 89950 rather than resetting**, lactate kept climbing to 1177.875, `ferment` stayed unlocked and the shelf still read "Running". No console errors at any point.
+
+**What the screen shows after a genuine multi-hour gap.** Produced the way the spec asks, by editing `lastSavedAt` in the exported file: exported the save, subtracted 5 hours from `meta.lastSavedAt`, and imported the edited file back through the real file input. Verbatim from the page after the import reloaded it:
+
+```
+SAVE
+TUNED
+Away for
+5.0
+h
+
+None of it has been simulated. It is being kept, not spent.
+TUNED
+
+Saved automatically
+TUNED
+
+Export to file
+Import from file
+```
+
+"5.0" and "h" are one `Figure` carrying `measured` and no badge, which is the exemption doing its job on the first number it was written for. The wording is honest in both directions: no reward is implied and no loss is implied, because neither is true. Thirty-five seconds later, when the next autosave landed, `time.pendingOfflineMs` read 18055661, which is the five hours plus about 55 seconds of catch-up overflow from a headless tab that is not being given animation frames, and `time.offlineCreditedMs` read 0. Accumulated, credited to nothing, which is precisely the seam this stage exists to leave for V5.
+
+**One thing persistence quietly broke before it was noticed, fixed in the same stage.** The completed-glucose correction in `meter.ts` subtracts a g3p baseline taken at construction. A restored runtime's construction-time g3p is the RESTORED pool level, not the level the run started at, so the correction would have been measured from the reload rather than from the beginning and ATP per glucose would have read wrong after every refresh. A restored runtime now uses zero, which is `ACT1_INITIAL.g3p` and is the true start of the metered window. The development scenario door can seed a non-zero starting g3p and a save written from one of those restores against zero rather than against the seed; that is a stated limit of a door that only exists behind a query string.
+
+**Verify.** `npm run typecheck` clean, `npm run lint` clean, `npm run build` clean. `npm test` 269 passed across 24 files, up from stage 4's 245 across 23; the 24 new tests are in `src/save/__tests__/persistence.test.ts`. Bundle 251.29 kB, 78.79 kB gzipped, up from 229.44 kB and 72.36 kB, which is the save layer and the panel reaching the app for the first time. `npm run dev` with a real reload, as above.
 
 ---
 

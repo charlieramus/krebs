@@ -144,6 +144,27 @@ export const UPTAKE_VMAX_STEPS: readonly number[] = [8, 10, 12];
 export const UPTAKE_ATP_THRESHOLDS: readonly number[] = [1500, 12000];
 
 /* ===========================================================================
+   SAVE MANAGEMENT. UPDATELOGV4.md stage 5.
+   =========================================================================== */
+
+/**
+ * Real milliseconds away below which the return line is not shown at all.
+ *
+ * FOUND BY RELOADING THE REAL PAGE. A refresh takes a second or two, which is a
+ * positive offline delta, so the panel dutifully rendered "Away for 0 min" every
+ * single time. The number was true and the sentence was noise, and a save panel
+ * that announces a nothing-event on every reload teaches the player to stop
+ * reading it, which is exactly the wrong thing to teach on the one panel that
+ * has to be believed when it says something went wrong.
+ *
+ * One minute, because the readout's own resolution is minutes and there is no
+ * point announcing a duration that rounds to zero. It is a legibility threshold
+ * reasoned from the display unit rather than a measurement, which is what makes
+ * it tuning.
+ */
+export const OFFLINE_REPORT_THRESHOLD_MS = 60000;
+
+/* ===========================================================================
    THE ENVIRONMENT
 
    Sized in stage 6 from stage 1's measurement. The reasoning is in the stage 6

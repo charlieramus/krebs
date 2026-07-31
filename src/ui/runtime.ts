@@ -52,6 +52,26 @@ import {
   type Act1Options,
   type Act1ReactionId,
 } from '../content/act1/reactions';
+import {
+  ACT1_NO_CARRIED_COUNTERS,
+  ACT1_UNLOCK_FERMENT,
+  act1UptakeUnlockId,
+  captureAct1,
+  restoreAct1,
+  type Act1CarriedCounters,
+} from '../content/act1/save';
+import { createAutosave, type Autosave, type AutosaveRecord, type SaveReason } from '../save/autosave';
+import { serializeReadable } from '../save/codec';
+import { currentBuildId, epochNow } from '../save/meta';
+import { parseAndMigrate } from '../save/migrations';
+import { computeOfflineDelta } from '../save/offline';
+import type { SaveSettingsV1, SaveV1 } from '../save/schema';
+import {
+  createSaveStore,
+  type NonDurableReason,
+  type SaveStore,
+  type WriteOutcome,
+} from '../save/storage';
 
 /**
  * What the display reads. One object, allocated once, mutated in place every
@@ -174,6 +194,63 @@ const STOPPED_FLUX = ZERO_FLUX_THRESHOLD;
  */
 const WALLED_NAD = 0.05;
 
+/**
+ * Persistence, added by UPDATELOGV4.md stage 5.
+ *
+ * Everything injectable, and `enabled: false` turns the whole thing off. The
+ * drain measurement and most of V3's tests want a runtime that does not read or
+ * write a save slot, and a persistence layer that cannot be switched off makes
+ * every one of them stateful.
+ */
+export interface Act1PersistenceOptions {
+  /** Defaults to `createSaveStore()`, which probes localStorage and falls back to memory. */
+  readonly store?: SaveStore;
+  /** Epoch milliseconds. Defaults to `epochNow`. The only wall clock in the runtime. */
+  readonly epochClock?: () => number;
+  /** Default true. False means no load, no autosave and no writes at all. */
+  readonly enabled?: boolean;
+  readonly autosaveIntervalMs?: number;
+  readonly startTimer?: (callback: () => void, ms: number) => number;
+  readonly stopTimer?: (handle: number) => void;
+  readonly listen?: (event: string, handler: () => void) => () => void;
+}
+
+/**
+ * What happened when this session started. Read once by the interface.
+ *
+ * `kind` is the store's load outcome, plus `disabled` for a runtime built with
+ * persistence off. The interface branches on it: `recoverable` offers the
+ * backup, `future` refuses and says why, `unreadable` says both slots failed,
+ * `new-game` says nothing at all.
+ */
+export interface Act1Session {
+  readonly kind: 'loaded' | 'new-game' | 'recoverable' | 'future' | 'unreadable' | 'disabled';
+  /**
+   * Real milliseconds between the last save and this load, capped at
+   * MAX_OFFLINE_HOURS. ACCUMULATED AND NOT CREDITED: V4 simulates none of it.
+   */
+  readonly awayMs: number;
+  readonly offlineCapped: boolean;
+  readonly clockWentBackwards: boolean;
+  /** Sub-tick game time dropped by the tick reconstruction. Non-zero only after a rate change. */
+  readonly discardedMs: number;
+  readonly missingPools: readonly string[];
+  readonly unknownUnlocks: readonly string[];
+  /** False when writes are going to memory and will not survive the tab. */
+  readonly durable: boolean;
+  readonly nonDurableReason: NonDurableReason | null;
+  /** Why the active slot failed, when it did. */
+  readonly reason: string | null;
+  /** The version found, when the save came from a newer build. */
+  readonly futureVersion: number | null;
+}
+
+export type ImportOutcome =
+  | { readonly kind: 'ok' }
+  | { readonly kind: 'corrupt'; readonly reason: string }
+  | { readonly kind: 'future'; readonly version: number }
+  | { readonly kind: 'failed'; readonly reason: string };
+
 export interface Act1RuntimeOptions {
   /** Passed through to createAct1. Enabled flags, Vmax overrides, initial amounts. */
   readonly act1?: Partial<Act1Options>;
@@ -183,6 +260,7 @@ export interface Act1RuntimeOptions {
   readonly schedule?: (callback: () => void) => number;
   /** Frame canceller. Defaults to cancelAnimationFrame. */
   readonly cancel?: (handle: number) => void;
+  readonly persistence?: Act1PersistenceOptions;
 }
 
 export interface Act1Runtime {
@@ -218,6 +296,32 @@ export interface Act1Runtime {
   /** Whether the meter has reached each threshold. Display only. */
   canBuyFerment(): boolean;
   canBuyUptakeStep(): boolean;
+
+  /* ===== Persistence, UPDATELOGV4.md stage 5 ===== */
+
+  /** What happened when this session started. Fixed at construction. */
+  readonly session: Act1Session;
+  /** Unlock ids in purchase order. The source of truth the save carries. */
+  readonly unlocked: readonly string[];
+  /** Build the save this instant. Pure with respect to the simulation. */
+  capture(): SaveV1;
+  /** Write now. The interface never has to call this; autosave does. */
+  save(reason?: SaveReason): WriteOutcome;
+  /** The most recent write, for a "last saved" readout. */
+  readonly lastSave: AutosaveRecord | null;
+  /** Worst write cost seen this session, in milliseconds. */
+  readonly worstSaveMs: number;
+  /** Readable JSON, for export to a file. docs/SAVE_SCHEMA.md Part 4. */
+  exportSave(): string;
+  /**
+   * Validate an imported file and, only if it is good, write it to the active
+   * slot. An import that fails must not touch the existing save, which is why
+   * nothing is written until after the full deserialize and migration chain has
+   * returned ok.
+   */
+  importSave(text: string): ImportOutcome;
+  /** Accept the backup after a failed parse. The caller reloads the page. */
+  acceptRecovery(): WriteOutcome;
 }
 
 export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime {
@@ -226,21 +330,83 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     options.schedule ?? ((callback: () => void) => requestAnimationFrame(callback));
   const cancel = options.cancel ?? ((handle: number) => cancelAnimationFrame(handle));
 
-  const state = createAct1(options.act1 ?? {});
+  /* =========================================================================
+     PERSISTENCE, FIRST, BECAUSE IT DECIDES WHAT THE SIMULATION IS BUILT FROM.
+     ========================================================================= */
+
+  const persistence = options.persistence ?? {};
+  const persistenceEnabled = persistence.enabled ?? true;
+  const epochClock = persistence.epochClock ?? epochNow;
+  const store: SaveStore | null = persistenceEnabled
+    ? (persistence.store ?? createSaveStore())
+    : null;
+
+  const loaded = store === null ? null : store.load();
+
+  /**
+   * The save this session restored from, or null for a new game.
+   *
+   * `recoverable`, `future` and `unreadable` all start a NEW GAME in memory and
+   * report the outcome. That is deliberate on all three counts. A recoverable
+   * save is an offer the player has not accepted yet, and silently loading the
+   * backup would make the offer a lie. A future save must not be interpreted at
+   * all. And an unreadable pair is exactly the case where the corrupt bytes have
+   * to stay on disk untouched while the player decides what to do.
+   */
+  const restoredSave: SaveV1 | null = loaded?.kind === 'loaded' ? loaded.save : null;
+  const restored = restoredSave === null ? null : restoreAct1(restoredSave);
+
+  if (restored !== null && restored.kind !== 'ok') {
+    // The codec validated the shape and the content mapping still refused it,
+    // which means an unknown pool id. Treated as a corrupt load rather than
+    // thrown, because a save that fails here must not take the game down with it.
+    console.warn(`krebs: save restored no further than the codec, ${restored.reason}`);
+  }
+
+  const restoredOk = restored?.kind === 'ok' ? restored.restored : null;
+
+  const state = restoredOk === null ? createAct1(options.act1 ?? {}) : restoredOk.state;
   const probes: Act1MeterProbes = createAct1MeterProbes(state);
-  const meter = createAct1Meter();
+  const meter = restoredOk === null ? createAct1Meter() : restoredOk.meter;
+
+  /** Unlock ids in purchase order. Persisted as `progression.unlocked`. */
+  const unlocked: string[] = restoredOk === null ? [] : [...restoredOk.unlocked];
+  /**
+   * UI settings, carried through unchanged.
+   *
+   * Empty in every save this build writes, because V3 shipped no persisted
+   * setting: reduced motion is read from the OS media query rather than stored.
+   * It is read from the save and written back rather than dropped, so a build
+   * that adds one and a build that does not can share a file without either of
+   * them deleting the other's work.
+   */
+  const settings: SaveSettingsV1 = restoredOk === null ? {} : restoredOk.settings;
+  const carried: Act1CarriedCounters = restoredOk?.carried ?? ACT1_NO_CARRIED_COUNTERS;
+  const createdAt = restoredSave?.meta.createdAt ?? epochClock();
 
   const poolCount = state.pools.count;
   const reactionCount = state.reactions.length;
 
   /**
-   * The g3p level at construction, for the completed-glucose correction in
-   * meter.ts. Trioses sitting in the pool are glucose that has been paid for and
-   * has not paid out, and subtracting them is the difference between reporting
-   * the sourced yield of 4 and reporting a stall as a collapse in yield.
+   * The g3p level at the start of the METERED WINDOW, for the completed-glucose
+   * correction in meter.ts. Trioses sitting in the pool are glucose that has been
+   * paid for and has not paid out, and subtracting them is the difference between
+   * reporting the sourced yield of 4 and reporting a stall as a collapse in
+   * yield.
+   *
+   * A RESTORED SESSION USES ZERO, NOT THE RESTORED AMOUNT, and this is the one
+   * thing persistence quietly broke before it was noticed. The meter is
+   * cumulative over the whole save, so its baseline is the g3p the run started
+   * with, which is `ACT1_INITIAL.g3p` and is zero. Taking the restored pool level
+   * as the baseline would measure the correction from the reload rather than from
+   * the beginning, and ATP per glucose would read wrong after every refresh. The
+   * development scenario door can seed a non-zero starting g3p, and a save
+   * written from one of those restores against zero rather than against the seed;
+   * that is a known and deliberate limit of a door that only exists behind a
+   * query string.
    */
   const g3pIndex = state.pools.indexOf('g3p');
-  const g3pInitial = state.pools.amounts[g3pIndex] as number;
+  const g3pInitial = restoredOk === null ? (state.pools.amounts[g3pIndex] as number) : 0;
 
   const payoffReaction = reactionIndex('payoff');
   const uptakeReaction = reactionIndex('uptake');
@@ -312,6 +478,61 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     fermentUnlocked: state.reactions[reactionIndex('ferment')]?.enabled ?? false,
     uptakeStep: 0,
     walled: false,
+  };
+
+  /**
+   * Re-apply the uptake capacity step.
+   *
+   * THE LADDER IS AN INTERFACE DECISION and lives in src/ui/tuning.ts, so
+   * `src/content/act1/save.ts` reports the step it read out of the unlock list
+   * and the runtime is what turns that into a Vmax. Content may not import the
+   * interface, and the alternative, moving the ladder into content, is a
+   * relocation this log has no business making.
+   *
+   * Without these four lines a reload silently refunds the purchase. Buying a
+   * step replaces a kinetics descriptor and touches no pool, no tick count and no
+   * PRNG, so it does not move the canonical hash, which means every determinism
+   * test in the project would still pass. Stage 4 has a test that fails on
+   * purpose when this is missing.
+   */
+  if (restoredOk !== null && restoredOk.unlocks.uptakeStep > 0) {
+    const step = Math.min(restoredOk.unlocks.uptakeStep, UPTAKE_VMAX_STEPS.length - 1);
+    setReactionVmax(state, 'uptake', UPTAKE_VMAX_STEPS[step] as number);
+    snapshot.uptakeStep = step;
+  }
+
+  /* =========================================================================
+     THE OFFLINE DELTA. Computed once, at the boundary, and spent by nobody.
+     ========================================================================= */
+
+  const offline =
+    restoredSave === null
+      ? { awayMs: 0, rawMs: 0, capped: false, clockWentBackwards: false }
+      : computeOfflineDelta(restoredSave.meta.lastSavedAt, epochClock());
+
+  /**
+   * Accumulated onto the same field a backgrounded tab already feeds.
+   *
+   * V3 left `pendingOfflineMs` on the snapshot with nothing consuming it, so a
+   * hidden tab lost game time into a counter nobody read. V4 makes that counter
+   * survive a reload and adds real time away to it. IT STILL CREDITS NOTHING.
+   * Not one tick of this is simulated, and V5 owns spending it.
+   */
+  state.diagnostics.pendingOfflineMs += offline.awayMs;
+
+  const session: Act1Session = {
+    kind: store === null ? 'disabled' : (loaded?.kind ?? 'new-game'),
+    awayMs: offline.awayMs,
+    offlineCapped: offline.capped,
+    clockWentBackwards: offline.clockWentBackwards,
+    discardedMs: restoredOk?.discardedMs ?? 0,
+    missingPools: restoredOk?.missingPools ?? [],
+    unknownUnlocks: restoredOk?.unlocks.unknown ?? [],
+    durable: store?.durable ?? false,
+    nonDurableReason: store?.nonDurableReason ?? null,
+    reason:
+      loaded?.kind === 'recoverable' || loaded?.kind === 'unreadable' ? loaded.reason : null,
+    futureVersion: loaded?.kind === 'future' ? loaded.version : null,
   };
 
   const listeners = new Set<Act1SnapshotListener>();
@@ -392,6 +613,76 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     handle = schedule(pump);
   }
 
+  /* =========================================================================
+     CAPTURE AND AUTOSAVE
+     ========================================================================= */
+
+  /**
+   * Build the save. The one place the runtime hands its state to the save layer.
+   *
+   * `lastSavedAt` is read here rather than in the store, because
+   * docs/SAVE_SCHEMA.md Part 3 makes it the only wall-clock input in the system
+   * and the boundary is the runtime. The store stays a pure function of what it
+   * is given and what is already on disk.
+   */
+  function capture(): SaveV1 {
+    return captureAct1(state, meter, unlocked, settings, {
+      meta: { createdAt, lastSavedAt: epochClock(), buildId: currentBuildId() },
+      carried,
+    });
+  }
+
+  const autosave: Autosave | null =
+    store === null
+      ? null
+      : createAutosave({
+          store,
+          capture,
+          ...(persistence.autosaveIntervalMs === undefined
+            ? {}
+            : { intervalMs: persistence.autosaveIntervalMs }),
+          ...(persistence.startTimer === undefined ? {} : { startTimer: persistence.startTimer }),
+          ...(persistence.stopTimer === undefined ? {} : { stopTimer: persistence.stopTimer }),
+          ...(persistence.listen === undefined ? {} : { listen: persistence.listen }),
+        });
+
+  /**
+   * SEALING, AND THE DEFECT THAT MADE IT NECESSARY.
+   *
+   * Found by reloading the real page rather than by any test. An import writes
+   * the imported save into the active slot and then the interface reloads, and
+   * `beforeunload` fires on that reload and autosaves THE STILL-RUNNING SESSION
+   * over the file that was just imported. The import would appear to succeed,
+   * the page would come back, and the player would be looking at the save they
+   * were trying to replace. Accepting a backup had the same hole.
+   *
+   * Sealing closes it at the source: after an import or an accepted recovery,
+   * the timer and both listeners are torn down and every remaining write path
+   * refuses. There is nothing left that can write, rather than a reload that
+   * happens to outrun the ones that can.
+   *
+   * It is also the honest state to be in. Once the active slot holds a save this
+   * session did not produce, this session's state is stale by definition and has
+   * no business persisting itself.
+   */
+  let sealed = false;
+
+  function save(reason: SaveReason = 'manual'): WriteOutcome {
+    if (autosave === null) {
+      return { kind: 'failed', reason: 'persistence is disabled for this runtime', durable: false };
+    }
+    if (sealed) {
+      return { kind: 'failed', reason: 'this session has been replaced by an imported save', durable: false };
+    }
+    return autosave.saveNow(reason);
+  }
+
+  /** Tear down every write path. Called once, and never undone. */
+  function seal(): void {
+    sealed = true;
+    autosave?.stop();
+  }
+
   return {
     snapshot,
     state,
@@ -402,6 +693,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       running = true;
       lastNowMs = null;
       handle = schedule(pump);
+      autosave?.start();
     },
 
     stop(): void {
@@ -409,6 +701,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       running = false;
       if (handle !== null) cancel(handle);
       handle = null;
+      autosave?.stop();
     },
 
     frame,
@@ -429,6 +722,11 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       if (meter.atpProduced < FERMENT_ATP_THRESHOLD) return false;
       setReactionEnabled(state, 'ferment', true);
       snapshot.fermentUnlocked = true;
+      unlocked.push(ACT1_UNLOCK_FERMENT);
+      // Immediately, and not on the next timer tick. Losing a purchase is the
+      // loss a player notices, and it is the one thing autosave should never be
+      // thirty seconds late for.
+      autosave?.saveNow('unlock');
       return true;
     },
 
@@ -446,7 +744,66 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       if (threshold === undefined || meter.atpProduced < threshold) return false;
       setReactionVmax(state, 'uptake', UPTAKE_VMAX_STEPS[next] as number);
       snapshot.uptakeStep = next;
+      unlocked.push(act1UptakeUnlockId(next));
+      autosave?.saveNow('unlock');
       return true;
+    },
+
+    /* ===== Persistence ===== */
+
+    session,
+    unlocked,
+    capture,
+    save,
+
+    get lastSave() {
+      return autosave?.last ?? null;
+    },
+    get worstSaveMs() {
+      return autosave?.worstDurationMs ?? 0;
+    },
+
+    exportSave(): string {
+      // Readable JSON. docs/SAVE_SCHEMA.md Part 4: exported saves are plain and
+      // readable and there is nothing to protect.
+      return serializeReadable(capture());
+    },
+
+    importSave(text: string): ImportOutcome {
+      if (store === null) {
+        return { kind: 'failed', reason: 'persistence is disabled for this runtime' };
+      }
+
+      /**
+       * NOTHING IS WRITTEN UNTIL THE FILE HAS PASSED EVERYTHING.
+       *
+       * The full stage 1 deserialize, the stage 3 migration chain, and then the
+       * act 1 mapping, which is the only layer that knows an unknown pool id is
+       * a corruption. A future-version import gets the same refusal a
+       * future-version load gets, for the same reason: this build cannot know
+       * what the fields mean.
+       */
+      const parsed = parseAndMigrate(text);
+      if (parsed.kind === 'future') return { kind: 'future', version: parsed.version };
+      if (parsed.kind !== 'ok') return { kind: 'corrupt', reason: parsed.reason };
+
+      const mapped = restoreAct1(parsed.save);
+      if (mapped.kind !== 'ok') return { kind: 'corrupt', reason: mapped.reason };
+
+      const outcome = store.write(parsed.save);
+      if (outcome.kind !== 'written') return { kind: 'failed', reason: outcome.reason };
+      // Nothing this session can write may follow. See `seal`.
+      seal();
+      return { kind: 'ok' };
+    },
+
+    acceptRecovery(): WriteOutcome {
+      if (store === null) {
+        return { kind: 'failed', reason: 'persistence is disabled for this runtime', durable: false };
+      }
+      const outcome = store.acceptRecovery();
+      if (outcome.kind === 'written') seal();
+      return outcome;
     },
   };
 }
