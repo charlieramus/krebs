@@ -91,8 +91,40 @@ const UPTAKE_UNLOCK_PREFIX = 'uptake-capacity-';
 
 /** The step number in an uptake unlock id, or null if this is not one. */
 export function parseAct1UptakeUnlockId(id: string): number | null {
-  if (!id.startsWith(UPTAKE_UNLOCK_PREFIX)) return null;
-  const suffix = id.slice(UPTAKE_UNLOCK_PREFIX.length);
+  return parseStepId(id, UPTAKE_UNLOCK_PREFIX);
+}
+
+/**
+ * One id per rung of the glycolytic capacity ladder, added by UPDATELOGV5.md
+ * stage 3. Rung 0 is the state at the top of the uptake ladder and is not
+ * purchasable, so the first id a save can carry is `glycolysis-capacity-1`.
+ *
+ * ADDITIVE, SO NO SCHEMA BUMP. docs/SAVE_SCHEMA.md Part 1: a change new code can
+ * handle by defaulting a missing field is not breaking. A V4 save simply has no
+ * id with this prefix and derives rung 0, which is what it was. Read from the
+ * other side, `Act1Unlocks.unknown` already carries ids a build does not
+ * recognise through capture untouched, so a V4 build loading a V5 save keeps the
+ * purchase in the file rather than deleting it.
+ *
+ * Same shape as the uptake ids and deliberately so. The prefix is different
+ * because the two ladders are different purchases, and Part 3 makes an id that
+ * has shipped permanent.
+ */
+export function act1GlycolysisUnlockId(step: number): string {
+  return `glycolysis-capacity-${step}`;
+}
+
+const GLYCOLYSIS_UNLOCK_PREFIX = 'glycolysis-capacity-';
+
+/** The step number in a glycolytic unlock id, or null if this is not one. */
+export function parseAct1GlycolysisUnlockId(id: string): number | null {
+  return parseStepId(id, GLYCOLYSIS_UNLOCK_PREFIX);
+}
+
+/** Shared by both ladders. A suffix that is not a whole step number is not an id. */
+function parseStepId(id: string, prefix: string): number | null {
+  if (!id.startsWith(prefix)) return null;
+  const suffix = id.slice(prefix.length);
   if (suffix.length === 0) return null;
   const step = Number(suffix);
   if (!Number.isInteger(step) || step < 1) return null;
@@ -104,6 +136,11 @@ export interface Act1Unlocks {
   readonly fermentEnabled: boolean;
   /** Index into the interface's capacity ladder. 0 is the shipped default. */
   readonly uptakeStep: number;
+  /**
+   * Index into the interface's glycolytic capacity ladder. 0 is the state at the
+   * top of the uptake ladder. Added by UPDATELOGV5.md stage 3.
+   */
+  readonly glycolysisStep: number;
   /**
    * Ids this build does not recognise, preserved rather than dropped.
    *
@@ -123,6 +160,7 @@ export interface Act1Unlocks {
 export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
   let fermentEnabled = false;
   let uptakeStep = 0;
+  let glycolysisStep = 0;
   const unknown: string[] = [];
 
   for (const id of unlocked) {
@@ -130,15 +168,20 @@ export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
       fermentEnabled = true;
       continue;
     }
-    const step = parseAct1UptakeUnlockId(id);
-    if (step !== null) {
-      if (step > uptakeStep) uptakeStep = step;
+    const uptake = parseAct1UptakeUnlockId(id);
+    if (uptake !== null) {
+      if (uptake > uptakeStep) uptakeStep = uptake;
+      continue;
+    }
+    const glycolysis = parseAct1GlycolysisUnlockId(id);
+    if (glycolysis !== null) {
+      if (glycolysis > glycolysisStep) glycolysisStep = glycolysis;
       continue;
     }
     unknown.push(id);
   }
 
-  return { fermentEnabled, uptakeStep, unknown };
+  return { fermentEnabled, uptakeStep, glycolysisStep, unknown };
 }
 
 /* ===========================================================================

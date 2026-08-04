@@ -163,6 +163,17 @@ export const UNLOCKS = {
     text: 'Uptake capacity',
     badge: tuned('A finite ladder of transport steps. Neither the steps nor their number is sourced'),
   },
+  glycolyticCapacity: {
+    text: 'Glycolytic capacity',
+    // One purchase raising both phases, because the preparatory phase spends the
+    // ATP the payoff phase makes and raising it alone bankrupts the cell. The
+    // 2:1 relationship IS sourced, in Part 2: one glucose becomes two trioses,
+    // so the payoff phase runs twice per preparatory turn. What is tuned is the
+    // rungs. The badge names the sourced half and the tuned half separately.
+    badge: tuned(
+      'The payoff phase runs twice per preparatory turn, which is sourced. How much capacity each rung buys is not',
+    ),
+  },
 } as const satisfies Readonly<Record<string, Entry>>;
 
 /* ===========================================================================

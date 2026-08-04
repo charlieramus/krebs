@@ -481,7 +481,115 @@ blocking item 2 is closed, narrowed or still open.
 
 ## Stage 3 Report
 
-_Pending._
+**NOW.md blocking item 2 is narrowed and not closed.** The longest gap between events fell from 84m47s to 22m16s and the number of events went from 6 to 14, which is a real fix. It is not a closed item, because 22 minutes is still a long time to look at a screen that is not changing, and closing it needs something act 1 does not have to sell.
+
+### Step 1. The dead interval is much worse than NOW.md described
+
+Instrumented over 90 game-minutes, buying everything the moment it is affordable, with two kinds of change counted apart. **A discrete event is something arriving**: a wall, an unlock lighting up, a purchase landing. **Rate drift is the headline number moving because the environment is being consumed.** Both are "the screen changed" and only the first is something happening.
+
+    at        gap       what
+    0m03s     0m03s     fermentation becomes affordable
+    0m03s     0m00s     fermentation bought
+    0m48s     0m46s     uptake step 1 becomes affordable and bought
+    5m13s     4m25s     uptake step 2 becomes affordable and bought
+    (end)    84m47s     nothing further happens
+
+**Six discrete events, every one inside the first 5m13s, then 84m47s of nothing**, against a target act length of 45 to 90 minutes. NOW.md says "roughly ten minutes of nothing between two events". The real distribution is that the entire act happens in its first five minutes and the other 94 percent of it is empty.
+
+**Two corrections to NOW.md fall out of the same run.**
+
+**The screen is not frozen and "pinned to twelve decimal places" is not reproducible.** The displayed ATP per second crossed a 2dp boundary 43 times over the 90 minutes, with a widest interval of 2m35s. It is a monotone decline, because the environment is draining, and a number very slowly going down is not an event. That refines the complaint rather than answering it, and it is the reason discrete events are counted separately above.
+
+**A player who buys the instant they can never meets the NAD+ wall.** `walled` never flipped in the whole run. The wall arrives at about 2.95 game-seconds and `FERMENT_ATP_THRESHOLD` of 55 is reached at 3, so for an optimal player the act's central teaching beat and its answer land in the same second. Not this stage's to fix. **Stage 4 re-derives that threshold and this is the measurement it should use.**
+
+### Step 2. Candidate (a), more unlocks. Candidate (c) is not mine to take
+
+**(b), a varying environment, is rejected on the cost the stage names.** docs/SIMULATION.md Part 3 builds offline progress on the system reaching steady state, and an environment that never settles makes the offline path fall back to coarse replay every time, which Part 3 describes as a bug signal rather than a normal condition. V6 owns offline progress. Buying an event every few minutes at the price of making the next log's central mechanism degrade permanently is a bad trade, and this log would have been the one that made it.
+
+**(c), making the quiet legible, is a display decision, it is DESIGN.md open question 7, and it is not this log's to make.** Stated here rather than silently taken. It is also probably part of the real answer: 22 minutes is what the economy can do, and the rest is a question about what a quiet screen should look like.
+
+### Step 3. The plan was wrong and the measurement says so
+
+NOW.md names preparatory-phase capacity as act 1's next unlock and stage 2 handed this stage a fresh reason to believe it. **Measured, selling it kills the cell.** Raising `prep` alone, at every value tried:
+
+    uptake=prep   payoff 26   what happens
+    12               42.217   fine, this is the shipped configuration
+    13                0.000   dead, glucose piling up, ATP falling
+    14                0.000   dead
+    16                0.000   dead
+    20                0.000   dead
+
+Permanent, not a slow recovery: at uptake=prep=14 the cell reads 0.000 ATP per second at 5, 20 and 60 game-minutes, with glucose at 3897, 16407 and 49635. **Stage 2's repair does not save it**, because that repair guarantees maintenance loses to the preparatory phase and says nothing about the preparatory phase outrunning the payoff phase.
+
+**The boundary is exact and it is the stoichiometry.** One glucose becomes two trioses, so the payoff phase must run twice per preparatory turn just to keep up. Sweeping payoff against prep, every configuration at exactly twice died and every one above it lived:
+
+    prep 12  dies at payoff 22, lives at 26      prep 16  dies at 32, lives at 36
+    prep 13  dies at payoff 26, lives at 28      prep 18  dies at 36, lives at 40
+    prep 14  dies at payoff 28, lives at 30      prep 20  dies at 40, lives at 44
+
+**The shipped configuration sits on that boundary with 8 percent of margin**, at 26 against 24. `ACT1_VMAX.payoff`'s comment says payoff is above twice prep "because the preparatory phase hands it two trioses per glucose", which reads as a design nicety. It is a stability condition and this is the measurement that says so.
+
+`ferment` has to move too. At prep 16 and payoff 36 with ferment left at 26 the cell dies, because ferment recycles the NAD+ the payoff phase consumes and a payoff phase that outruns it walls itself.
+
+### What shipped: one purchase moving four rates
+
+**Glycolytic capacity**, `GLYCOLYSIS_STEPS` in `src/ui/tuning.ts`. Five rungs, four of them purchasable, opening only once the uptake ladder is finished.
+
+    rung   uptake   prep   payoff/ferment   atp/s     gain    glucose drift
+    0          12     12               26   42.217        -     +86.7 / min
+    1          13     14               30   50.462   +19.5%     +23.0 / min
+    2          15     16               36   58.849   +16.6%     +17.2 / min
+    3          17     18               40   67.384   +14.5%      +9.2 / min
+    4          19     20               44   76.093   +12.9%      -1.5 / min
+
+**It is one purchase and not three because the intermediate configurations are lethal.** Selling prep and payoff separately means shipping a purchasable state that kills the player's cell. Moving them together means every reachable configuration is one of those five rows and every one is measured. That constraint is now an assertion rather than a comment: `glycolysisLadder.test.ts` fails if any rung has payoff at or below twice prep.
+
+**Uptake moves by less than prep, and the last column is why.** `prep` is second order in ATP and settles near 88 percent of its Vmax, so V3 sizing the uptake ladder's top rung against prep's nameplate 12 rather than its realized 10.554 is what makes intracellular glucose grow by 87 a minute forever at rung 0. Each rung sets uptake just under the prep flux it will actually reach, and **the pile drains as the ladder is climbed**, reaching minus 1.5 a minute at the top. On screen that is the glucose card filling up when uptake is maxed and emptying as the phase that consumes it is bought, which is the same lesson the ladder teaches told without a number.
+
+**The ladder stops at four because the fifth rung is dead.** A rung at uptake 21, prep 22 and payoff 48 collapses the cell, measured both from a cold start and by climbing to it from rung 4, despite 48 being above twice 22. Rung 4 is the last configuration that survives, so it is the last rung. The array is enumerated and hard rule 3 is satisfied by there being no fifth entry to reach.
+
+### Step 4. What each thing teaches
+
+One sentence, and it was not hard to write, which is the test the stage asks for.
+
+**Glycolytic capacity: the investment phase cannot be upgraded without the phase that pays it back.** A cell that speeds up glucose phosphorylation without speeding up the steps that recover the ATP spends itself into a state it cannot restart from. That is the same shape as the NAD+ wall told about ATP instead of about a carrier: a pathway is a chain, and buying one link is not buying throughput. The measurement above is the lesson.
+
+### Step 5. Re-measured
+
+    events                    6  ->  14
+    longest gap          84m47s  ->  22m16s
+    last discrete event   5m13s  ->  74m52s
+    dead tail            84m47s  ->  15m08s
+
+The full distribution after the change: 0m03s, 0m48s, 5m13s, then 16m16s, 32m47s, 52m37s, 74m52s. The longest gap shrank by 74 percent and the last event moved from 6 percent of the act to 83 percent of it.
+
+**The gaps grow rather than staying even**, 11m03s then 16m31s then 19m49s then 22m16s, because the thresholds are first-fit values. Evening them out is stage 4's, which re-derives every threshold against a measured act length, and `GLYCOLYSIS_ATP_THRESHOLDS` says so in the file.
+
+### Blocking item 2: narrowed, and here is what is left
+
+**What is fixed:** the act no longer ends after five minutes. There is something approaching for 75 of its 90 minutes and each thing that arrives is worth between 12.9 and 19.5 percent more throughput.
+
+**What is not:** four rungs cannot evenly fill 85 minutes. Twenty-two minutes between events is what act 1's economy can currently do, and shortening it further needs more things to sell. Act 1 has four unbuilt unlocks in docs/PROGRESSION.md, and three of them, individual glycolytic enzymes, ethanol fermentation and glycogen storage, all extend the pathway, which this log's Context explicitly forbids. **The remaining gap is a content question, not a balance one**, plus DESIGN.md open question 7 for what the quiet should look like while it lasts. Both belong to later logs and neither could be done here.
+
+### The hash did not move, and that is correct
+
+    act 1 canonical   49ea08d3   unchanged
+
+**This stage changed no shipped default.** Every number it added is a rung or a threshold a player has to buy, and `createAct1()` with no options produces exactly the pathway it did after stage 2. A stage that added unlock content and moved the canonical hash would mean it had changed the starting state by accident, so this is a result rather than an absence of one.
+
+### Verify
+
+`npm run typecheck` and `npm run lint` silent. `npm test` 282 passed across 26 files, up from 275 across 25: six in the new `glycolysisLadder.test.ts` and one in `persistence.test.ts`. `npm run build` 253.46 kB and 79.38 kB gzipped, up 2.16 kB from stage 2 for the third shelf slot and the ladder. `npm run sim:drain` unchanged, since it walks the uptake ladder rather than this one.
+
+**Played through `npm run dev` was not done and is not claimed.** The 90 minute run above is the same runtime bridge the browser drives, through `createAct1Runtime`, and it is a stronger measurement than a play session for the thing this stage is about, which is the distribution of events over an hour and a half. What it cannot tell anyone is whether the third shelf slot reads well or whether "Opens once uptake is at the top of its ladder" is the right sentence. Stage 4 plays it end to end and that is the honest place for the reading.
+
+### Two things this stage did not add and one it fixed on the way
+
+`prep` is on the Hill form, so the runtime needed a Vmax setter that preserves a reaction's curve instead of assuming Michaelis-Menten. That is `setReactionVmaxPreservingShape`, beside the existing one rather than replacing it: the uptake ladder should still fail loudly if `uptake` ever turns out not to be Michaelis-Menten. `persistence.test.ts` asserts `prep` is still Hill after a reload, because rebuilding a descriptor is exactly where a curve gets swapped for the wrong one, and a Michaelis-Menten `prep` reintroduces blocking item 1 without changing a single number.
+
+**The badge string stage 1 found is fixed.** `TUNING_BADGES.uptakeVmax` said "A finite ladder of four steps" against an array of three. Stage 1 deferred it in case this stage rewrote the ladder; this stage did not touch it, so the string now says three.
+
+`docs/SCIENCE.md` is untouched. The 2:1 relationship the ladder is built on is sourced, in Part 2, and it is cited on the unlock's badge rather than restated anywhere new. Nothing else here is a biological claim.
 
 ---
 

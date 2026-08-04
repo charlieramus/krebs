@@ -11,10 +11,10 @@ This is the record required by docs/PILLARS.md rule 5: where the game departs fr
 Every tuned number in the project has a row below. A tuned number is a number nobody sourced, that the game needs anyway, and that a balance pass may move. They live in exactly three files and nowhere else:
 
     src/content/act1/tuning.ts    14
-    src/ui/tuning.ts              10
+    src/ui/tuning.ts              19
     src/save/tuning.ts             1
                                   --
-                                  25
+                                  34
 
 ## What this document is not
 
@@ -33,7 +33,7 @@ It is not a design document. It says what the numbers are and why they are what 
 
 The distinction matters and it is the reason the table has a column that is sometimes empty. Rule 5 says departures get recorded. It does not say invent a departure for a number that never departed from anything, and a plausible sentence in the real behaviour column of an UNSOURCED row would be the exact failure this table exists to prevent.
 
-Of the 25 rows, **17 are DEPARTURE and 8 are UNSOURCED**.
+Of the 34 rows, **22 are DEPARTURE and 12 are UNSOURCED**.
 
 ## How to read a row
 
@@ -76,7 +76,7 @@ C13 moved the act 1 canonical hash from `e9b720a8` to `657594cb`. Starting amoun
 
 ## src/ui/tuning.ts
 
-Ten numbers. Three are DEPARTURE and seven are UNSOURCED, and the split falls exactly where you would expect: the capacity ladder holds Vmax values, which are the same kind of number as C1 to C5, and everything else in the file is a perception threshold or a purchase gate.
+Nineteen numbers. Eight are DEPARTURE and eleven are UNSOURCED, and the split falls exactly where you would expect: the two capacity ladders hold Vmax values, which are the same kind of number as C1 to C5, and everything else in the file is a perception threshold or a purchase gate.
 
 | Id | Value | Where | The real behaviour | What the game does instead | Why | Introduced |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -90,6 +90,15 @@ Ten numbers. Three are DEPARTURE and seven are UNSOURCED, and the split falls ex
 | U8 | 1500 | `UPTAKE_ATP_THRESHOLDS[0]` | | Cumulative gross ATP before the first capacity step is buyable | Measured 2026-08-03 at the shipped default Vmax, 1500 arrives at 0m48.1s | V3 stage 6 |
 | U9 | 12000 | `UPTAKE_ATP_THRESHOLDS[1]` | | Cumulative gross ATP before the second capacity step is buyable | Measured 2026-08-03 at the shipped default Vmax, 12000 arrives at 6m18.3s. Both thresholds were spaced against V3's play session rather than against docs/PROGRESSION.md's 45 to 90 minutes, on the argument that V3 shipped two unlocks and pacing a two-unlock slice to a full act would put both purchases in the first two minutes and leave eighty-eight with nothing in them. **Stage 4 of UPDATELOGV5.md re-derives both against a measured act length**, which is the first time that argument can be checked | V3 stage 6 |
 | U10 | 60000 | `OFFLINE_REPORT_THRESHOLD_MS` | | Real milliseconds away below which the return line is not shown at all | Found by reloading the real page. A refresh takes a second or two, which is a positive offline delta, so the panel rendered "Away for 0 min" every single time. The number was true and the sentence was noise, and a save panel that announces a nothing-event on every reload teaches the player to stop reading the one panel that has to be believed when it says something went wrong. One minute because the readout's own resolution is minutes | V4 stage 5 |
+| U11 | 12, 12, 26 | `GLYCOLYSIS_STEPS[0]` | As C1 | Rung 0, the state at the top of the uptake ladder. Not purchasable | Inherited rather than chosen, and it is the configuration the ladder exists to grow out of. Uptake equals prep's nameplate Vmax while prep only ever reaches 10.554, so intracellular glucose grows by about 87 a minute forever at this rung | V5 stage 3 |
+| U12 | 13, 14, 30 | `GLYCOLYSIS_STEPS[1]` | As C1 | First purchasable rung. 42.217 to 50.462 ATP per second, plus 19.5 percent | Glucose accumulation falls from 87 a minute to 23.0 | V5 stage 3 |
+| U13 | 15, 16, 36 | `GLYCOLYSIS_STEPS[2]` | As C1 | 58.849 ATP per second, plus 16.6 percent | Accumulation 17.2 a minute | V5 stage 3 |
+| U14 | 17, 18, 40 | `GLYCOLYSIS_STEPS[3]` | As C1 | 67.384 ATP per second, plus 14.5 percent | Accumulation 9.2 a minute | V5 stage 3 |
+| U15 | 19, 20, 44 | `GLYCOLYSIS_STEPS[4]` | As C1 | Last rung. 76.093 ATP per second, plus 12.9 percent | **The ladder stops here because the next rung is dead.** Uptake 21, prep 22 and payoff 48 collapses the cell, measured from a cold start and by climbing to it from this rung. Glucose accumulation is minus 1.5 a minute here, so the pile the uptake ladder's top rung created has been fully drained by the time the ladder is finished | V5 stage 3 |
+| U16 | 40000 | `GLYCOLYSIS_ATP_THRESHOLDS[0]` | | Cumulative gross ATP before the first glycolytic rung is buyable | First fit, landing the purchase at 16m16s. Stage 4 of UPDATELOGV5.md re-derives all four against a measured act length | V5 stage 3 |
+| U17 | 90000 | `GLYCOLYSIS_ATP_THRESHOLDS[1]` | | Second rung | Lands at 32m47s | V5 stage 3 |
+| U18 | 160000 | `GLYCOLYSIS_ATP_THRESHOLDS[2]` | | Third rung | Lands at 52m37s | V5 stage 3 |
+| U19 | 250000 | `GLYCOLYSIS_ATP_THRESHOLDS[3]` | | Fourth and last rung | Lands at 74m52s, near the end of the act's 90 minute target | V5 stage 3 |
 
 ## src/save/tuning.ts
 
@@ -138,5 +147,7 @@ Found by cross-checking this table against the code on 2026-08-03. Neither is fi
 **2026-08-03. The bootstrap trap is an ordering problem and not a tuning one, so it was repaired by changing an order.** Both candidates named in `src/content/act1/tuning.ts` were implemented and measured before either was picked. Sweeping `ACT1_KM.maintain` from 5 to 500 repairs it at no value, and the reason is provable rather than empirical: Michaelis-Menten consumption is first order in ATP at low ATP and the Hill n = 2 preparatory phase is second order, so consumption wins below some level for every choice of constants. A floor under the preparatory phase, implemented as a lower `ACT1_KM.prep`, does repair it, at 0.1 leaving only 0.08 glucose stranded. It lost on cost: it pulls the intracellular glucose pool from 5.60 to 0.40 and moves the NAD+ wall from 3.00s to 2.40s, and glucose visibly piling up inside a cell that has stopped is the signal that sells the wall as something other than starvation.
 
 **2026-08-03. C13 is kept at 80000 and the reason is replaced rather than reaffirmed.** It was raised as a shield. With the trap repaired the shield is not load-bearing, so it was re-measured on pacing alone: 126.7 minutes of food for a player who buys everything, 179.0 for one who buys nothing, against an act target of 45 to 90 minutes. The environment should outlast the act rather than define it, and 80000 does at every playstyle while 10000 runs dry inside the act at both. Stage 4 of UPDATELOGV5.md may narrow it once the act's own length is measured end to end.
+
+**2026-08-03. A glycolytic rung is one row, not three, and this does not contradict the ladder decision above.** The unit is a number a balance pass can move on its own, and a rung's three Vmax values cannot be. Two measured constraints bind them: payoff must strictly exceed twice prep or the cell collapses, and uptake must sit below prep's realized flux or glucose piles up unusably. Moving one of the three on its own produces a configuration that either kills the cell or wastes food, so they are one tuned decision with three components rather than three tuned numbers. `UPTAKE_VMAX_STEPS` is the opposite case and gets a row per rung: its entries constrain nothing but each other's ordering.
 
 **2026-08-03. The table is split by file rather than presented as one block.** The file is the unit the debt was tracked in across V2, V3 and V4, and a `Where` column repeating the same path thirteen times carries no information.

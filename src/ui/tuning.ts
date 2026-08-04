@@ -144,6 +144,100 @@ export const UPTAKE_VMAX_STEPS: readonly number[] = [8, 10, 12];
 export const UPTAKE_ATP_THRESHOLDS: readonly number[] = [1500, 12000];
 
 /* ===========================================================================
+   GLYCOLYTIC CAPACITY. UPDATELOGV5.md stage 3.
+
+   THE SECOND LADDER, AND IT EXISTS BECAUSE THE FIRST ONE RUNS OUT AFTER FIVE
+   MINUTES. Measured in stage 3: act 1 as shipped has six discrete events, every
+   one of them inside the first 5m13s, and then 84m47s in which nothing happens
+   at all, against a target act length of 45 to 90 minutes. That is NOW.md
+   blocking item 2 with a number on it.
+
+   WHY IT IS ONE PURCHASE MOVING THREE RATES RATHER THAN THREE LADDERS.
+   NOW.md names preparatory-phase capacity as the natural next thing to sell.
+   Measured, selling it alone KILLS THE CELL. Raising `prep` without raising
+   `payoff` makes the investment phase spend ATP faster than the payoff phase
+   returns it, and the cell collapses into the state stage 2 spent its length
+   repairing. The boundary is exact and it is the stoichiometric ratio: the
+   preparatory phase makes two trioses per glucose, so a configuration survives
+   only when payoff Vmax is STRICTLY GREATER than twice prep Vmax. Every
+   configuration at exactly twice died and every one above it lived:
+
+     prep 12  dies at payoff 22, lives at 26
+     prep 13  dies at payoff 26, lives at 28
+     prep 14  dies at payoff 28, lives at 30
+     prep 16  dies at payoff 32, lives at 36
+     prep 18  dies at payoff 36, lives at 40
+     prep 20  dies at payoff 40, lives at 44
+
+   Selling the two separately would mean shipping a purchasable configuration
+   that kills the player's cell. Moving them together means every reachable
+   configuration is one of the five rows below, and every one of them is
+   measured. `ferment` moves with `payoff` for the same reason: it recycles the
+   NAD+ the payoff phase consumes, and a payoff phase that outruns it walls
+   itself. Measured too, at prep 16 with payoff 36 and ferment left at 26 the
+   cell dies.
+
+   WHY UPTAKE MOVES BY LESS THAN PREP. `prep` never reaches its Vmax, because it
+   is second order in ATP and settles around 88 percent of nameplate. V3 sized
+   the uptake ladder's top rung against prep's Vmax of 12 rather than against its
+   realized 10.554, which is why intracellular glucose grows by about 87 a minute
+   forever once that rung is bought. Each rung below sets uptake just under the
+   prep flux it will actually achieve, and the accumulation closes as the ladder
+   is climbed: +23.0 a minute at rung 1, +17.2 at rung 2, +9.2 at rung 3 and
+   -1.5 at rung 4. **The pile of unusable glucose that appears when uptake is
+   maxed is drained away by the phase that consumes it**, which is the same
+   lesson the ladder teaches, told on the pool card instead of in a number.
+
+   THE LADDER STOPS AT FOUR BECAUSE THE FIFTH RUNG IS DEAD. A rung at uptake 21,
+   prep 22 and payoff 48 collapses the cell, measured both from a cold start and
+   by climbing to it from rung 4, even though 48 is above twice 22. Rung 4 is the
+   last configuration that survives, so rung 4 is the last rung. There will never
+   be a fifth without someone editing this array and measuring what they added.
+   =========================================================================== */
+
+/** One rung of the glycolytic capacity ladder. Three Vmax values that move together. */
+export interface GlycolysisStep {
+  readonly uptake: number;
+  readonly prep: number;
+  /** Applied to `payoff` and to `ferment`. They cannot diverge, see above. */
+  readonly payoff: number;
+}
+
+/**
+ * The rungs. ENUMERATED, NOT A MULTIPLIER, same as UPTAKE_VMAX_STEPS and for
+ * the same reason.
+ *
+ * Rung 0 is the state at the top of the uptake ladder and is not purchasable.
+ * This ladder only opens once UPTAKE_VMAX_STEPS is finished, so the two are
+ * sequential rather than interleaved and every save has exactly one of them in
+ * progress.
+ *
+ * Measured ATP per second at each rung, settled 15 game-minutes, against a
+ * shipped 31.998: 42.217 at rung 0, then 50.462, 58.849, 67.384 and 76.093.
+ * Every rung gains between 12.9 and 19.5 percent, so no rung sells nothing,
+ * which is the failure V3 stage 6 caught in the uptake ladder and which would be
+ * worse to repeat than to have never learned.
+ */
+export const GLYCOLYSIS_STEPS: readonly GlycolysisStep[] = [
+  { uptake: 12, prep: 12, payoff: 26 },
+  { uptake: 13, prep: 14, payoff: 30 },
+  { uptake: 15, prep: 16, payoff: 36 },
+  { uptake: 17, prep: 18, payoff: 40 },
+  { uptake: 19, prep: 20, payoff: 44 },
+];
+
+/**
+ * Cumulative gross ATP for each purchasable glycolytic step.
+ *
+ * One entry per rung above the first, so index 0 buys rung 1. Spaced across the
+ * back of the act, because the front of it is already full: stage 3 measured
+ * every existing event landing inside the first 5m13s. Stage 4 of
+ * UPDATELOGV5.md re-derives these against a measured act length, which is the
+ * first time any threshold in this file has been set against one.
+ */
+export const GLYCOLYSIS_ATP_THRESHOLDS: readonly number[] = [40000, 90000, 160000, 250000];
+
+/* ===========================================================================
    SAVE MANAGEMENT. UPDATELOGV4.md stage 5.
    =========================================================================== */
 
@@ -192,5 +286,16 @@ export const TUNING_BADGES = {
   uptakeThreshold: tuned(
     'Spaced so the capacity ladder is climbed across act 1 rather than in its first minute',
   ),
-  uptakeVmax: tuned('A finite ladder of four steps. Hard rule 3 forbids an upgrade with no last step'),
+  // WAS "four steps" AND THE ARRAY HAS THREE. Written for the planned ladder of
+  // 8, 12, 18, 26 and never updated when V3 stage 6 measured it down to three,
+  // which made it a wrong number in player-facing text. Found by the stage 1
+  // cross-check, corrected here in stage 3, and it is the reason step 1 of that
+  // stage was worth doing.
+  uptakeVmax: tuned('A finite ladder of three steps. Hard rule 3 forbids an upgrade with no last step'),
+  glycolysisVmax: tuned(
+    'Four steps and no fifth. The preparatory phase cannot be raised without the payoff phase, so one purchase moves both',
+  ),
+  glycolysisThreshold: tuned(
+    'Spaced across the back of the act, because every earlier unlock lands inside its first five minutes',
+  ),
 } as const satisfies Readonly<Record<string, BadgeSpec>>;
