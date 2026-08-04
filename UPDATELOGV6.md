@@ -398,7 +398,74 @@ rather than waiting for it.
 
 ## Stage 3 Report
 
-_Pending._
+**Every design decision in this stage rests on argument, not on evidence, because stage 2 was unrun.** Each step below says what it decided and what it decided from. Nothing here is described as answering a finding, because there are no findings.
+
+### What was built
+
+    src/ui/components/Overlay.tsx        the overlay shell, plus the context that
+                                         suppresses an automatic coach mark
+    src/ui/components/FirstRunCard.tsx   the first run. One card, three lines
+    src/ui/components/About.tsx          the about panel DESIGN.md has specified
+                                         since 2026-07-28
+    src/ui/content.ts                    FIRST_RUN and ABOUT, plus ABOUT_THE_BUILD
+                                         moved above its first use
+    src/ui/runtime.ts                    firstRunSeen and markFirstRunSeen
+    src/save/autosave.ts                 SaveReason gains 'setting'
+    src/ui/components/TopBar.tsx         the permanent About affordance
+    src/ui/components/CoachMark.tsx      auto-fire defers while an overlay is up
+    src/App.tsx                          the wiring, and the footer removed
+
+**The card says three things and nothing else.** That there is one cell, roughly 3.5 billion years ago, in water with no oxygen in it. That ATP is the currency, made by breaking glucose down and spent again on everything else. That there is no score and nothing to click, the pathway runs by itself, and the game is about what stops it. 292 characters of prose across three paragraphs, and a test asserts it stays under 300.
+
+**It is one screen, and step 1's "a first run is not a tutorial" is why.** docs/PILLARS.md rule 2 forbids anything that exists to extend session length. Three screens of one line each is a sequence a player has to get through, which is a tutorial in shape even at that length. One card with three lines is smaller than three cards with one.
+
+**That cost docs/CONTENT_STYLE.md a correction on its first contact with real work, one stage after it was written.** Part 5 said "3 screens maximum, 1 paragraph each". It now says one screen, three paragraphs, 300 characters, with the disclosure exempt and not counted. The decisions log carries the row and says the old rule was wrong rather than inconvenient.
+
+**No goal was invented, per step 5.** "The game is about what stops it" is docs/PROGRESSION.md's own act 1 teaching beat stated as a sentence. There is no target, no score and no promise of an ending inside act 1, because the game has none of those and a player told otherwise would play towards a thing that does not exist.
+
+### Step 2, the four constraints, each checked in a browser rather than argued
+
+**Skippable, and on the first screen.** There is one screen, one button, and Escape also closes it. There is no second step to get past.
+
+**It never blocks the simulation, and this is the constraint the build is shaped around.** `Overlay` takes a `dim` flag. The first run passes it false, so there is no scrim: the act screen stays lit, stays clickable and keeps ticking under the card. `pointer-events-none` on the overlay frame with `pointer-events-auto` on the card is what stops it swallowing clicks meant for the unlock shelf underneath. Measured in a real browser with the card open: elapsed game time read 0.4 min, then 0.5 min three seconds later, glucose held at 7.95/s and ATP per second sat at 0.00 because **the NAD+ wall arrived while the card was still on screen**, which is the strongest possible demonstration that nothing waited. The about panel passes `dim` true, because it is a reference surface the player opened on purpose and what is behind it is not what they are looking at.
+
+**Shown once and reachable again.** The about panel is where it lives permanently, and it renders the same `FIRST_RUN` entries rather than a second copy of them. Reached from a permanent About button in the top bar, which is where DESIGN.md's layout puts things that are always visible. A footer under eight pool cards, a pathway and an unlock shelf is not always visible, which is why it is not there.
+
+**UI state, under `settings`, no schema bump.** `settings.firstRunSeen`, a boolean. docs/SAVE_SCHEMA.md Part 3 defines settings as presentation that never affects simulation, and Part 1 makes a defaultable missing field additive. A V4 or V5 save has no such key, defaults to false and shows the card once, **which is the right outcome rather than a tolerated one**: that player has never seen it either. Verified end to end in the browser, `krebs.save.active` carries `settings.firstRunSeen: true` after one dismissal and the card does not return across a reload.
+
+### Step 3, the disclosure, decided both ways it was asked
+
+docs/SCIENCE.md Part 1 requires the text "in the about screen and on first launch, not buried in a repo file". **Neither half was properly met and V3 knew it**: `src/App.tsx` carried a comment saying there is no about screen in the slice so it goes on the act screen. A permanent footer meets "on first launch" only in the sense that it is also there on every other launch, which is not what the sentence asks for.
+
+**Both halves are now met literally. The first run carries the disclosure verbatim and the about panel carries it verbatim, and the act screen footer is gone rather than duplicated.** That is the option step 3 offered and it is the right one: the same 350 characters rendered in three places is three places for it to drift.
+
+**The words did not move and now they cannot.** `disclosure.test.tsx` parses the blockquote out of docs/SCIENCE.md's "Required disclosure text" section and asserts `DISCLOSURE.text` matches it character for character, then asserts both required surfaces render it. Same shape as V3's colour test, and the dependency runs the right way: editing the document fails the build rather than silently disagreeing with the game. **Nothing had ever checked this before**, which is uncomfortable given it is the one string in the project that a document orders the game to print.
+
+**One honest cost, recorded rather than smoothed.** The disclosure used to be on screen without any action. It is now one click away and shown once unprompted. Part 1's own words are "in the about screen and on first launch", so this is compliance rather than a reduction, but a player who dismisses the card without reading it has to open About to find it, and before this stage they did not. If that reads wrong to a cold reader, it is stage 5's finding to make.
+
+### Step 4, the flux inversion, deliberately untouched
+
+**Changed nothing, and the reason is not that it reads well.** Nobody has read it. Step 4 says fix it if stage 2 showed it was misread, and DESIGN.md says flux-is-the-headline "should not be reversed without a reason". A speculative change to the system's biggest deliberate departure, made by its author, in a log whose entire point is that the author is the least reliable reader, would be the exact failure this log exists to remove. **A sentence explaining the readout was also considered and rejected**, because step 4 prefers a change to the readout over prose about the readout, and because docs/CONTENT_STYLE.md Part 6 says a paragraph describing something already on screen is a bug report against the picture. Item 4 of the thirteen-item table is unanswered and stays unanswered.
+
+### One defect found while building, and it would have been silent
+
+**On a fresh run the coach mark fired underneath the first run card and spent its one firing where nobody could see it.** The NAD+ wall arrives about three game-seconds in and `useCoachMark` opens automatically on `walled`, once, by design. A mark that fires once and fires under an overlay is a mark that never fired.
+
+Fixed by deferring rather than queueing. `OverlayOpenProvider` publishes whether anything is on top and the automatic branch returns early while it is. `walled` stays true until fermentation is bought, so the first snapshot after the card closes still reports it and the mark opens then. If the player buys their way out while the card is open the mark never fires, which is correct, because there is no longer a wall to explain. **Confirmed in the browser**: with the card open the mark was absent, and one second after dismissing it the mark was on screen. It defaults to false with no provider, so every existing test behaves exactly as before.
+
+This was found by building it, not by reasoning about it. It is also the first thing in the log that suggests the teaching layer has ordering problems of its own, which stage 4 inherits.
+
+### Verify
+
+`npm run typecheck` and `npm run lint` silent. `npm test` **300 passed across 29 files**, up from 285 across 27. `npm run build` clean at **257.99 kB, 80.51 kB gzipped**, up from V5's 253.48 kB and 79.41 kB, which is 4.51 kB for three components, an overlay shell and a context.
+
+**15 tests added, in two files.** `src/ui/__tests__/firstRun.test.ts` covers the persistence: unseen on a new game, survives save and reload, lands under `settings`, defaults to unseen for a save written before this build existed, carries an unknown setting through untouched, writes immediately with reason `setting` rather than waiting for the thirty second interval, is idempotent, and leaves `hashState` and the tick count untouched. `src/ui/__tests__/disclosure.test.tsx` covers the required text and the first run's ceiling.
+
+**`npm run dev` from a cleared localStorage, and everything in step 2 was checked there rather than asserted.** The card fires, the numbers tick under it, the wall arrives while it is open, dismissing it persists, a reload does not bring it back, the About button reopens it, and the about panel carries the first run body, the badge explanation and the disclosure. Two screenshots were taken and read.
+
+**The coach mark deferral is the one thing in this stage with no test behind it and the report says so.** `vite.config.ts` sets the test environment to `node` and the suite renders through `renderToStaticMarkup`, so effects never run and a subscription-driven behaviour cannot be exercised. It was verified in a real browser instead. That is weaker than a test and it is what is available.
+
+**No tuned number moved.** The three tuning files are untouched by this stage and the V5 divergence guard passes. The act 1 canonical hash is unchanged, asserted by the suite rather than by inspection.
 
 ---
 

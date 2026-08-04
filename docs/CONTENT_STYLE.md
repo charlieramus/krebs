@@ -191,8 +191,12 @@ DESIGN.md gives coach marks two paragraphs and says it means it. Everything else
                          heading with badge, and a mandatory source row, to
                          the same contract a coach mark has.
 
-    First run            3 screens maximum, 1 paragraph each, and every
-                         screen skippable from the first one.
+    First run            1 screen. 3 paragraphs, 300 characters of prose,
+                         and dismissible from that screen. A first run that
+                         needs a second screen is a tutorial, and
+                         docs/PILLARS.md rule 2 rules a tutorial out.
+                         The required disclosure sits inside it and does not
+                         count against the 300, because it is exempt below.
 
 **The disclosure text is exempt from all of it.** docs/SCIENCE.md Part 1 requires it in-game, word for word, and it is quoted verbatim in `src/ui/content.ts` with a comment saying that a paraphrase of a required disclosure is not the required disclosure. If it reads badly, the fix is where and how it is presented and never what it says.
 
@@ -282,5 +286,6 @@ UPDATELOGV6.md stage 6 decides which of the testable half to build and proves it
 | 2026-08-03 | "Investment phase" is banned from player-facing text | docs/PROGRESSION.md uses it in design prose and the pathway is labelled "Preparatory phase". Two names for one arrow is a puzzle handed to the player for nothing. |
 | 2026-08-03 | The game spells -ise and -yse | It was inconsistent across two files rendering four inches apart. The science documents already spell -ise, so one convention covers both halves. |
 | 2026-08-03 | Ceilings for every surface, not just the coach mark | DESIGN.md set two paragraphs for a bubble and nothing for anything else. A ceiling on one surface is not a system, and the moment there is more than one thing to explain the others start binding too. |
+| 2026-08-03 | The first run is one screen, not three | Written here as three screens of one paragraph and corrected by UPDATELOGV6.md stage 3, which was the first thing built against it. Three screens of one line is a sequence a player has to get through, which is a tutorial in shape if not in length, and docs/PILLARS.md rule 2 rules a tutorial out. One card with three lines is smaller than three cards with one. |
 | 2026-08-03 | Badge reasons are written as player-facing text | `badgeTrace` renders into a `title` attribute, so every `tuned()` reason is already on screen to anyone who hovers. They were being written as notes to the next developer. |
 | 2026-08-03 | No congratulation, anywhere | docs/PILLARS.md rule 2. Praise for clicking the only affordable button carries no information and exists to extend session length, which is the one thing the rule names. |

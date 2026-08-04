@@ -337,6 +337,20 @@ export interface Act1Runtime {
   importSave(text: string): ImportOutcome;
   /** Accept the backup after a failed parse. The caller reloads the page. */
   acceptRecovery(): WriteOutcome;
+
+  /* ===== The first run, UPDATELOGV6.md stage 3 ===== */
+
+  /**
+   * Whether the opening card has been seen. Persisted under `settings`, which
+   * docs/SAVE_SCHEMA.md Part 3 defines as presentation that never affects
+   * simulation. False for a save written before this build existed.
+   */
+  firstRunSeen(): boolean;
+  /**
+   * Record that it has. Idempotent, and it writes immediately rather than
+   * waiting for the autosave interval.
+   */
+  markFirstRunSeen(): void;
 }
 
 export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime {
@@ -387,15 +401,21 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
   /** Unlock ids in purchase order. Persisted as `progression.unlocked`. */
   const unlocked: string[] = restoredOk === null ? [] : [...restoredOk.unlocked];
   /**
-   * UI settings, carried through unchanged.
+   * UI settings, carried through and added to.
    *
-   * Empty in every save this build writes, because V3 shipped no persisted
-   * setting: reduced motion is read from the OS media query rather than stored.
-   * It is read from the save and written back rather than dropped, so a build
-   * that adds one and a build that does not can share a file without either of
-   * them deleting the other's work.
+   * V3 shipped no persisted setting, so this was empty in every save V4 and V5
+   * wrote: reduced motion is read from the OS media query rather than stored.
+   * UPDATELOGV6.md stage 3 adds the first one. It is still read from the save
+   * and written back in full rather than replaced, so a build that knows a key
+   * and a build that does not can share a file without either deleting the
+   * other's work.
+   *
+   * `let` rather than `const`, and replaced rather than mutated, because
+   * `SaveSettingsV1` is `Readonly<Record<...>>` and the readonly half of that is
+   * the useful half: nothing downstream of `capture` can edit a settings object
+   * it was handed.
    */
-  const settings: SaveSettingsV1 = restoredOk === null ? {} : restoredOk.settings;
+  let settings: SaveSettingsV1 = restoredOk === null ? {} : restoredOk.settings;
   const carried: Act1CarriedCounters = restoredOk?.carried ?? ACT1_NO_CARRIED_COUNTERS;
   const createdAt = restoredSave?.meta.createdAt ?? epochClock();
 
@@ -716,10 +736,41 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     autosave?.stop();
   }
 
+  /**
+   * WHETHER THE FIRST RUN HAS BEEN SEEN. UPDATELOGV6.md stage 3.
+   *
+   * docs/SAVE_SCHEMA.md Part 3: anything under `settings` is presentation and
+   * never affects simulation. This qualifies exactly. It is not hashed state, it
+   * is not read by any tick, and a save that loses it costs the player one card
+   * they can reopen from the about panel anyway.
+   *
+   * NO SCHEMA BUMP, AND THE POLICY THAT ALLOWS THAT IS PART 1's. A missing field
+   * new code can default is an additive change, and this defaults to false. So a
+   * V4 or V5 save loads into this build and shows the first run once, which is
+   * the right outcome rather than a tolerated one: that player has never seen it
+   * either, because until this stage there was nothing to see.
+   */
+  const FIRST_RUN_SEEN = 'firstRunSeen';
+
+  function firstRunSeen(): boolean {
+    return settings[FIRST_RUN_SEEN] === true;
+  }
+
+  function markFirstRunSeen(): void {
+    if (firstRunSeen()) return;
+    settings = { ...settings, [FIRST_RUN_SEEN]: true };
+    // Written now rather than at the next interval. A player who reads the card,
+    // dismisses it and closes the tab inside thirty seconds should not be shown
+    // it again, and thirty seconds is the autosave interval.
+    autosave?.saveNow('setting');
+  }
+
   return {
     snapshot,
     state,
     loop,
+    firstRunSeen,
+    markFirstRunSeen,
 
     start(): void {
       if (running) return;

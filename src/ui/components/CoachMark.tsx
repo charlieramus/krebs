@@ -39,6 +39,7 @@ import { useSnapshotEffect } from '../RuntimeContext';
 import { Badge } from './Badge';
 import { Button } from './Button';
 import { Card } from './Card';
+import { useOverlayOpen } from './Overlay';
 import type { CoachMark as CoachMarkContent } from '../content';
 
 export type CoachMarkTrigger = 'manual' | 'auto';
@@ -137,9 +138,19 @@ export function useCoachMark(trigger: CoachMarkTrigger): {
   // needs to re-render over, and reading it inside the subscription avoids the
   // setState-inside-setState shape that a state flag would need.
   const autoFired = useRef(false);
+  // Held in a ref for the same reason the callback is: the subscription is
+  // registered once and must read the current value rather than the one that was
+  // true when it was registered.
+  const overlayOpen = useOverlayOpen();
+  const overlayOpenRef = useRef(overlayOpen);
+  overlayOpenRef.current = overlayOpen;
 
   useSnapshotEffect((snapshot) => {
     if (trigger !== 'auto') return;
+    // An overlay is on top, so an automatic firing would land under it and be
+    // spent. `walled` persists until fermentation is bought, so returning here
+    // defers the firing rather than losing it. See Overlay.tsx.
+    if (overlayOpenRef.current) return;
     if (!snapshot.walled) return;
     if (autoFired.current) return;
     autoFired.current = true;

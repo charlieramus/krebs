@@ -30,7 +30,13 @@ import type { SaveStore, WriteOutcome } from './storage';
 import { AUTOSAVE_INTERVAL_MS } from './tuning';
 
 /** Why a write happened. Diagnostics, and the report's cost table. */
-export type SaveReason = 'interval' | 'hidden' | 'unlock' | 'unload' | 'manual';
+/**
+ * `setting` was added by UPDATELOGV6.md stage 3, when the first persisted UI
+ * setting arrived. It is its own reason rather than `manual` because `manual`
+ * means the player asked for a write and a settings write is a side effect of
+ * something else, and the save panel reports the reason of the last write.
+ */
+export type SaveReason = 'interval' | 'hidden' | 'unlock' | 'unload' | 'manual' | 'setting';
 
 export interface AutosaveRecord {
   readonly reason: SaveReason;

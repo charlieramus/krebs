@@ -3,16 +3,18 @@
  * badge.
  *
  * ---------------------------------------------------------------------------
- * THIS FILE DOES NOT INVENT A VOICE
+ * docs/CONTENT_STYLE.md GOVERNS EVERY STRING BELOW
  * ---------------------------------------------------------------------------
  *
- * docs/CONTENT_STYLE.md does not exist and V3 does not write it. So what is here
- * is molecule names, reaction names, two unlock labels and the one coach mark
- * the NAD+ wall needs, and nothing that reads as authored prose. Inventing a
- * tone before the document that decides the tone lands means rewriting all of it
- * twice. The same restraint is already recorded in src/content/act1/pools.ts,
- * whose display names are molecule names and nothing more, and those names are
- * reused here rather than restated.
+ * V3 wrote this file with no voice on purpose, because the document that decides
+ * the voice did not exist and inventing a tone before it landed meant rewriting
+ * all of it twice. That document exists as of UPDATELOGV6.md stage 1. Voice,
+ * person, naming, numbers in prose and a length ceiling per surface are all
+ * settled there, and a string that disagrees with it is wrong rather than
+ * stylish. The restraint V3 recorded still holds where it applies: molecule
+ * names come from src/content/act1/pools.ts and are reused here rather than
+ * restated, so the interface and the simulation cannot drift into calling the
+ * same pool two different things.
  *
  * ---------------------------------------------------------------------------
  * EVERY STRING CARRIES A BADGE, INCLUDING THE ONES WITHOUT NUMBERS
@@ -26,8 +28,10 @@
  * than biology, the badge says Tuned and says why, which is the case that would
  * otherwise pass silently.
  *
- * Numbers in strings are rare on purpose. Where one appears it traces to
- * docs/SCIENCE.md by line, and the audit is in the stage 3 report.
+ * Numbers in strings are rare on purpose. Where one appears it traces to a
+ * NAMED SECTION of docs/SCIENCE.md rather than to a line number, because V5
+ * found five line citations that had drifted 42 lines and all five had landed in
+ * the wrong Part. docs/CONTENT_STYLE.md Part 1 makes that a rule.
  */
 
 import { sourced, tuned, type BadgeSpec } from './components/Badge';
@@ -43,6 +47,14 @@ export interface Entry {
 const PART2 = 'docs/SCIENCE.md Part 2';
 /** docs/SCIENCE.md Part 1, the disclosed simplifications. */
 const PART1 = 'docs/SCIENCE.md Part 1';
+
+/**
+ * The Tuned reason for a string that is a statement about the BUILD rather than
+ * about a cell. Declared here rather than beside the save strings that first
+ * needed it, because the first run and the about panel need it too and a module
+ * constant used above its declaration is a temporal dead zone error at import.
+ */
+const ABOUT_THE_BUILD = 'A statement about this build, not about biology';
 
 /* ===========================================================================
    MOLECULES
@@ -232,6 +244,99 @@ export const DISCLOSURE: Entry = {
 };
 
 /* ===========================================================================
+   THE FIRST RUN AND THE ABOUT PANEL. UPDATELOGV6.md stage 3.
+
+   ONE SCREEN, THREE PARAGRAPHS, AND IT NEVER BLOCKS THE SIMULATION. The cell is
+   alive from t=0 and the tick loop does not wait for a reader. docs/PILLARS.md
+   rule 2 forbids anything that exists to extend session length, and a gated
+   multi-step tutorial in an idle game is usually exactly that. What is needed is
+   smaller: what the player is running, what the currency is, and what counts as
+   playing, before the first thing happens.
+
+   THE DISCLOSURE IS INSIDE IT, VERBATIM. docs/SCIENCE.md Part 1 requires the
+   text "in the about screen and on first launch". V3 had neither surface and put
+   it in the act screen footer as a substitute. Both halves are now met literally
+   rather than approximately: the first run carries it on first launch and the
+   about panel carries it permanently. The words are untouched in both, because a
+   paraphrase of a required disclosure is not the required disclosure.
+
+   THERE IS NO INVENTED OBJECTIVE HERE. Act 1's real goal is to keep the pathway
+   running and to find out what stops it, and the game ends after four acts per
+   docs/PILLARS.md rule 1. A first run that promised a score or a target would be
+   a worse failure than a first run that said nothing, because the player would
+   play towards it.
+   =========================================================================== */
+
+/** docs/SCIENCE.md Part 6, the geological timeline. */
+const PART6 = 'docs/SCIENCE.md Part 6';
+
+export interface FirstRun {
+  readonly heading: Entry;
+  /** At most three, per docs/CONTENT_STYLE.md Part 5. */
+  readonly body: readonly Entry[];
+  readonly action: Entry;
+  /** Mandatory, to the same contract a coach mark has. */
+  readonly source: string;
+}
+
+export const FIRST_RUN: FirstRun = {
+  heading: {
+    text: 'This is one cell',
+    badge: sourced(`${PART6}, microbial mats at roughly 3.48 to 3.43 Ga`),
+  },
+  body: [
+    {
+      text: 'A single cell, roughly 3.5 billion years ago, in water with no oxygen in it.',
+      badge: sourced(
+        `${PART6}, microbial mats at roughly 3.48 to 3.43 Ga, long before oxygen accumulated`,
+      ),
+    },
+    {
+      // Mixed provenance under the weaker badge, and the badge names both halves.
+      // Same shape as UNLOCKS.glycolyticCapacity, which is the established way
+      // this file handles a sentence that is half sourced and half modeled.
+      text: 'ATP is the currency. The cell makes it by breaking glucose down, and spends it again on everything else it does.',
+      badge: tuned(
+        `Glycolysis making ATP is sourced, ${PART2}. That one reaction stands in for everything else a cell spends ATP on is not`,
+      ),
+    },
+    {
+      text: 'There is no score and nothing to click. The pathway runs by itself, and the game is about what stops it.',
+      badge: tuned(
+        'A statement about this build, not about biology. docs/PILLARS.md rule 2: nothing in the design exists to extend session length',
+      ),
+    },
+  ],
+  action: { text: 'Let it run', badge: tuned(ABOUT_THE_BUILD) },
+  source: `${PART1}, required disclosure text`,
+};
+
+export const ABOUT = {
+  /** The permanent affordance that reopens it. DESIGN.md: always visible. */
+  open: {
+    text: 'About',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  heading: {
+    text: 'About this game',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  /**
+   * What a badge means, which is item 12 of UPDATELOGV6.md's thirteen-item table
+   * and was answered nowhere at all. It is a statement about the build, so it
+   * lives on the one permanent surface that is about the build.
+   */
+  badges: {
+    text: 'Every claim here carries a badge. Sourced means it traces to a published source and can be checked. Tuned means the game chose the number for pacing and says so.',
+    badge: tuned(`${ABOUT_THE_BUILD}. DESIGN.md, The badge contract`),
+  },
+  close: {
+    text: 'Close',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+} as const satisfies Readonly<Record<string, Entry>>;
+
+/* ===========================================================================
    SAVE MANAGEMENT. UPDATELOGV4.md stage 5.
 
    DESIGN.md's screen inventory: "Save management, export to file, import,
@@ -245,8 +350,6 @@ export const DISCLOSURE: Entry = {
    exempt from the badge contract and goes through `Figure`'s `measured` prop.
    See src/ui/components/Figure.tsx.
    =========================================================================== */
-
-const ABOUT_THE_BUILD = 'A statement about this build, not about biology';
 
 export const SAVE = {
   heading: {

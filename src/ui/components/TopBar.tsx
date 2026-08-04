@@ -19,7 +19,8 @@
 
 import { Figure } from './Figure';
 import { Badge, type BadgeSpec } from './Badge';
-import { READOUTS } from '../content';
+import { Button } from './Button';
+import { ABOUT, READOUTS } from '../content';
 import { poolIndex, type Act1Snapshot } from '../runtime';
 
 const ATP = poolIndex('atp');
@@ -78,15 +79,28 @@ function Headline({
   );
 }
 
-export function TopBar() {
+export function TopBar({ onOpenAbout }: { onOpenAbout: () => void }) {
   return (
     <header className="flex flex-wrap items-end justify-between gap-6 px-8 py-4">
-      {/* DESIGN.md: wordmark, Fredoka 600, tracking -0.03em. The weight is
-          explicit because Tailwind's preflight resets h1 to inherit, which on
-          a variable face silently renders 400. */}
-      <h1 className="font-display font-semibold text-wordmark tracking-wordmark leading-none text-ink">
-        krebs
-      </h1>
+      {/* A div rather than a span, because an h1 inside a span is invalid
+          nesting and the browser will happily render it while a validator will
+          not. */}
+      <div className="flex items-baseline gap-3">
+        {/* DESIGN.md: wordmark, Fredoka 600, tracking -0.03em. The weight is
+            explicit because Tailwind's preflight resets h1 to inherit, which on
+            a variable face silently renders 400. */}
+        <h1 className="font-display font-semibold text-wordmark tracking-wordmark leading-none text-ink">
+          krebs
+        </h1>
+
+        {/* The permanent way back to the first run and the disclosure. It is in
+            the top bar rather than the footer because DESIGN.md's layout gives
+            the top bar the things that are always visible, and a footer under
+            eight pool cards and a pathway is not. UPDATELOGV6.md stage 3. */}
+        <Button surface="white" className="px-3 py-1 text-label" onClick={onOpenAbout}>
+          {ABOUT.open.text}
+        </Button>
+      </div>
 
       <div className="flex flex-wrap items-end gap-8">
         <Headline
