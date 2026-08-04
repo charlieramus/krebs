@@ -281,7 +281,57 @@ answers to the three questions, and the scored thirteen-item table.
 
 ## Stage 2 Report
 
-_Pending._
+**UNRUN. Zero readers. The stage was not run and nothing below is a measurement.**
+
+This is the outcome step 1 of the stage prompt named and told the log to take rather than avoid, so it is reported at the top rather than buried under the work that was done anyway.
+
+**Reader count: 0 of a target of 3, accepting 1.** Backgrounds: not applicable, there were none.
+
+**Why, plainly.** This stage was executed by an agent in a terminal on the builder's machine. It has no way to put a running `npm run dev` in front of a person who has never seen the game, no way to hand over control, and no way to hear anybody think aloud. Every input it could produce would be its own, and its own reading is the one thing this stage exists to exclude. There is no partial version of this that is worth having: a protocol whose entire method is "say nothing and write down what a stranger says" cannot be run by the party who is supposed to be silent.
+
+**What was explicitly not done, because doing it would have been the failure rather than the workaround.**
+
+- No simulated reader. Not a persona, not a role-played undergraduate, not a second agent primed to know nothing. A model asked to pretend it has never seen NAD+ is not a reader who has never seen NAD+, and the transcript would be indistinguishable in format from a real one and worthless in content. That is worse than an empty report, because an empty report cannot be mistaken for data.
+- No substitution of the builder's reading. `NOW.md` already says why, in its own words about V3: the readings came from "the person who built it, who knows where the wall is and what solves it, and that is the least reliable possible reader of whether a teaching beat teaches". Filling this stage with the same kind of reading would be reintroducing the exact defect V6 exists to remove.
+- No instrumentation was added, so there is none to remove. `git diff` for this stage is this report and nothing else.
+
+**The three questions have no answers.** Not "inconclusive". No reader was asked them.
+
+    What is this game about?                                    no answer recorded
+    Why did it stop?                                            no answer recorded
+    Did buying that make you more energy, faster energy,
+      both or neither?                                          no answer recorded
+
+**The thirteen-item table, scored as required and every row reading the same thing.** It is reproduced in full rather than collapsed to a sentence, because stage 5 has to be able to read the two side by side and a missing table is harder to compare against than a table of nulls.
+
+| # | What the screen never says | Did any reader work it out | From what |
+| --- | --- | --- | --- |
+| 1 | that they are running a cell | not measured | no reader |
+| 2 | what ATP is for | not measured | no reader |
+| 3 | what the goal is | not measured | no reader |
+| 4 | that flux is the big number and stock is the small one | not measured | no reader |
+| 5 | what "net rate" means | not measured | no reader |
+| 6 | what NAD+ does | not measured | no reader |
+| 7 | why the pathway stopped | not measured | no reader |
+| 8 | what "preparatory phase" is | not measured | no reader |
+| 9 | what g3p is | not measured | no reader |
+| 10 | that shape means carbon count | not measured | no reader |
+| 11 | that colour means redox state | not measured | no reader |
+| 12 | what a badge means | not measured | no reader |
+| 13 | what buying uptake capacity does | not measured | no reader |
+
+**The single most valuable data point in the stage is the one most conspicuously absent.** Step 3 asks what a reader thinks buying lactate dehydrogenase will do *before* they buy it, because docs/PROGRESSION.md says most players arrive expecting fermentation to be an energy upgrade and it is not. That misconception is the thing act 1 is built to correct and nobody has ever watched it be corrected or fail to be. It is unmeasured before this log and it is unmeasured after it.
+
+**Consequences for the rest of the log, stated here so stages 3 and 4 inherit them rather than discover them.**
+
+1. **Stages 3 and 4 proceed on reasoning rather than measurement.** They are designed against the thirteen-item table, which is a list of things nothing on the screen says. That list is a fact about the build and was established by reading the code, so it is still true and still actionable. What is not available is any evidence about which of the thirteen actually bite a reader, so both stages have to treat all thirteen as live rather than prioritising by observed damage.
+2. **Every "stage 2 showed" instruction in stages 3, 4 and 5 has no antecedent.** Stage 3 step 1 says design the first run against the first-question list, stage 3 step 4 says fix the flux inversion if it was misread, stage 4 step 2 says pick coach marks from the evidence and stage 4 step 4 says decide the glossary from the evidence. There is no evidence. Each of those steps will say in its own report that it decided on reasoning and will state the reasoning, so a later reader can tell which decisions rest on argument and which rest on data. **None of them rest on data.**
+3. **Stage 5 is an uncompared measurement at best.** Its own step 1 says so. If it also finds no readers, this log ships unvalidated and should say that in `NOW.md` in those words.
+4. **The COACH_MARK_TRIGGER decision has lost the thing that was supposed to decide it.** Stage 5 step 3 gives the choice to readers precisely because `NOW.md` records that the builder chose it and calls that the least reliable possible reader. Without readers the honest outcome is to leave it where it is and leave the `NOW.md` entry open, not to re-decide it with the same unreliable reader and call the entry closed. Recorded here so stage 5 cannot quietly close it.
+
+**This stage is re-runnable and should be re-run.** Nothing in stages 3 to 6 makes it harder: a cold reader in three months reads a different build, which measures that build rather than this one, and the baseline this stage was supposed to establish is gone for good. **The baseline is the loss.** A pre-change reading can only be taken before the change, and after stage 3 lands there is no way back to a build that says nothing. Anybody re-running this later gets a post-change measurement with nothing to compare it to, which is stage 5's job and not this one's.
+
+**Verify.** No code changed and no instrumentation added, so there was nothing to verify beyond that. `npm test` 285 passed across 27 files, `npm run typecheck` and `npm run lint` silent, `npm run build` 253.48 kB and 79.41 kB gzipped. All unchanged from stage 1.
 
 ---
 
