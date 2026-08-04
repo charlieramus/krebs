@@ -173,8 +173,10 @@ DESIGN.md gives coach marks two paragraphs and says it means it. Everything else
 
     Card title           4 words. No full stop. Not a sentence.
 
-    Button               4 words. Imperative or the player's own voice. No
-                         full stop.
+    Button               5 words. Imperative or the player's own voice. No
+                         full stop. 5 rather than 4 because 5 is the widest
+                         button that ships and nothing else exceeds 4. See
+                         the decisions log.
 
     Slot detail          2 sentences, 160 characters.
     (unlock shelf)
@@ -191,8 +193,12 @@ DESIGN.md gives coach marks two paragraphs and says it means it. Everything else
                          heading with badge, and a mandatory source row, to
                          the same contract a coach mark has.
 
-    First run            3 screens maximum, 1 paragraph each, and every
-                         screen skippable from the first one.
+    First run            1 screen. 3 paragraphs, 300 characters of prose,
+                         and dismissible from that screen. A first run that
+                         needs a second screen is a tutorial, and
+                         docs/PILLARS.md rule 2 rules a tutorial out.
+                         The required disclosure sits inside it and does not
+                         count against the 300, because it is exempt below.
 
 **The disclosure text is exempt from all of it.** docs/SCIENCE.md Part 1 requires it in-game, word for word, and it is quoted verbatim in `src/ui/content.ts` with a comment saying that a paraphrase of a required disclosure is not the required disclosure. If it reads badly, the fix is where and how it is presented and never what it says.
 
@@ -263,7 +269,9 @@ DESIGN.md's colour section is enforced by a test. The badge contract is enforced
 - Whether a paragraph should have been a shape. Part 6 is the most important rule here and it is a judgement every time.
 - Whether a number's badge is the right one. The type forces a badge, not a correct one.
 
-UPDATELOGV6.md stage 6 decides which of the testable half to build and proves it fires with a probe. Nothing above is a promise that it all lands.
+**All five landed, in `src/ui/__tests__/contentStyle.test.ts`, plus the per-surface ceilings in `teaching.test.tsx` and `disclosure.test.tsx`.** Built by UPDATELOGV6.md stage 6 and proved with a planted probe. One file is exempt from the string-location rule, `src/ui/components/Badge.tsx`, and the exemption is structural rather than a convenience: `content.ts` imports `Badge` in order to build every badge in the game, so the four badge words cannot come from `content.ts` without a circular import, and they are DESIGN.md's vocabulary rather than authored copy. The allowlist has one entry and any addition to it should be argued in a log.
+
+**Two things the probe taught, recorded because they are the reason the guard is worth anything.** The first version of the prose detector was a character allowlist and the probe `<h2>Resources so far!</h2>` walked straight through it, because an exclamation mark was not in the list. A guard that only catches politely punctuated violations reads as coverage and is worse than none. And the first version of the -ise rule was a suffix pattern, which flagged "Pool sizes are tuned", because English spells "size" with a z and no suffix rule separates it from "oxidize". Both were found by running the guard rather than by reading it.
 
 ---
 
@@ -282,5 +290,7 @@ UPDATELOGV6.md stage 6 decides which of the testable half to build and proves it
 | 2026-08-03 | "Investment phase" is banned from player-facing text | docs/PROGRESSION.md uses it in design prose and the pathway is labelled "Preparatory phase". Two names for one arrow is a puzzle handed to the player for nothing. |
 | 2026-08-03 | The game spells -ise and -yse | It was inconsistent across two files rendering four inches apart. The science documents already spell -ise, so one convention covers both halves. |
 | 2026-08-03 | Ceilings for every surface, not just the coach mark | DESIGN.md set two paragraphs for a bubble and nothing for anything else. A ceiling on one surface is not a system, and the moment there is more than one thing to explain the others start binding too. |
+| 2026-08-04 | The button ceiling is 5 words, not 4 | Written here as 4 and caught by the test UPDATELOGV6.md stage 4 built to enforce it. The one string that breaks it is "Show me what recycles it", which V3 shipped and which its play reading calls the strongest beat in the build. Rewriting the best line in the game to satisfy a rule that was a day old and had never been measured is the tail wagging the dog. 5 is the widest button that ships and nothing else in the game exceeds 4, so the ceiling is set at what is there rather than at a rounder number. |
+| 2026-08-03 | The first run is one screen, not three | Written here as three screens of one paragraph and corrected by UPDATELOGV6.md stage 3, which was the first thing built against it. Three screens of one line is a sequence a player has to get through, which is a tutorial in shape if not in length, and docs/PILLARS.md rule 2 rules a tutorial out. One card with three lines is smaller than three cards with one. |
 | 2026-08-03 | Badge reasons are written as player-facing text | `badgeTrace` renders into a `title` attribute, so every `tuned()` reason is already on screen to anyone who hovers. They were being written as notes to the next developer. |
 | 2026-08-03 | No congratulation, anywhere | docs/PILLARS.md rule 2. Praise for clicking the only affordable button carries no information and exists to extend session length, which is the one thing the rule names. |

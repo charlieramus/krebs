@@ -140,7 +140,16 @@ export interface BlobProps {
    * differently, because they count a different thing.
    */
   electrons?: number;
-  /** Accessible name. A blob carrying state is content, not decoration. */
+  /**
+   * What this blob says about itself. A blob carrying state is content, not
+   * decoration, so it is the accessible name AND a `<title>`, which is what
+   * makes it a native tooltip on hover.
+   *
+   * DESIGN.md's illustration rules put real information in the geometry and
+   * until UPDATELOGV6.md stage 4 nothing told the player it was there. Composed
+   * in src/ui/content.ts from the conserved-weight table, never here: this file
+   * draws the shape and does not get to decide what the shape means.
+   */
   label: string;
   className?: string;
   /**
@@ -182,6 +191,11 @@ export function Blob({
       role="img"
       aria-label={label}
     >
+      {/* The hover readout. `aria-label` already names it for assistive
+          technology and wins over `<title>` there, so this is purely the
+          pointer affordance: the one way a sighted player can ask a shape what
+          it encodes without a legend panel nobody opens. */}
+      <title>{label}</title>
       <path
         ref={pathRef}
         // The role attribute is what illustration.test.ts keys off. The test

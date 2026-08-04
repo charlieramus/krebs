@@ -135,6 +135,12 @@ The source row is mandatory. A coach mark without one does not ship.
 
 Two paragraphs is a hard ceiling. If a concept needs more, it needs a teaching panel, not a bubble.
 
+**Both sentences above are mechanism as of 2026-08-04, and neither had ever been checked.** `src/ui/__tests__/teaching.test.tsx` asserts that every mark carries a source row, that the row names a `Part` docs/SCIENCE.md actually has, parsed out of the document rather than listed in the test, and that the body is at most two paragraphs. The ceiling had never bound because V3 shipped one mark and the NAD+ constraint is genuinely one idea. Three marks and a panel later, it binds.
+
+**The teaching panel exists and takes the same contract at a looser ceiling.** Heading with its badge, body, mandatory source row, and at most 6 paragraphs and 1400 characters per docs/CONTENT_STYLE.md Part 5. "Longer than a bubble" is not "unbounded", and a concept that will not fit a panel is two concepts.
+
+**Only a mark with a simulation event behind it should ever be automatic.** Two of the three are manual by construction rather than by the trigger setting. A card that opens an unrequested bubble whenever some condition happens to be true is what turns teaching into nagging.
+
 ## Spacing, borders, shape
 
     base unit       4px
@@ -188,12 +194,18 @@ No authentication. No accounts. No backend. docs/PILLARS.md rule 7 holds.
     Act screen          per act, the primary surface
     Timeline view       vertical scroll through deep time, second view
     Coach mark          overlay, the teaching unit
+                        Three of them since V6. One automatic, two manual
     Teaching panel      overlay for concepts too long for a bubble
+                        Built by V6. One panel, on the act 1 yield ceiling
     Unlock shelf        dashed slots, part of the act screen
     Offline return      what happened while away, with the event sequence
     Save management     export to file, import, backup recovery on failed parse
                         Built by V4 as a panel on the act screen, not a screen
     About               required disclosure text from docs/SCIENCE.md Part 1
+                        Built by V6 as a panel, on the V4 precedent. Also the
+                        permanent home of the first run
+    First run           one card, three lines, over a running simulation
+                        Added by V6. Not in the original inventory
     Endgame summary     what was built, the real timeline, sources, simplifications
     Sandbox             all unlocks, adjustable environment
 
@@ -284,6 +296,15 @@ Added 2026-07-29, after V3 built the act 1 screen. This document had never met a
 
 Illustration rules 4 to 6, because act 1 has no enzyme objects, no damage and no ROS. The beast. The timeline view. The teaching panel. Every screen in the inventory other than the act screen. All of these are out of V3's scope by its own Decisions section.
 
+**Two of those came back in V6.** The teaching panel is built and the about screen is built, as a panel on the V4 precedent. The beast, the timeline, the endgame summary, the offline return and the sandbox are still deferred.
+
+### What V6 found, 2026-08-04
+
+- **This document specified a teaching panel for six days short of a year of build logs and nothing had ever built one, because the ceiling that forces it had never bound.** One coach mark cannot exceed a two-paragraph limit. The limit was real and untested at the same time, which is the condition every rule in this file is in until something loads it.
+- **"A coach mark without a source row does not ship" was discipline, not mechanism, and had never been checked.** It is a test now, and the test resolves the row against docs/SCIENCE.md's actual headings rather than against a list, so a source row naming a Part that does not exist fails the build.
+- **The illustration rules were teaching nobody.** Rules 1 to 3 have been implemented and derived from the conserved-weight table since V3, and this document's own argument for rule 1 turns on the player being told once what a side means. Nothing had told them. Building the picture correctly and never mentioning it is a failure mode this section should name: **an encoding nobody is told about is a decoration.**
+- **The wordmark was hardcoded in `TopBar.tsx` and the guard found it, not the audit that went looking for hardcoded strings.** It is the string in this game most likely to change, since open question 1 is still open, and it now lives with every other player-facing string.
+
 ### What turned out to be wrong
 
 - **Two dots on a blob read as a face.** Rules 2 and 3 give NADH two electron dots and ATP three phosphate dots, and the obvious layouts of both, a pair in the upper half and a row across the middle, produced little characters with eyes. That collides directly with rule 6, which reserves faces for ROS, and with the beast. Fixed by moving electrons to the upper-right edge and laying phosphates out as a diagonal chain. **The chain is better than the row on biological grounds too**, since ATP's phosphates are a chain and hydrolysis removes the terminal one, so a row was quietly saying they are interchangeable. This document should say where dots go, not just how many.
@@ -337,4 +358,10 @@ Illustration rules 4 to 6, because act 1 has no enzyme objects, no damage and no
 | 2026-07-31 | Measured session values are exempt from the badge contract | The contract governs claims about biology and about the game's own tuning. Time away traces to the system clock, has no document to cite and owes no divergence row, so a badge on it would imply provenance is an open question about it. Declared at the call site through `Figure`'s `measured` prop, so exactly one of `badge` or `measured` is still required. No fourth pill was added. |
 | 2026-07-31 | The exemption stops at the simulation | Pool amounts and elapsed game time stay badged. A pool amount is the output of a model whose rates are tuned, and game time's badge is a claim about its mapping to real time, which docs/SCIENCE.md Part 1 says does not exist. Only the player's own session is exempt. |
 | 2026-07-31 | Save management is a panel on the act screen, not its own screen | Everything it says is a few lines and two buttons, and the one case that matters, a corrupt save, must not be behind a click. |
+| 2026-08-04 | The teaching panel is built, and its subject was read out of docs/SCIENCE.md rather than chosen | Part 2 contains two direct orders to the interface: that the net figure "is worth surfacing in-game because the gross figure of 4 is a common point of confusion", and that framing fermentation as an energy pathway "is a common misconception and the game should correct it directly". Three logs shipped interface without discharging either. That turned "which concept goes in the panel" from a judgement into a reading. |
+| 2026-08-04 | COACH_MARK_TRIGGER stays `'auto'`, and the entry stays open | **Not a reader decision, because V6 found no readers.** V6 stage 5 was built to take this choice away from the person who built it and could not run. Re-deciding it would hand the choice back to the least reliable possible reader and then close the entry as settled, which is worse than leaving it. The argument did move slightly: the teaching panel now explains the stall too, so under `'manual'` there are two routes rather than one, but both are 16px info affordances and NOW.md's objection was about the affordance rather than the count. |
+| 2026-08-04 | Only a mark with a simulation event behind it may be automatic | The NAD+ mark fires on the wall. The other two have no moment worth interrupting, and a bubble that opens whenever a condition happens to be true is nagging rather than teaching. Manual by construction rather than by the trigger constant, so V6's undecided trigger question keeps the scope it always had. |
+| 2026-08-04 | An overlay does not dim unless what is behind it is not what the player is looking at | The first run floats over a lit, clickable, still-ticking act screen, because an idle game that pauses for its own introduction has told the player it pauses. The about panel and the teaching panel dim, because they are opened deliberately and read. |
+| 2026-08-04 | The disclosure moved off the act screen into the two surfaces docs/SCIENCE.md actually asks for | Part 1 requires it "in the about screen and on first launch". V3 had neither surface and used a permanent footer as a substitute, which meets "on first launch" only in the sense that it also meets every other launch. Both halves are now met literally, and the copy moved rather than duplicating: the same 350 characters in three places is three places to drift. A test parses the blockquote out of docs/SCIENCE.md and fails if the game disagrees with it. |
+| 2026-08-04 | Illustration rules 1 to 3 say what they encode, on the shape itself | DESIGN.md's argument for rule 1 is that a player told ONCE that a six-sided blob has six carbons can read the whole pathway afterwards. Nothing had ever told them, so the design's central claim was being made to nobody. Every blob now carries a readout composed from the same conserved-weight table the geometry is drawn from, as an `aria-label` and a `<title>`. It is a hover affordance, so it is unreachable by touch and by keyboard, which is the next log's problem. |
 | 2026-07-31 | The return line never announces an absence shorter than a minute | A refresh is a positive offline delta, so the panel announced "Away for 0 min" on every reload. True, and noise. A panel that cries wolf on every reload will not be believed on the day it says something went wrong. |

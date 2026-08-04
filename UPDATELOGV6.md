@@ -398,7 +398,74 @@ rather than waiting for it.
 
 ## Stage 3 Report
 
-_Pending._
+**Every design decision in this stage rests on argument, not on evidence, because stage 2 was unrun.** Each step below says what it decided and what it decided from. Nothing here is described as answering a finding, because there are no findings.
+
+### What was built
+
+    src/ui/components/Overlay.tsx        the overlay shell, plus the context that
+                                         suppresses an automatic coach mark
+    src/ui/components/FirstRunCard.tsx   the first run. One card, three lines
+    src/ui/components/About.tsx          the about panel DESIGN.md has specified
+                                         since 2026-07-28
+    src/ui/content.ts                    FIRST_RUN and ABOUT, plus ABOUT_THE_BUILD
+                                         moved above its first use
+    src/ui/runtime.ts                    firstRunSeen and markFirstRunSeen
+    src/save/autosave.ts                 SaveReason gains 'setting'
+    src/ui/components/TopBar.tsx         the permanent About affordance
+    src/ui/components/CoachMark.tsx      auto-fire defers while an overlay is up
+    src/App.tsx                          the wiring, and the footer removed
+
+**The card says three things and nothing else.** That there is one cell, roughly 3.5 billion years ago, in water with no oxygen in it. That ATP is the currency, made by breaking glucose down and spent again on everything else. That there is no score and nothing to click, the pathway runs by itself, and the game is about what stops it. 292 characters of prose across three paragraphs, and a test asserts it stays under 300.
+
+**It is one screen, and step 1's "a first run is not a tutorial" is why.** docs/PILLARS.md rule 2 forbids anything that exists to extend session length. Three screens of one line each is a sequence a player has to get through, which is a tutorial in shape even at that length. One card with three lines is smaller than three cards with one.
+
+**That cost docs/CONTENT_STYLE.md a correction on its first contact with real work, one stage after it was written.** Part 5 said "3 screens maximum, 1 paragraph each". It now says one screen, three paragraphs, 300 characters, with the disclosure exempt and not counted. The decisions log carries the row and says the old rule was wrong rather than inconvenient.
+
+**No goal was invented, per step 5.** "The game is about what stops it" is docs/PROGRESSION.md's own act 1 teaching beat stated as a sentence. There is no target, no score and no promise of an ending inside act 1, because the game has none of those and a player told otherwise would play towards a thing that does not exist.
+
+### Step 2, the four constraints, each checked in a browser rather than argued
+
+**Skippable, and on the first screen.** There is one screen, one button, and Escape also closes it. There is no second step to get past.
+
+**It never blocks the simulation, and this is the constraint the build is shaped around.** `Overlay` takes a `dim` flag. The first run passes it false, so there is no scrim: the act screen stays lit, stays clickable and keeps ticking under the card. `pointer-events-none` on the overlay frame with `pointer-events-auto` on the card is what stops it swallowing clicks meant for the unlock shelf underneath. Measured in a real browser with the card open: elapsed game time read 0.4 min, then 0.5 min three seconds later, glucose held at 7.95/s and ATP per second sat at 0.00 because **the NAD+ wall arrived while the card was still on screen**, which is the strongest possible demonstration that nothing waited. The about panel passes `dim` true, because it is a reference surface the player opened on purpose and what is behind it is not what they are looking at.
+
+**Shown once and reachable again.** The about panel is where it lives permanently, and it renders the same `FIRST_RUN` entries rather than a second copy of them. Reached from a permanent About button in the top bar, which is where DESIGN.md's layout puts things that are always visible. A footer under eight pool cards, a pathway and an unlock shelf is not always visible, which is why it is not there.
+
+**UI state, under `settings`, no schema bump.** `settings.firstRunSeen`, a boolean. docs/SAVE_SCHEMA.md Part 3 defines settings as presentation that never affects simulation, and Part 1 makes a defaultable missing field additive. A V4 or V5 save has no such key, defaults to false and shows the card once, **which is the right outcome rather than a tolerated one**: that player has never seen it either. Verified end to end in the browser, `krebs.save.active` carries `settings.firstRunSeen: true` after one dismissal and the card does not return across a reload.
+
+### Step 3, the disclosure, decided both ways it was asked
+
+docs/SCIENCE.md Part 1 requires the text "in the about screen and on first launch, not buried in a repo file". **Neither half was properly met and V3 knew it**: `src/App.tsx` carried a comment saying there is no about screen in the slice so it goes on the act screen. A permanent footer meets "on first launch" only in the sense that it is also there on every other launch, which is not what the sentence asks for.
+
+**Both halves are now met literally. The first run carries the disclosure verbatim and the about panel carries it verbatim, and the act screen footer is gone rather than duplicated.** That is the option step 3 offered and it is the right one: the same 350 characters rendered in three places is three places for it to drift.
+
+**The words did not move and now they cannot.** `disclosure.test.tsx` parses the blockquote out of docs/SCIENCE.md's "Required disclosure text" section and asserts `DISCLOSURE.text` matches it character for character, then asserts both required surfaces render it. Same shape as V3's colour test, and the dependency runs the right way: editing the document fails the build rather than silently disagreeing with the game. **Nothing had ever checked this before**, which is uncomfortable given it is the one string in the project that a document orders the game to print.
+
+**One honest cost, recorded rather than smoothed.** The disclosure used to be on screen without any action. It is now one click away and shown once unprompted. Part 1's own words are "in the about screen and on first launch", so this is compliance rather than a reduction, but a player who dismisses the card without reading it has to open About to find it, and before this stage they did not. If that reads wrong to a cold reader, it is stage 5's finding to make.
+
+### Step 4, the flux inversion, deliberately untouched
+
+**Changed nothing, and the reason is not that it reads well.** Nobody has read it. Step 4 says fix it if stage 2 showed it was misread, and DESIGN.md says flux-is-the-headline "should not be reversed without a reason". A speculative change to the system's biggest deliberate departure, made by its author, in a log whose entire point is that the author is the least reliable reader, would be the exact failure this log exists to remove. **A sentence explaining the readout was also considered and rejected**, because step 4 prefers a change to the readout over prose about the readout, and because docs/CONTENT_STYLE.md Part 6 says a paragraph describing something already on screen is a bug report against the picture. Item 4 of the thirteen-item table is unanswered and stays unanswered.
+
+### One defect found while building, and it would have been silent
+
+**On a fresh run the coach mark fired underneath the first run card and spent its one firing where nobody could see it.** The NAD+ wall arrives about three game-seconds in and `useCoachMark` opens automatically on `walled`, once, by design. A mark that fires once and fires under an overlay is a mark that never fired.
+
+Fixed by deferring rather than queueing. `OverlayOpenProvider` publishes whether anything is on top and the automatic branch returns early while it is. `walled` stays true until fermentation is bought, so the first snapshot after the card closes still reports it and the mark opens then. If the player buys their way out while the card is open the mark never fires, which is correct, because there is no longer a wall to explain. **Confirmed in the browser**: with the card open the mark was absent, and one second after dismissing it the mark was on screen. It defaults to false with no provider, so every existing test behaves exactly as before.
+
+This was found by building it, not by reasoning about it. It is also the first thing in the log that suggests the teaching layer has ordering problems of its own, which stage 4 inherits.
+
+### Verify
+
+`npm run typecheck` and `npm run lint` silent. `npm test` **300 passed across 29 files**, up from 285 across 27. `npm run build` clean at **257.99 kB, 80.51 kB gzipped**, up from V5's 253.48 kB and 79.41 kB, which is 4.51 kB for three components, an overlay shell and a context.
+
+**15 tests added, in two files.** `src/ui/__tests__/firstRun.test.ts` covers the persistence: unseen on a new game, survives save and reload, lands under `settings`, defaults to unseen for a save written before this build existed, carries an unknown setting through untouched, writes immediately with reason `setting` rather than waiting for the thirty second interval, is idempotent, and leaves `hashState` and the tick count untouched. `src/ui/__tests__/disclosure.test.tsx` covers the required text and the first run's ceiling.
+
+**`npm run dev` from a cleared localStorage, and everything in step 2 was checked there rather than asserted.** The card fires, the numbers tick under it, the wall arrives while it is open, dismissing it persists, a reload does not bring it back, the About button reopens it, and the about panel carries the first run body, the badge explanation and the disclosure. Two screenshots were taken and read.
+
+**The coach mark deferral is the one thing in this stage with no test behind it and the report says so.** `vite.config.ts` sets the test environment to `node` and the suite renders through `renderToStaticMarkup`, so effects never run and a subscription-driven behaviour cannot be exercised. It was verified in a real browser instead. That is weaker than a test and it is what is available.
+
+**No tuned number moved.** The three tuning files are untouched by this stage and the V5 divergence guard passes. The act 1 canonical hash is unchanged, asserted by the suite rather than by inspection.
 
 ---
 
@@ -471,7 +538,97 @@ string lives in content.ts with a resolving badge.
 
 ## Stage 4 Report
 
-_Pending._
+**As with stage 3, every choice below is reasoned rather than measured, because stage 2 was unrun.** Where the stage prompt says "pick from the evidence", the report says what was picked and from what argument.
+
+**The strongest thing found in this stage is that docs/SCIENCE.md Part 2 contains two direct orders to the interface and neither had ever been carried out.** They are not implications, they are sentences addressed to the game:
+
+    "The 2 ATP figure is net of the 2 ATP investment. This is worth surfacing
+     in-game because the gross figure of 4 is a common point of confusion."
+
+    "Framing it as an energy pathway is a common misconception and the game
+     should correct it directly."
+
+Three logs have shipped interface since those were written. The teaching panel is built around discharging both, which turned "which concept goes in the panel" from a judgement call into a reading of the science document. A test asserts the panel states both figures and makes the fermentation correction, so neither instruction can quietly lapse again.
+
+### 1. The teaching panel
+
+`src/ui/components/TeachingPanel.tsx`, and `YIELD_PANEL` in `src/ui/content.ts`. **The screen inventory has listed it since 2026-07-28 and this is the first log to build it.**
+
+Same contract a coach mark has: heading with its badge, body, mandatory source row. Five paragraphs and 822 characters, against the 6 and 1400 that docs/CONTENT_STYLE.md Part 5 allows, and a test asserts both bounds plus the lower one that matters more, that it is longer than two paragraphs. **"Longer than a bubble" is not "unbounded"**, and a panel that grew without a ceiling would just be the coach mark problem again at a larger size.
+
+Its subject is the one V3 named when it said what would not fit in a bubble. `CoachMark.tsx`'s header has read, since V3: "What did NOT fit is the part players find most surprising, that fermentation buys throughput and buys exactly zero yield. That is reported in stage 3 rather than crammed in, and it belongs on the unlock or in a teaching panel." **It is now on both.**
+
+It says: prep spends 2 to make two 3-carbon pieces, payoff makes 2 from each, so 4 made and 2 spent and 2 net. That the 4 is the number people remember and the 2 is the one that leaves the cell better off. That nothing on the unlock shelf moves the 2. That lactate fermentation makes no ATP at all and buys rate and nothing else. And that the two headline numbers therefore do different things.
+
+**It is success condition 2 in the only form act 1 can state it.** docs/PILLARS.md wants a player who can explain the roughly fifteenfold difference between fermentation and aerobic respiration. Act 1 has one pathway and cannot make that comparison. What it can establish is the half in front of the player, and the panel deliberately stops there: **an earlier draft ended with a line pointing at aerobic respiration and it was cut**, because the build has one act and a sentence promising act 3 is a promise the build cannot keep. Same reasoning as stage 3 step 5.
+
+**Two ways in, because one would have been a lottery.** The two new coach marks escalate into it through their action rows, which is the escalation Part 5 describes. It also hangs off the fermentation slot on the unlock shelf, so a player who never opened a coach mark still reaches the most important thing in the act. **It does not open automatically and that is deliberate**: the obvious trigger, the moment fermentation is bought, is also the moment the two headline numbers visibly diverge on screen, and whether that moment wants an overlay on top of it is a comprehension question. Handed to stage 5 rather than guessed.
+
+### 2. The coach marks, from one to three
+
+    Card          Mark                        Answers, from the thirteen-item table
+    ---------------------------------------------------------------------------
+    nicotinamide  NAD+ has run out            6, what NAD+ does. 7, why it stopped
+                  (V3, unchanged)             Automatic. The only automatic one
+    g3p           6 carbons, split in two     8, what the preparatory phase is
+                  223 chars, 2 paragraphs     10, that shape means carbon count
+    adenylate     ATP does not pile up        2, what ATP is for
+                  243 chars, 2 paragraphs
+
+**The g3p card is where sides-equal-carbons goes, and the card is the argument.** DESIGN.md's case for illustration rule 1 is that a player told once that a six-sided blob has six carbons can read the whole pathway afterwards, because one six becoming two threes is visible. **Told ONCE. Nothing in the game had ever told them**, so the design's central claim was being made to nobody. The g3p card is the only place on screen where both halves of the arithmetic are visible at the same time, so the telling goes there rather than on either glucose card.
+
+**The ATP mark went on the adenylate card because that card's headline sits at 0.00 once the cell is in steady state.** A player looking at a currency that has stopped going up is exactly the player who needs to be told it was never going to.
+
+**Its source row is the finding, not its text.** Step 2 says if a beat has no source, report that rather than writing a plausible one. **docs/SCIENCE.md says nothing about the adenylate total being fixed, and a real cell synthesises adenine nucleotides.** What is sourced is the stoichiometry: every act 1 reaction converts one of the pair into the other, so under this pathway the sum does not move. Closing the pool is the game's model and it is one of the three structural departures docs/ECONOMY.md records without a row. **So the mark's heading and both paragraphs carry Tuned badges whose reasons name the sourced half and the invented half separately**, and it would have been very easy to write `sourced(PART2)` there and have nobody notice.
+
+**Two of the three marks are manual by construction rather than by `COACH_MARK_TRIGGER`.** Only the NAD+ mark has a simulation event worth interrupting for. A card that opens an unrequested bubble whenever some condition happens to be true is what turns teaching into nagging, and neither of the new ones has such a condition. The trigger constant still governs the one mark it always governed, so stage 5's decision about it is unchanged in scope.
+
+**Every source row resolves, and that is now mechanism.** `teaching.test.tsx` parses the `# Part N:` headings out of docs/SCIENCE.md and asserts each mark's and the panel's source row names a Part that exists, with a guard-the-guard assertion so the parser cannot pass vacuously. It also asserts the two paragraph ceiling and the 400 character body ceiling per mark, which had never been checked because there had only ever been one mark to check.
+
+### 3. Making the illustration say what it encodes
+
+**The smallest thing that does it, per step 3: every blob now says what it is.** `Blob` renders a `<title>`, which is a native hover tooltip, carrying the same string as its `aria-label`. The string is composed by `blobReadout` in `src/ui/content.ts` from the conserved weights in `src/content/act1/pools.ts`, which is the same table the geometry is drawn from. Read out of the running page:
+
+    Glucose (environment). 6 sides, 6 carbons
+    Glucose. 6 sides, 6 carbons
+    Glyceraldehyde 3-phosphate. 3 sides, 3 carbons. 1 phosphate
+    Pyruvate. 3 sides, 3 carbons
+
+**Derived, not written, and a test asserts the derivation rather than the strings.** It checks that glucose's count is twice g3p's and that ATP carries exactly one more phosphate than ADP, both read from the pool table. A stoichiometry change moves the picture, the readout and the test together. Composed in a `.ts` file so no `.tsx` formats a number, which keeps the tabular-figures lint rule intact.
+
+**This is the first player-facing text in the project's history with numbers in it.** Stage 1's audit found the count was zero. Every number here is a conserved weight tracing to docs/SCIENCE.md Part 2, and the badge is the one the pool card already renders for every figure on it.
+
+**Colour-equals-redox gets the same treatment on the one blob that uses it.** `CARRIER_READOUT`: "NAD+ and NADH. One shape, and the colour is which one it is. Full colour means NADH, carrying electrons." Item 11 of the thirteen, which DESIGN.md calls "the single most important colour decision in the system" and which nothing on the screen had ever stated. A legend panel was considered and rejected on step 3's own instruction to prefer the smallest thing and not build a panel nobody opens.
+
+**One honest limit: a hover readout needs a pointer.** It is not reachable by touch and it is not reachable by keyboard. The `aria-label` covers screen readers and the coach mark covers the argument, so the information exists on three channels, but a touch player gets two of the three. That is an accessibility gap and it belongs to the next log, which is the accessibility pass.
+
+### 4. The glossary: not built
+
+**Decided on reasoning, and the reasoning is against it.** Step 4 says build one only if stage 2 showed one is needed, and stage 2 showed nothing. Three arguments, in order of weight. Every molecule name on screen is already the real one, which is correct and sourced, and the three coach marks now name the hard ones in context, which is where a definition is actually usable. docs/CONTENT_STYLE.md Part 6 says a concept carried by shape must not be carried by prose, and the blob readouts now make the shapes self-describing, which is the failure mode a glossary would have been papering over. And a glossary is a surface a player has to decide to open, which is the same objection that killed the legend panel one paragraph above.
+
+**Recorded as a reversible decision rather than a closed one.** If stage 5's readers stumble on the names, the finding is specific and the fix is cheap.
+
+### 5. Where the strings live
+
+**Every string this stage added is in `src/ui/content.ts` with a badge that resolves.** Checked rather than assumed, as step 5 asks: three coach marks, the panel, the panel affordance, the carrier readout and the blob readout function, all exported from that file, all typed as `Entry` or a shape built from it, and no component in this stage writes a literal to the player.
+
+**The pre-existing violations from stage 1's audit are still there and are still stage 6's.** `UnlockShelf.tsx` renders ten literals, and building on it in this stage surfaced an eleventh the audit missed: `{bought ? 'Running' : buyLabel}` on line 119. Fixing them here would have mixed a coherence pass into a feature stage; the count is now eleven and stage 6 has it.
+
+### One correction to docs/CONTENT_STYLE.md, made by its own test
+
+**The button ceiling was 4 words and V3's best line is 5.** `teaching.test.tsx` failed on "Show me what recycles it", which V3's play reading calls the strongest beat in the build. Rewriting the best line in the game to satisfy a rule that was one day old and had never been measured is the tail wagging the dog, so **the ceiling moved to 5 and the decisions log says why**. 5 is the widest button that ships and nothing else in the game exceeds 4, so it is set at what is there rather than at a rounder number.
+
+**That is the second ceiling this document has lost on contact with real work in two stages**, after the first run's three-screens rule in stage 3. Both were written without checking them against what already existed. The pattern is worth naming: **the parts of docs/CONTENT_STYLE.md that were derived from the shipped build have held, and the parts that were chosen have not.** Neither correction weakened a rule that was doing work.
+
+### Verify
+
+`npm run typecheck` and `npm run lint` silent. `npm test` **319 passed across 30 files**, up from 300 across 29. `npm run build` clean at **262.79 kB, 81.78 kB gzipped**, up from stage 3's 257.99 kB and 80.51 kB.
+
+**19 tests added in `src/ui/__tests__/teaching.test.tsx`**, plus one existing test amended. `illustration.test.ts` failed correctly when the `<title>` landed, because it compares the NAD+ and NADH markup for identity after normalising away what is legitimately different. The readout is text about the shape rather than the shape, so it joins the fill and the `aria-label` in the normaliser, and the comment says why. **The test caught a real change and the fix did not weaken it.**
+
+**`npm run dev`, checked in a browser from a cleared localStorage.** All four affordances present with meaningful accessible names, which is an improvement in itself: the info buttons are now named by their coach mark headings rather than by "About NAD+ / NADH". The carbon mark opens, its action opens the panel, the panel states both figures and the fermentation correction and renders its source row, and the four blob readouts above were read out of the live DOM rather than from the source. Screenshots taken and read.
+
+**No tuned number moved.** The three tuning files are untouched, the V5 divergence guard passes and the act 1 canonical hash is unchanged.
 
 ---
 
@@ -525,7 +682,98 @@ the bare fraction from step 5.
 
 ## Stage 5 Report
 
-_Pending._
+**UNRUN, for the same reason stage 2 was. Zero readers, and this log ships unvalidated.**
+
+Step 1 says that if stage 2 was unrun for want of readers, say so again here and report this stage as an uncompared measurement rather than an improvement. **It is worse than uncompared. There is nothing on either side of the comparison.**
+
+**Step 5, the headline, reported as the bare fact step 5 asks for rather than as a characterisation.**
+
+    Readers who answered "faster, not more" to the third question:  0
+    Readers asked:                                                  0
+
+**There is no fraction, because there is no denominator.** 0 of 3 would be a finding and this is not one. The closest thing this project has yet had to a measurement of whether it teaches is still nothing, and V6 has not changed that. **What V6 changed is what there is to measure**, which is a different claim and a smaller one, and NOW.md should say it in those words.
+
+**The three questions, side by side with stage 2's, as step 2 requires.**
+
+    Question                                    Stage 2      Stage 5
+    -----------------------------------------------------------------------
+    What is this game about?                    no answer    no answer
+    Why did it stop?                            no answer    no answer
+    More energy, faster energy, both, neither?  no answer    no answer
+
+No reader was asked either time. Nothing was simulated, role-played or substituted, for the reasons stage 2 gave at length.
+
+### What can honestly be said instead, and what it is not
+
+The thirteen-item table below records **whether the build now says the thing at all**. That is a fact about the code, established by reading it, and it is the same kind of claim the log's own "What a cold reader currently has to work out unaided" table made before any of this was built. **It is not a comprehension measurement and must never be reported as one.** A screen that says something and a reader who understands it are different facts, and the entire point of stages 2 and 5 was to get the second one.
+
+    #   What the screen never said        Now          Where, and on what surface
+    ------------------------------------------------------------------------------
+    1   that they are running a cell      SAID         first run, about panel
+    2   what ATP is for                   SAID         first run, ATP coach mark
+    3   what the goal is                  SAID         first run, and it says the
+                                                       true thing: no score, and
+                                                       the game is about what stops
+    4   flux is the big number            NOT SAID     deliberately. Stage 3 step 4
+                                                       changed nothing without a
+                                                       reader. Unmoved
+    5   what "net rate" means             NOT SAID     nothing was added. See below
+    6   what NAD+ does                    SAID         NAD+ coach mark, unchanged
+                                                       since V3, plus the carrier
+                                                       readout
+    7   why the pathway stopped           SAID         NAD+ coach mark, and now the
+                                                       teaching panel says it again
+                                                       from the other direction
+    8   what "preparatory phase" is       SAID         carbon coach mark, panel
+    9   what g3p is                       SAID         blob readout plus the carbon
+                                                       mark. Indirect: it says what
+                                                       it is made of and where it
+                                                       came from, not its role
+    10  shape means carbon count          SAID         carbon coach mark, and every
+                                                       blob readout
+    11  colour means redox state          SAID         carrier readout. HOVER ONLY.
+                                                       See the caveat below
+    12  what a badge means                SAID         about panel
+    13  what buying uptake does           SAID         panel, and the slot detail
+
+**Eleven of thirteen are now stated somewhere. Two are not, and they are different cases.**
+
+Item 4 is unstated on purpose and stage 3 explained why: changing DESIGN.md's biggest deliberate departure on the author's speculation, in a log built to remove the author's speculation, would have been the failure this log exists to prevent. **It is unmoved rather than unaddressed.**
+
+**Item 5 is a genuine miss and nothing in this log noticed it until now.** "Net rate" appears on eight pool cards. It is the most repeated phrase in the interface, it is jargon, and its only explanation remains the label, which says "net rate". Three coach marks and a panel were added and not one of them mentions it. **It is a text problem, it is cheap, and it is not fixed here** because stage 5 is a measurement stage and adding a coach mark in it would be building in the stage whose job is to find out whether the building worked.
+
+**The item 11 caveat, restated because a SAID with a condition on it is not a SAID.** The carrier readout is a `<title>`, so it is a hover tooltip. A player on a touch screen cannot reach it and a keyboard player cannot reach it. The `aria-label` covers screen readers and the coach mark covers the argument for item 10, but colour-equals-redox is the one claim that exists on the hover channel alone for a sighted touch player. That is an accessibility gap and it belongs to the next log.
+
+### Step 3, the COACH_MARK_TRIGGER decision
+
+**It stays `'auto'`, it was not decided by a reader, and the NOW.md entry stays open.**
+
+Stage 5 exists to take this decision away from the person who built it, because NOW.md calls that person the least reliable possible reader. **With no readers, re-deciding it would hand the choice straight back to the reader the stage was designed to exclude, and then close the entry as though it had been settled.** That would be worse than leaving it, because a closed entry stops anybody looking at it again.
+
+**Step 3's real question can be answered, though, and the answer is no.** It asks whether stage 3 or 4 added something that explains the stall without the coach mark, which would make `'manual'` viable where it was not, and says to name which it is. Checked against the build:
+
+- The first run frames the stall as the subject of the game and does not explain it.
+- The teaching panel does explain it, in the fermentation paragraph: NADH goes back to NAD+, "which is the only thing that was stopping the pathway."
+- The carrier readout says the colour is the redox state, which is the wall arriving, but not that it is a wall.
+
+So under `'manual'` there is now a second route to an explanation where there was one. **But NOW.md's objection was never that there was only one route. It was that the player has to find a 16px info affordance, and the new route is also a 16px info affordance.** The argument for `'auto'` is slightly weaker and it is not overturned. **That is a change in the argument rather than a change of taste, and the change is not large enough to move the setting.**
+
+### Step 4, what is still not understood
+
+**Everything.** Not one comprehension claim in this project has been checked by anybody who was not its author, and V6 was the log that was supposed to change that. Named specifically, and typed as step 4 asks:
+
+- **Whether any of the thirteen land. Unknown, and it is not a text, interface or economy problem. It is a measurement problem** and it is the only one on this list that no amount of building can close.
+- **Whether "faster, not more" is the answer a player gives. Unknown.** This is success condition 2 in miniature and it is the single most valuable unmeasured thing in the project.
+- **Whether the panel is reachable in practice. Unknown, and it is an interface problem.** The most important explanation in the act sits behind two 16px affordances and a coach mark action. Whether it should open itself at the moment fermentation is bought, which is the moment the two headline numbers visibly diverge, is exactly the kind of question stage 5 was meant to answer.
+- **Whether "net rate" reads. It is a text problem, it is item 5, and it is unfixed.**
+- **Whether moving the disclosure off the act screen cost anything. It is an interface problem.** Stage 3 met docs/SCIENCE.md Part 1 more literally than V3 did and made the text one click away instead of always visible. That is compliance, and whether it reads as burial is a reader's call.
+- **Whether the first run is read or clicked through. It is an interface problem.** It has one button and no gate, which is correct by docs/PILLARS.md rule 2 and also the easiest thing in the world to skip.
+
+**Nothing on that list was handed back to docs/ECONOMY.md, and that is a result rather than an omission.** Step 4 says economy problems go back rather than being fixed here. No comprehension problem found in this log has an economic cause: every one of them is about what the screen says or whether anybody read it. The economy V5 settled was not implicated once in six stages.
+
+### Verify
+
+`npm run typecheck` and `npm run lint` silent. `npm test` **319 passed across 30 files**, unchanged from stage 4. `npm run build` **262.79 kB, 81.78 kB gzipped**, unchanged from stage 4 to the byte, which is the expected result of a stage that changed no code and, in this case, could not.
 
 ---
 
@@ -592,7 +840,104 @@ summaries.
 
 ## Stage 6 Report
 
-_Pending._
+### Step 1, the coherence pass, and what it found
+
+**The audit in stage 1 listed nine non-compliant strings. The true count was fifteen, and the guard found the last two.**
+
+Eleven strings moved out of `UnlockShelf.tsx` into `src/ui/content.ts`, plus one aria-label from `PoolRail.tsx` and two pieces of coach mark furniture from `CoachMark.tsx`, the "i" and the "Dismiss". Stage 4 had already found an eleventh in the shelf that stage 1's audit missed, `{bought ? 'Running' : buyLabel}`. **Then the guard, run for the first time, found two more that three separate manual passes had walked past:**
+
+    src/ui/components/TopBar.tsx: >krebs<
+    src/ui/components/UnlockShelf.tsx: >of<
+
+**The wordmark is the find worth naming.** It is the string in this game most likely to change, because DESIGN.md open question 1 and docs/BRIEF.md both record that the working title is still TBD and that "krebs" names an act 3 mechanic that unlocks roughly four hours into a game whose first 45 to 90 minutes are anaerobic. It was hardcoded in a component through six logs. It is now `WORDMARK` in `content.ts` with a badge saying the title is provisional, so choosing one is a one-line edit rather than a search. **Three human passes looked for hardcoded strings and none of them saw the game's own name**, which is the whole argument for the guard rather than the discipline.
+
+**Two content corrections came with the move rather than after it.** "The investment phase" was a third name for the preparatory phase on a card sitting under an arrow labelled "Preparatory phase", banned by docs/CONTENT_STYLE.md Part 3. And "oxidizing" in the ferment badge disagreed with "oxidises" in the ferment detail, four inches apart on the same shelf, settled at -ise.
+
+**One badge reason was false on screen and is fixed.** `SAVE.awayNotSimulated` read "Offline progress lands in V5". V5 was the economy log. A badge reason renders into a `title` attribute, so this was a stale claim a player could hover, not a stale note to a developer. It now names no version at all, so it cannot go stale again by a log shipping something else.
+
+### Step 1, the mechanism decision
+
+**Built, and the call was to build every one of the five rules docs/CONTENT_STYLE.md Part 8 listed as testable.** `src/ui/__tests__/contentStyle.test.ts`, ten assertions in two groups.
+
+    no player-facing literal text node in any .tsx
+    no player-facing literal passed to aria-label, title, alt, placeholder,
+      label, detail, buyLabel or infoLabel
+    no em dash and no en dash, including inside ranges
+    no exclamation mark, anywhere
+    no curly quote or curly apostrophe
+    no "investment phase"
+    no -ize spelling
+    no "simply", "obviously" or "of course"
+    plus a guard-the-guard assertion on each half
+
+**Voice is not tested and was not faked.** Part 8 said so before this stage existed and this stage did not quietly reinterpret it. Neither is Part 6, which asks whether a paragraph should have been a shape, and which is a judgement every time.
+
+**One exemption, and the reason is structural rather than a convenience.** `src/ui/components/Badge.tsx` renders "Sourced", "Tuned", "Contested" and "Needs source". They cannot come from `content.ts` because `content.ts` imports `Badge` to build every badge in the game, and the import would be circular. They are also DESIGN.md's vocabulary rather than authored copy, the way the colour tokens are. The allowlist has one entry and the header says any addition should be argued in a log.
+
+### The probe, and the two holes it found in the guard
+
+**Planted `<h2>Resources so far!</h2>` and `aria-label="Your resources"` in `PoolRail.tsx`.** The aria-label assertion fired. **The text node assertion did not**, and that is the most useful thing in this stage.
+
+The prose detector was a character allowlist, `^[A-Za-z][A-Za-z0-9 ,.'+/()-]*$`, and the exclamation mark was not in the list, so the probe walked straight through. **A guard that only catches politely punctuated violations is worse than no guard, because it reads as coverage.** Inverted: anything containing a letter is prose unless it contains a character that cannot appear in a sentence a player reads. Re-probed, and both assertions fire:
+
+    src/ui/components/PoolRail.tsx: >Resources so far!<
+    src/ui/components/PoolRail.tsx: aria-label="Your resources"
+
+**The second hole was in the -ise rule and it was a false positive rather than a false negative.** The first version was the suffix pattern `\w+iz(e|ed|es|ing)\b` and it flagged **"Pool sizes are tuned"**, because English spells "size" with a z and no suffix rule separates it from "oxidize". It is now a list of the verbs the domain actually uses, and the comment says why a list rather than a pattern: a guard with false positives gets disabled.
+
+**Both were found by running the guard against a violation rather than by reading it**, which is the same lesson V3's stage 2 recorded when its shadow test failed to fire against a deliberate blur. Probe removed, repository clean.
+
+### Step 2, no tuned number moved
+
+**Confirmed by diff across the whole log rather than by assertion.**
+
+    git diff ba0c405 -- src/content/act1/tuning.ts src/ui/tuning.ts src/save/tuning.ts
+    (empty)
+
+The V5 divergence guard passes, 3 tests. No stage added a tuning constant, so no stage owed a docs/ECONOMY.md row, and the table still holds 37.
+
+**docs/SCIENCE.md is untouched across every commit of this log**, confirmed the same way and required by step 6. A comprehension pass records what readers did, not what cells do, and in this log's case it recorded that there were none.
+
+### Step 3, full verify
+
+    npm run typecheck    silent
+    npm run lint         silent
+    npm test             329 passed across 31 files    V5: 285 across 27
+    npm run build        263.44 kB, 81.90 kB gzipped   V5: 253.48 kB, 79.41 kB
+
+**44 tests added across four new files**: `firstRun.test.ts` 8, `disclosure.test.tsx` 7, `teaching.test.tsx` 19, `contentStyle.test.ts` 10. One existing test amended, `illustration.test.ts`, which failed correctly when the blob `<title>` landed and now normalises it away with a comment saying why.
+
+**The act 1 canonical hash is `49ea08d3`, unchanged from what V5 left it at**, asserted by `determinism.test.ts` rather than by inspection. A comprehension log that moved the simulation hash would have changed the simulation, and that would be a defect rather than a note.
+
+**9.96 kB of bundle for the whole teaching layer**, 2.49 kB gzipped: three components, an overlay shell, two contexts, three coach marks, a panel and every string.
+
+### Step 4, NOW.md
+
+Updated. Status now opens on the fraction rather than on a characterisation, and states the distinction the rest of the page depends on: **what changed is not that the game teaches, it is that there is now something to measure.** Build state gains V6 as done and unvalidated, and gains real rows for V7, V8 and V9, which were read off the existing log files rather than invented. A "What the teaching layer does" section sits beside the kernel, content, interface, save and economy sections.
+
+**Blocking gains item 0, "Nobody who is not the author has ever looked at this game."** It is stated as blocking rather than as an open question for two reasons: it gates docs/PILLARS.md's first two success conditions, and **no amount of further building closes it.** It also records the loss honestly, that a pre-change baseline can only be taken before the change and cannot now be recovered.
+
+**Blocking gains item 3, the one text gap: "net rate" is unexplained.** Eight cards carry it, it is the most repeated phrase in the interface, and three coach marks and a panel went by without mentioning it.
+
+**Blocking item 2 gains a warning against counting this log as progress against it.** V6 gave a solved act 1 two coach marks and a panel a player can open while nothing is happening. That is reading material rather than an event.
+
+**The COACH_MARK_TRIGGER entry stays open and says why it stayed open**, which is the opposite of what step 4 asked for and is the honest version of it. Step 4 says close it with the reader decision. **There was no reader decision.** Closing it on the same unreliable reader's second opinion would stop anybody looking at it again, which is worse than leaving it. The entry now records the one thing that did move: the teaching panel explains the stall too, so `'manual'` has two routes rather than one, and both are 16px affordances, so the objection stands.
+
+**The "builder is the least reliable reader" entry is updated and not closed, and it says how many.** Zero. It is cross-referenced to Blocking item 0, where it now lives as work rather than as a caveat.
+
+**"Next, in order" gains a step 0 that is not a log**, find one cold reader, and says explicitly that it does not block V7 and V7 should not wait for it. It then puts accessibility first with the dependency argument step 4 asked for: **before V6 there was one coach mark, no panel, no first run and no readout on any blob, so an accessibility pass would have been auditing an empty room and would have had to run again over everything V6 added.**
+
+### Step 5, DESIGN.md
+
+The screen inventory no longer describes the teaching panel or the about screen as aspirational, and gains a first run row that was never in the original inventory. The coach mark section records that its two load-bearing sentences, the mandatory source row and the two-paragraph ceiling, are mechanism as of today and had never been checked. A "What V6 found" block sits beside "What survived contact", carrying four findings, of which the sharpest is that **an encoding nobody is told about is a decoration**: rules 1 to 3 have been correctly implemented and derived since V3 and this document's own argument for rule 1 turns on the player being told once, and nothing had told them.
+
+Six decisions-log rows added, each with reader evidence as its rationale where there was any and an explicit statement of its absence where there was not. **The COACH_MARK_TRIGGER row leads with "Not a reader decision, because V6 found no readers"**, so a later reader of that table cannot mistake it for one.
+
+### What this log is, said plainly
+
+**V6 built the thing that was supposed to be measured and did not measure it.** docs/CONTENT_STYLE.md exists, which was the last document CLAUDE.md listed as deferred. The teaching panel DESIGN.md specified on 2026-07-28 exists. Eleven of thirteen unstated things are now stated. Two explicit instructions sitting unexecuted in docs/SCIENCE.md Part 2 are discharged. The style guide is mechanism and its guard found the game's own name hardcoded in a component.
+
+**And the number that decides whether any of it works is 0, out of 0 asked.** The log's own "After These Stages" section says it would give the project "a reading of whether it teaches that did not come from the person who built it". It did not. That promise is unkept, it is recorded as Blocking item 0 rather than softened, and it is the one thing on this project's list that building cannot fix.
 
 ---
 

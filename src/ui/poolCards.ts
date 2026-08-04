@@ -15,7 +15,15 @@
 
 import { act1PoolDefinitions, type Act1PoolId } from '../content/act1/pools';
 import type { Surface } from './components/Card';
-import { CARRIER_PAIRS, MOLECULES, type Entry } from './content';
+import {
+  ATP_COACH_MARK,
+  CARBON_COACH_MARK,
+  CARRIER_PAIRS,
+  MOLECULES,
+  NAD_COACH_MARK,
+  type CoachMark,
+  type Entry,
+} from './content';
 
 /** Conserved weights by pool id, derived once from the act 1 pool definitions. */
 const WEIGHTS: Readonly<Record<string, { carbon: number; phosphate: number }>> = Object.fromEntries(
@@ -65,6 +73,15 @@ export interface PoolCardSpec {
   /** The pool whose net rate is the headline figure. */
   readonly headline: Act1PoolId;
   readonly blobs: readonly BlobSpec[];
+  /**
+   * The coach mark this card teaches, if it teaches one.
+   *
+   * Three of eight cards do. Which card a mark belongs on is a content decision
+   * rather than a component one, so it is declared here beside the card it
+   * annotates instead of being a `kind === 'nicotinamide'` branch inside
+   * PoolCard, which is what it was while there was exactly one.
+   */
+  readonly coach?: CoachMark;
 }
 
 /** DESIGN.md, Colour: substrate blue is carbon skeletons. */
@@ -106,6 +123,11 @@ export const POOL_CARDS: readonly PoolCardSpec[] = [
     stocks: ['g3p'],
     headline: 'g3p',
     blobs: [{ poolId: 'g3p', fill: SUBSTRATE, seed: 37 }],
+    // Sides equal carbons goes here rather than on either glucose card, because
+    // this is the only place on the screen where the arithmetic is visible: a
+    // six-sided blob upstream and a three-sided one here, two of them per
+    // glucose. DESIGN.md's argument for rule 1 is exactly that split.
+    coach: CARBON_COACH_MARK,
   },
   {
     id: 'pyruvate',
@@ -138,6 +160,7 @@ export const POOL_CARDS: readonly PoolCardSpec[] = [
     // saturation differs, so drawing two would be drawing the same shape twice
     // and throwing away the encoding.
     blobs: [{ poolId: 'nad', fill: OXIDIZED, seed: 67, electrons: 2 }],
+    coach: NAD_COACH_MARK,
   },
   {
     id: 'adenylate',
@@ -153,6 +176,10 @@ export const POOL_CARDS: readonly PoolCardSpec[] = [
       { poolId: 'atp', fill: ATP_ORANGE, seed: 73 },
       { poolId: 'adp', fill: ATP_ORANGE, seed: 73 },
     ],
+    // What ATP is, on the card whose headline sits at 0.00 once the cell is in
+    // steady state. A player looking at a currency that has stopped going up is
+    // exactly the player who needs to be told it was never going to.
+    coach: ATP_COACH_MARK,
   },
   {
     id: 'pi',

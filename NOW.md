@@ -1,6 +1,6 @@
 # Now
 
-Last updated: 2026-08-03
+Last updated: 2026-08-04
 
 Where the project actually is. Read this before the spec docs.
 
@@ -9,6 +9,12 @@ This file holds state. CLAUDE.md holds instruction and changes rarely. This chan
 If this file disagrees with a spec doc, the spec doc wins and this file is stale. Fix it.
 
 ## Status
+
+**The game now explains itself, and nobody has checked whether the explanation works. 0 readers, out of 0 asked.**
+
+That is the number V6 exists to report and it is reported as a bare fraction rather than characterised, because there is no fraction: there is no denominator. V6's stages 2 and 5 were a cold-read baseline and a cold-read re-test, and **both were unrun for want of a reader who has never seen the game.** An agent in a terminal cannot hand a running `npm run dev` to a stranger and stay silent while they think aloud, and the stage prompts said in advance that the honest outcome was to report the stage unrun rather than to substitute the builder's reading. Both did.
+
+**So V6 shipped unvalidated and the distinction that matters is this one.** What changed is not that the game teaches. What changed is that there is now something to measure. Eleven of the thirteen things a cold reader previously had to work out unaided are now stated somewhere on screen, up from one, and that is a fact about the code rather than about any reader. **The two open cold reads are the highest-value unblocked work in the project** and they need one person who does not already know where the wall is.
 
 **Act 1 is balanced, it is inside its target duration, and the economy has a document.** `npm run dev` gives an act 1 screen: a top bar, eight pool cards, the pathway with dashes flowing at the rate each reaction is running, an unlock shelf with three slots, one coach mark and a save panel. The NAD+ wall arrives about three seconds in, the coach mark opens on it, and buying lactate dehydrogenase brings the cell back inside two ticks. The game autosaves every thirty seconds, on the way out of a tab, and the instant anything is bought.
 
@@ -29,8 +35,11 @@ One sentence per log. The "does not" column is the fence each stage doc inherits
 | V3 | The first interface, only what is needed to play the slice and answer the two questions in docs/BRIEF.md line 110 | The timeline, the beast, the rest of DESIGN.md, saves | Done 2026-07-29 |
 | V4 | Persistence: save and load against docs/SAVE_SCHEMA.md version 1, plus the migration harness and its fixture test | Offline progress, any network or account | Done 2026-07-31 |
 | V5 | The economy pass: docs/ECONOMY.md and its divergence table, the ATP bootstrap repair, the glycolytic capacity ladder, and act 1 balanced end to end against its target duration | Offline progress, new pathway content, the steady-state display question | Done 2026-08-03 |
-| V6 | Offline progress: steady-state detection, the analytic jump to the next event, and validation of STEADY_EPSILON and STEADY_WINDOW | New content, any interface beyond a return summary | Not started |
-| V7+ | Unplanned, deliberately | Anything written here now would be fiction | Held |
+| V6 | The comprehension pass: docs/CONTENT_STYLE.md, the first run, the about panel, the teaching layer, and the style guide as mechanism | The economy, new unlocks, the timeline, the beast, act 2, and any change to a tuned number | Done 2026-08-04, **unvalidated**. Stages 2 and 5 unrun for want of a cold reader |
+| V7 | Accessibility, and the colour-alone problem: making V6's text and the illustration perceivable | New content, new teaching beats, the economy | Not started |
+| V8 | Offline progress: steady-state detection, the analytic jump to the next event, and validation of STEADY_EPSILON and STEADY_WINDOW | New content, any interface beyond a return summary | Not started |
+| V9 | CI, cross-engine determinism and deployment | Not read in detail yet. Scheduled after V8 | Not started |
+| V10+ | Unplanned, deliberately | Anything written here now would be fiction | Held |
 
 **The table moved by exactly one row and act 2 is still not on it.** V5 was the horizon for two logs because act 2 is the highest-risk beat in the game and docs/PROGRESSION.md lists its shape as an open question for the prototype. What V5 has changed is that act 1 no longer has a hole in it: the trap is repaired, the act is measured against its target, and every tuned number has a row. That licenses planning on top of act 1, which is what the offline log now is, and it does not license act 2.
 
@@ -135,6 +144,8 @@ Determinism across reload is a 36-case sweep on hash equality, four seeds by thr
 
 109 tests were added, taking the suite from V3's 160 to 269. Bundle 251.29 kB, 78.79 kB gzipped, up from V3's 229.44 kB and 72.36 kB.
 
+V6 added 44 more, taking the suite to **329 across 31 files**, and the bundle to **263.44 kB, 81.90 kB gzipped**. **The act 1 canonical hash is still `49ea08d3` and no tuned number moved**, which for a comprehension log is the result rather than the absence of one: `git diff` against the three tuning files across the whole log is empty and docs/SCIENCE.md is untouched.
+
 V5 added 16 more, taking the suite to **285 across 27 files**, and the bundle to **253.48 kB, 79.41 kB gzipped**. Act 1 conservation drift improved from 2.351e-13 to 1.113e-13 over the same 60 long runs, as a side effect of the bootstrap repair rather than as a goal.
 
 **Two act 1 unlock ids were added and no schema bump was needed.** `glycolysis-capacity-N` per rung, alongside the existing `ferment` and `uptake-capacity-N`. docs/SAVE_SCHEMA.md Part 1 makes an additive change new code can default a non-breaking one: a V4 save has no id with the new prefix and derives rung 0, which is what it was. Read from the other side, `Act1Unlocks.unknown` already carried unrecognised ids through capture untouched, so a V4 build loading a V5 save keeps the purchase in the file rather than deleting it. The committed version 1 fixture is untouched and still loads.
@@ -168,6 +179,35 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
 
 **Hard rule 2 was live for the first time and it held.** `docs/SCIENCE.md` is untouched across every commit of V5, confirmed by diff. Every balance decision went into docs/ECONOMY.md, which is the whole reason the two documents are separate.
 
+## What the teaching layer does
+
+`docs/CONTENT_STYLE.md` plus five components, added by V6. The part of the interface whose job is to say what everything else is doing.
+
+    docs/CONTENT_STYLE.md    the writing contract. Eight parts, a decisions log
+    Overlay.tsx              the shell, plus the context that defers a coach mark
+    FirstRunCard.tsx         one card, three lines, over a running simulation
+    About.tsx                the about panel, and the first run's permanent home
+    TeachingPanel.tsx        the overlay DESIGN.md specified on 2026-07-28
+    contentStyle.test.ts     the style guide as mechanism
+
+**The first run never blocks the simulation and that is the point of it.** The overlay is undimmed, so the act screen stays lit, stays clickable and keeps ticking under the card, with `pointer-events-none` on the frame and `pointer-events-auto` on the card. Measured in a browser: the NAD+ wall arrives while the card is still on screen. An idle game that pauses for its own introduction has told the player, in its first sentence, that it pauses.
+
+**Three coach marks, up from one, and only the NAD+ one is automatic.** The other two are manual by construction rather than by `COACH_MARK_TRIGGER`, because neither has a simulation event worth interrupting for. The carbon mark, on the g3p card, says sides equal carbons and that one glucose becomes two of these. The ATP mark, on the adenylate card, says ATP and ADP are one pool and the amount is not a score.
+
+**The teaching panel's subject was read out of docs/SCIENCE.md rather than chosen.** Part 2 contains two direct orders to the interface: that the net figure "is worth surfacing in-game because the gross figure of 4 is a common point of confusion", and that framing fermentation as an energy pathway "is a common misconception and the game should correct it directly". **Three logs shipped interface without discharging either.** The panel discharges both, a test asserts it states the gross figure, the net figure and the fermentation correction, and V3's own note that the yield beat would not fit in a bubble is what put it there.
+
+**The illustration says what it encodes, and until V6 it said nothing.** Rules 1 to 3 have been derived from the conserved-weight table since V3, and DESIGN.md's argument for rule 1 turns on the player being told ONCE what a side means. Nothing had told them. Every blob now carries a readout composed in `content.ts` from the same table the geometry is drawn from: "Glucose. 6 sides, 6 carbons", "Glyceraldehyde 3-phosphate. 3 sides, 3 carbons. 1 phosphate". **An encoding nobody is told about is a decoration**, which is the thing DESIGN.md's first rule exists to prevent.
+
+**These are the first numbers in player-facing prose in the project's history.** V6 stage 1's audit found the count was zero, so hard rule 1, the badge contract and the `Needs source` release gate had all been mechanism since V3 with nothing to stop. Every number in the readouts is a conserved weight tracing to docs/SCIENCE.md Part 2, and a test asserts the derivation rather than the strings: glucose's count must be twice g3p's and ATP must carry exactly one more phosphate than ADP, both read from the pool table.
+
+**docs/SCIENCE.md Part 1's required disclosure is met literally for the first time.** It asks for the text "in the about screen and on first launch". V3 had neither surface and put a permanent footer on the act screen instead, which meets "on first launch" only in the sense that it meets every launch. The first run carries it verbatim and the about panel carries it verbatim, the footer is gone rather than duplicated, and `disclosure.test.tsx` parses the blockquote out of docs/SCIENCE.md and fails the build if the game disagrees with it by a character. **Nothing had ever checked the one string a document orders the game to print.**
+
+**`settings.firstRunSeen` is the first persisted UI setting and it needed no schema bump.** docs/SAVE_SCHEMA.md Part 3 defines settings as presentation that never affects simulation and Part 1 makes a defaultable missing field additive. A V4 or V5 save defaults to unseen and shows the card once, which is right rather than tolerated: that player has never seen it either.
+
+**The style guide is mechanism, in the same way the colour tokens and the divergence table are.** `contentStyle.test.ts` asserts no player-facing literal outside `content.ts`, no em dash, no en dash, no exclamation mark, no curly quote, no "investment phase" and no -ize spelling, with a guard-the-guard assertion on each half. Voice is not tested and should not be faked. **One file is exempt and the reason is structural**: `Badge.tsx` renders the four badge words and `content.ts` imports `Badge`, so they cannot move without a circular import.
+
+**The guard found two strings the audit that went looking for them missed**, which is the argument for building it: the wordmark, hardcoded in `TopBar.tsx` and the string in this game most likely to change, and the "of" in "60 of 55 ATP made". **And its own probe found two holes in it.** The prose detector was a character allowlist and `<h2>Resources so far!</h2>` walked through it, because an exclamation mark was not in the list. The -ise rule was a suffix pattern and flagged "Pool sizes are tuned". Both were fixed before the guard was believed.
+
 ## What exists
 
     docs/BRIEF.md          orientation, the idea and the reasoning
@@ -183,6 +223,10 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
 
     docs/ECONOMY.md        tuned numbers and the divergence table, 37 rows
     docs/CONTENT_STYLE.md  the writing contract, eight parts and a decisions log
+
+**Every document CLAUDE.md's index promises is now real.** docs/ECONOMY.md landed in V5 and docs/CONTENT_STYLE.md in V6, and they were the last two the index described as deferred.
+
+**docs/CONTENT_STYLE.md lost two of its own rules on contact with real work, in the two stages immediately after it was written, and neither loss weakened a rule that was doing anything.** Part 5 said a first run was three screens of one paragraph; V6 stage 3 corrected it to one screen of three, because three screens of one line is a sequence a player has to get through, which is a tutorial in shape and docs/PILLARS.md rule 2 rules a tutorial out. Part 5 said a button was 4 words; V6 stage 4's own test failed on V3's "Show me what recycles it", which V3's play reading calls the strongest beat in the build, and the ceiling moved to 5 rather than the line moving. **The pattern is worth naming: the parts of that document derived from the shipped build have held and the parts that were chosen have not.**
 
     UPDATELOGV1.md         the kernel build log, five stages, all reported
     UPDATELOGV2.md         the act 1 content log, six stages, all reported
@@ -245,6 +289,16 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Blocking
 
+**V6 added one and it is now the top of the list.**
+
+0. **Nobody who is not the author has ever looked at this game.** Opened 2026-08-04 by V6, which was built to close it and could not. It is stated as blocking rather than as an open question because **it blocks the two things docs/PILLARS.md lists as its first and second success conditions**, and because no amount of further building closes it. Every other item on this page can be worked on; this one cannot be worked around.
+
+   **What is needed is small.** One person who has never seen it, ten minutes, `npm run dev` at a fresh state, and somebody silent in the room writing down what they say. UPDATELOGV6.md stages 2 and 5 carry the full protocol and the three questions, and stage 2's report explains why an agent cannot run it.
+
+   **The single most valuable data point named in the protocol is unmeasured and it is the one docs/PROGRESSION.md predicts**: what a player thinks buying lactate dehydrogenase will do, asked before they buy it. Most players arrive expecting fermentation to be an energy upgrade. Nobody has watched that expectation be corrected or fail to be.
+
+   **One thing is permanently lost and should be recorded rather than hoped away.** Stage 2 was a pre-change baseline and the change has now landed. A cold read taken today measures this build, with the first run and the teaching layer in it, against nothing. **The comparison V6 was designed around cannot be recovered.** A single post-change reading is still worth far more than none.
+
 **One item closed, one narrowed, and nothing new added.** Both belonged to docs/ECONOMY.md, which is why neither moved for three logs.
 
 1. ~~**Act 1 as tuned has an unrecoverable state.**~~ **Closed 2026-08-03 by V5 stage 2.** Open since V2 stage 5, deferred by V3 stage 6 and again by V4.
@@ -263,11 +317,27 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
    **What is left, and why this log could not do it.** Fourteen minutes between events is still a long time to look at a screen that is not changing. Shortening it needs more things to sell, and act 1's three remaining unbuilt unlocks in docs/PROGRESSION.md, individual glycolytic enzymes, ethanol fermentation and glycogen storage, all extend the pathway, which V5's scope forbade. **The remaining gap is a content question rather than a balance one.** The other half of the answer is making the quiet legible, which is DESIGN.md open question 7, a display decision, and one V5 said out loud it was not taking.
 
+   **V6 gave a solved act 1 something to do and it is not a fix for this.** There are now two coach marks and a teaching panel a player can open while nothing is happening. That is reading material rather than an event, it is all optional, and none of it changes that every net rate reads 0.00 for fourteen minutes. Recorded so nobody counts it as progress against this item.
+
+3. **The teaching layer's one text gap: "net rate" is unexplained.** Opened 2026-08-04 by V6 stage 5, which found it while scoring the thirteen-item table.
+
+   It appears on eight pool cards, it is the most repeated phrase in the interface, it is jargon, and its only explanation is the label, which says "net rate". **V6 added three coach marks and a teaching panel and not one of them mentions it.** It is a text problem, it is cheap, and it was left unfixed because it was found in stage 5, which is a measurement stage, and building in the stage whose job is to find out whether the building worked is how a bracket stops being a bracket.
+
 ## Open, not blocking
 
-- **Working title is still TBD.** docs/BRIEF.md line 4 says so and no naming shortlist exists. The wordmark is drawn as `krebs`, but the Krebs cycle unlocks roughly four hours in and does not exist during act 1.
+- **Working title is still TBD, and the wordmark is now one edit rather than a search.** docs/BRIEF.md line 4 says so and no naming shortlist exists. `krebs` names an act 3 mechanic that unlocks roughly four hours into a game whose first 45 to 90 minutes are anaerobic. **V6's content guard found it hardcoded in `TopBar.tsx`**, which the audit that went looking for hardcoded strings had missed, and it now lives in `src/ui/content.ts` as `WORDMARK` with a badge saying the title is provisional.
+- **The teaching panel sits behind two 16px affordances and nobody knows whether it is reached.** It carries the most important thing in act 1, docs/PILLARS.md success condition 2 in the only form act 1 can state it, and it opens from the ferment unlock slot or from either of the two new coach marks. **The obvious automatic trigger was identified and deliberately not built**: the moment fermentation is bought is also the moment the two headline numbers visibly diverge, and whether that moment wants an overlay on top of it is a comprehension question. It was left for the readers V6 did not find.
+- **The blob readout is a hover tooltip, so a touch player and a keyboard player cannot reach it.** `aria-label` covers screen readers and the carbon coach mark covers the argument for shape-equals-carbon, but **colour-equals-redox exists on the hover channel alone for a sighted touch player**. DESIGN.md calls that its most important colour decision. This is the clearest single item V7 inherits.
+- **Moving the disclosure off the act screen is compliance and it has a cost nobody has measured.** docs/SCIENCE.md Part 1 asks for it "in the about screen and on first launch" and it is now in both, verbatim, with a test parsing the document. It used to be visible without any action and is now one click away after being shown once. Whether that reads as burial is a reader's call and there has been no reader.
+- **The first run has one button and no gate, which is correct and also the easiest thing in the world to skip.** docs/PILLARS.md rule 2 rules out a gated tutorial, so this is the right shape. Whether it is read or clicked through is unmeasured.
 - **The divergence debt is discharged and the obligation to keep it discharged is new.** This entry used to be a count of what docs/ECONOMY.md was owed. It is now a count of what it holds: **thirty-seven rows across three tuning files**, 17 in `src/content/act1/tuning.ts`, 19 in `src/ui/tuning.ts` and 1 in `src/save/tuning.ts`. The old count of twenty-two was wrong in three places at once and the correction is recorded under "What the economy does". What replaces the debt is a standing rule with a test behind it: **a tuned number lives in exactly one of the three tuning files and has exactly one row.** Three numbers had been sitting outside those files since V2, the atp, adp and phosphate starting amounts in `pools.ts`, in a file whose own header said they owed a row. They were moved at unchanged values in V5 stage 5 and the guard is what found them.
-- **The coach mark trigger is chosen but weakly.** `COACH_MARK_TRIGGER` in `src/ui/components/CoachMark.tsx` is `'auto'`, picked in V3 stage 7 because under `'manual'` nothing on the screen explains the stall at all and the player has to find a 16px info affordance. Both behaviours are built and switching is a one-word edit. The choice was made by the person who built it, which is the least reliable possible reader.
+- **The coach mark trigger is chosen but weakly, and V6 could not fix that. STILL OPEN, deliberately.** `COACH_MARK_TRIGGER` in `src/ui/components/CoachMark.tsx` is `'auto'`, picked in V3 stage 7 because under `'manual'` nothing on the screen explains the stall at all and the player has to find a 16px info affordance. Both behaviours are built and switching is a one-word edit. The choice was made by the person who built it, which is the least reliable possible reader.
+
+   **V6 stage 5 existed to take this decision away from that reader and found no readers, so it left it alone rather than re-deciding it.** Closing this entry on the same unreliable reader's second opinion would be worse than leaving it open, because a closed entry stops anybody looking again.
+
+   **One thing in the argument did move and it is recorded rather than acted on.** V6's teaching panel explains the stall too, in its fermentation paragraph, so under `'manual'` there are now two routes to an explanation where there was one. But the objection was never the count: it was that the player has to find a 16px info affordance, and the new route is also a 16px info affordance. **The case for `'auto'` is slightly weaker and it is not overturned.**
+
+- **The scope of "the builder is the least reliable reader" is unchanged, and V6 is the log that was supposed to change it.** This page has carried that caveat since V3 and it applies to every comprehension claim in the project with exactly the same force today. **Readers found: 0. Readers asked: 0.** V6 built the thing to be read and did not get it read. See Blocking item 0, which is where this now lives as work rather than as a caveat.
 - **The uptake ladder stops at 12, and V5 both confirmed the reason and found it had been overstated.** Re-measured after the bootstrap repair, time to 30000 cumulative ATP is 11m51.7s at Vmax 12 and 11m51.4s at 26, so everything above the knee sells three tenths of a second. The figures this entry used to quote, 11m24s and 11m03s, were measured before V3 stage 6 raised the environment in the same stage and were never re-run. **The lead this entry recorded was acted on and it was wrong as stated.** Preparatory-phase capacity is not sellable on its own: raising `prep` without `payoff` kills the cell, so V5 sells them together as the glycolytic capacity ladder.
 - **The top of the uptake ladder over-delivers, permanently, and that is now a feature with a purchase attached.** `prep` never reaches its Vmax of 12, settling near 10.554 because it is second order in ATP, so uptake at 12 pushes intracellular glucose up by about 87 a minute forever. V3 sized that rung against a nameplate rather than a realized rate. Each rung of the glycolytic ladder narrows the gap, to +23.0 a minute, then +17.2, then +9.2, then -1.5 at the top, so the pile of unusable glucose visibly drains as the phase that consumes it is bought.
 - **A backgrounded tab still loses game time. The hole is narrower and it is not closed.** What changed: `pendingOfflineMs` now survives a reload, and real time away is measured at load, capped at `MAX_OFFLINE_HOURS` and added to the same field. So the time is no longer thrown away, it is recorded, and it accumulates across sessions rather than resetting. What has not changed: **nothing spends it.** Not one tick of it is simulated, the player still sees no progress for it, and the field just grows. Narrower means the accounting is now honest, not that the player gets their time back. V5 owns spending it, and it now starts from a real number instead of from zero.
@@ -289,10 +359,15 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Next, in order
 
-1. **docs/CONTENT_STYLE.md and the comprehension pass.** This is next because text written against numbers that are about to move is text that gets written twice, and the numbers have now stopped moving: every tuned value in the game has a row, a guard keeps them in step, and act 1 is inside its target duration. That is the settled economy the content log has been waiting for since V2. It also owns the question this project most needs answered by someone who is not its author, which is whether any of the teaching beats land for a reader who does not already know where the wall is.
-2. **Offline progress.** docs/SIMULATION.md Part 3, plus validating `STEADY_EPSILON` and `STEADY_WINDOW`, which have been unvalidated placeholders since V1. Act 1 has been a real configuration to validate them against since V2, can be saved mid-run since V4, and since V5 has a steady state that is genuinely steady and reachable without falling into a trap first. **V5 chose more unlocks over a varying environment specifically to avoid handing this log a permanent fallback to coarse replay**, so it inherits an economy that suits it rather than one that fights it. It also inherits a real accumulated `pendingOfflineMs` rather than a zero.
+0. **Find one cold reader.** Not a log and not a stage. It is listed first because it is the only item on this page that no amount of building advances, because it gates docs/PILLARS.md's first two success conditions, and because every log after this one adds more to a screen nobody outside this project has looked at. See Blocking item 0. It does not block V7 and V7 should not wait for it.
 
-**The ordering note that stood here for two logs is discharged.** It said docs/ECONOMY.md should go first and warned that building on an unsettled economy costs a rewrite, and V4 built saves on top of a known hole anyway. V5 paid that debt: the hole is repaired, the saves that carried it load fine, and the schema needed no bump because the new unlock ids are additive. The same reasoning now puts docs/CONTENT_STYLE.md ahead of offline progress, and this time for text rather than for numbers.
+1. **Accessibility, and the colour-alone problem.** `UPDATELOGV7.md`. **It follows this log rather than preceding it, and the reason is direction of dependency: its job is to make text and illustration perceivable, and both had to exist first.** Before V6 there was one coach mark, no panel, no first run and no readout on any blob, so an accessibility pass would have been auditing an empty room and would then have had to run again over everything V6 added. It now inherits a real teaching layer and it inherits three specific defects V6 created or exposed: the blob readout is hover-only, so it is unreachable by touch and by keyboard; colour-equals-redox exists on that channel alone for a sighted touch player; and the media query behind reduced motion has still never run in a browser.
+
+2. **Offline progress.** `UPDATELOGV8.md`, docs/SIMULATION.md Part 3, plus validating `STEADY_EPSILON` and `STEADY_WINDOW`, which have been unvalidated placeholders since V1. Act 1 has been a real configuration to validate them against since V2, can be saved mid-run since V4, and since V5 has a steady state that is genuinely steady and reachable without falling into a trap first. **V5 chose more unlocks over a varying environment specifically to avoid handing this log a permanent fallback to coarse replay**, so it inherits an economy that suits it rather than one that fights it. It also inherits a real accumulated `pendingOfflineMs` rather than a zero, and V6 has corrected the save panel badge that told the player offline progress was landing in V5.
+
+**The ordering note that stood here for two logs is discharged.** It said docs/ECONOMY.md should go first and warned that building on an unsettled economy costs a rewrite, and V4 built saves on top of a known hole anyway. V5 paid that debt. **The same reasoning put docs/CONTENT_STYLE.md ahead of offline progress and it was right for the same reason: text written against numbers that are about to move gets written twice, and the numbers had stopped moving.** It now puts accessibility ahead of offline progress, for text rather than for numbers.
+
+**One ordering claim V6 cannot make.** V5's entry here said the comprehension pass "owns the question this project most needs answered by someone who is not its author". It did own it. **It did not answer it**, and the ordering above deliberately does not put another content log in front of V7 in the hope of answering it by building more, because the thing missing is a person rather than a feature.
 
 ## The vertical slice
 
@@ -305,6 +380,8 @@ Done in V2: one pool, glycolysis, the NAD+ constraint, fermentation.
 Done in V3: the interface. **The slice is complete.**
 
 Done in V4, outside the slice: persistence. Every property this project treats as tested is now tested across a reload as well, which is a stronger claim than any earlier log could make.
+
+Done in V6, outside the slice: the comprehension pass. **It is the first log whose deliverable cannot be verified by the test suite**, and it is the first to end with a number that is zero rather than a measurement.
 
 Done in V5, outside the slice: the economy. **The claim the slice exists to make is now asserted over nine purchasable configurations rather than two**: gross ATP per completed glucose is 4.000000000 and net is 2.000000000 at the shipped default and at the top of both ladders, while ATP per second goes from 31.795 to 75.494. docs/PROGRESSION.md says enzyme upgrades increase throughput and never yield, and that is measured across the whole ladder now rather than argued.
 
