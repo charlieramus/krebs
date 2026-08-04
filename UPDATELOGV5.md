@@ -648,7 +648,117 @@ beats each confirmed or regressed, the completed divergence table and the act
 
 ## Stage 4 Report
 
-_Pending._
+**Act 1 is inside its target duration for the first time, and it is the first time anything has been measured against it.** docs/PROGRESSION.md has said 45 to 90 minutes since 2026-07-29 and no log had ever checked.
+
+### Step 1. Three durations
+
+The act ends when the last thing worth buying has been bought, because nothing after that changes.
+
+    playstyle                          purchases   last purchase   food runs out
+    buys everything the instant it can         7          61m57s          92m42s
+    buys ferment and then nothing              1           0m03s        not in 150m
+    checks every 5 game-minutes                7          70m00s          96m42s
+
+**Both real playstyles land inside 45 to 90 minutes.** 61m57s at the fast end and 70m00s at the plausible middle.
+
+**The middle is a player who looks at the tab every five game-minutes and buys whatever is affordable**, which is what makes it plausible: an idle game is not watched continuously, and five minutes is roughly the granularity of noticing. It costs 8 minutes against the instant buyer, which is the right order of magnitude for the model to be believable rather than flattering.
+
+**The floor is degenerate and that is a finding.** A player who buys nothing at all meets the NAD+ wall at 2.95 seconds and stops there forever, cumulative ATP frozen at 60. There is no such thing as a slow run of act 1: the first purchase is not an upgrade, it is the condition of the game continuing. Buying only fermentation and then nothing gives a cell that runs for over 150 minutes without ever changing.
+
+### Step 2. Every threshold is now derived from a clock
+
+The loop this replaces is picking a number, measuring where it landed, and picking again. Target times were chosen first, a run was instrumented to record cumulative gross ATP at each one, and those readings rounded are the thresholds.
+
+    purchase   target    ATP there   threshold   lands at
+    uptake 1    2m00s         3787        4000     2m07s
+    uptake 2    9m00s        20459       20000     8m50s
+    glyco 1    22m00s        53382       53000    21m52s
+    glyco 2    35m00s        92737       93000    35m04s
+    glyco 3    48m00s       138643      139000    48m06s
+    glyco 4    62m00s       195240      195000    61m57s
+
+**The gap between events is now 13m02s to 13m51s** instead of stage 3's 11m03s growing to 22m16s. The whole distribution:
+
+    0m03s  fermentation      2m07s  uptake step 1     8m50s  uptake step 2
+    21m52s glycolytic 1     35m04s  glycolytic 2     48m06s  glycolytic 3
+    61m57s glycolytic 4
+
+    events 7   longest gap 13m51s   last event 61m57s
+
+**The last purchase sits at 62 minutes rather than at 85, and that is a choice.** Six gaps have to fit inside 45 to 90 minutes. Pushing the last rung to 75 stretches every gap to 16.5. NOW.md blocking item 2 is about the longest wait, not about the ending, so the shorter worst case wins and the act still lands inside its target.
+
+**FERMENT_ATP_THRESHOLD stays at 55, and the reason is now a measurement rather than a shrug.** Its bound of 60 survives untouched, because nothing in this log changed the nicotinamide total. What is new is that **the number has no usable range at all**:
+
+    cumulative ATP 50      reached at 2.45s     0.50s BEFORE the wall
+                   55                 2.60s     0.35s before
+                   58                 2.70s     0.25s before
+                   59.9               2.90s     0.05s before
+                   59.99              3.05s     0.10s after
+
+The wall arrives at 2.95s and cumulative ATP converges on 60 in the same breath. **V3 left open whether the answer should appear only after the player has sat in the stall for a while. It cannot, by moving this number**: the entire span is about one second wide and its top end is unbuyable. A delay between the wall and its answer is an interface decision and belongs with the coach mark. 55 is kept because it holds 8 percent of margin under a ceiling that a later change to the nicotinamide total would move.
+
+### Step 3. The five teaching beats, each re-checked
+
+**The NAD+ wall still arrives as an event, at a legible time. Confirmed.** Peak payoff flux 15.058/s, the arrow reads stopped at 3.00s, cumulative ATP freezes at exactly 60.000000, and 1569.9 glucose is piled up inside a cell sitting in an environment of 78410. The signature that makes it read as something other than starvation is intact and larger than it was.
+
+**Yield is still exactly 4 gross and 2 net per completed glucose. Confirmed, and the claim is now stronger than V3 could make.** Measured at the shipped configuration and at the top of both ladders:
+
+    shipped                atp/s 31.795    gross 4.000000000   net 2.000000000
+    top of both ladders    atp/s 75.494    gross 4.000000000   net 2.000000000
+
+**Throughput 2.37 times, yield unmoved to nine decimal places, across the entire new ladder.** docs/PROGRESSION.md line 42 says enzyme upgrades increase throughput and never yield, and that is now asserted over nine purchasable configurations rather than two.
+
+**Fermentation still buys throughput and exactly zero yield. Confirmed**, unchanged in `nadWall.test.ts`: 4.000000000 gross stalled and fermenting, agreeing to nine decimals, while glucose consumed differs by more than a factor of thirty.
+
+**Walled and starved are still distinguishable at a glance. Confirmed**, and the gap between them is wider than it was:
+
+                uptake     prep   payoff  ferment  maintain   glucose      env   NAD+ frac
+    walled       7.950    0.001    0.000    0.000     0.000     139.0    79841       0.000
+    starved      2.189    2.199    4.402    4.406     4.423       1.9      188       0.986
+
+One live arrow of five against five slow ones. A large glucose number against nothing. An empty carrier against a full one. No text label needed and none used.
+
+**Conservation still holds on all five quantities. Confirmed and improved**: worst relative drift over 60 long randomized runs is 1.113e-13, down from V4's 2.351e-13, against a 1e-9 tolerance. The act 1 harness run shows every quantity closing to within 2.001e-15.
+
+**Nothing regressed.** No beat moved for a pacing reason, which is the outcome step 3 exists to check for.
+
+### Step 4. The table, read back against the code
+
+34 rows, 22 DEPARTURE and 12 UNSOURCED. Every row created or changed by stages 2 to 4 carries its before value as well as its after: C10 12 was 20, C13 80000 was 10000, U8 4000 was 1500, U9 20000 was 12000, U16 to U19 all four. C14, U11 to U15 and U16 to U19 are new. Every row was checked against the constant it names.
+
+**This is the last stage that changes a number**, so this is the moment the table is true. Stage 5 makes that a test rather than a claim.
+
+### Step 5. What the economy still cannot answer
+
+**The 45 to 90 minute target has never been validated against anyone.** It is a number in docs/PROGRESSION.md from 2026-07-29 with no measurement or playtest behind it. This stage measured act 1 against it and found 62 to 70 minutes, which is a statement about compliance with a target and not about whether the target is right. What would settle it is watching somebody who is not building it play until they stop.
+
+**Every pacing reading here comes from the person who built it**, which NOW.md already flags for the teaching beats and which applies at least as strongly to pacing. Thirteen minutes between purchases is either a comfortable idle rhythm or a boring one, and nothing in this log can tell the difference. It needs a fresh player and a stopwatch.
+
+**Whether an even gap is the right shape at all is unexamined.** The thresholds were derived to make the gaps even because uneven growing gaps are obviously worse. That is not the same as knowing that even is best; an idle game might well want to accelerate, or to cluster events and then go quiet on purpose. That is a design question and there is no measurement in this log that bears on it.
+
+**The act's last 28 minutes are still empty.** Content ends at 62 minutes and the food lasts to 93. That is deliberate, since the environment should outlast the act, but it means a player who keeps playing gets a half hour of nothing at the end. Whether the act should announce that it is over, or whether act 2 should arrive there, is docs/PROGRESSION.md's and not this document's.
+
+**Nothing here knows what the interface does with any of it.** The measurements are of the simulation through the runtime bridge. Whether a purchase reads as a meaningful event on screen when it arrives is DESIGN.md's question.
+
+### The browser check, which found one thing
+
+`npm run dev` at `/?ferment=on`, loaded and read through a real Chromium. No console errors. The third shelf slot renders dashed and dimmed with "Opens once uptake is at the top of its ladder", both capacity buttons correctly disabled, the uptake slot reading against its new 4000 threshold, and the wall and its coach mark unchanged.
+
+**Two buttons read "Add capacity" side by side.** Fine on screen where the card titles differ, bad read aloud, where a screen reader gives two identical buttons in one region. The glycolytic one now reads "Raise both phases", which is also the more informative label.
+
+**A full 62 minute play session was not done and is not claimed.** The durations above come from the same `createAct1Runtime` bridge the browser drives, headlessly, which is the only practical way to measure an hour of game time and a better instrument for it than a person with a stopwatch. What the browser check covers is that the screen renders what the measurements describe.
+
+**One development-door oddity, recorded and not fixed.** `?ferment=on` does not survive a reload: the scenario enables the reaction without minting an unlock id, so the restored save has no `ferment` in `progression.unlocked` and the reaction comes back disabled. It is a development affordance, it is documented as one in `src/ui/scenario.ts`, and no player path reaches it. Recorded so the next person to use that door is not confused by it.
+
+### The hash
+
+    act 1 canonical   49ea08d3   unchanged
+
+Every number this stage moved is a purchase threshold. None of them is part of `createAct1()`'s default state, so the canonical run is bit-identical to stage 2's.
+
+### Verify
+
+`npm run typecheck` and `npm run lint` silent. `npm test` 282 passed across 26 files, unchanged from stage 3. `npm run build` 253.46 kB and 79.39 kB gzipped. `npm run sim:act1` clean, 4.000000000 gross and 2.000000000 net, all five conserved quantities closing to 2.001e-15 or better. `npm run sim:drain` unchanged. `npm run dev` loaded in a real browser as above.
 
 ---
 

@@ -245,7 +245,11 @@ export function UnlockShelf() {
           threshold={atTopOfGlycolysis || !atTopOfLadder ? null : glycolysisThreshold}
           bought={atTopOfGlycolysis}
           affordable={affordable.glycolysis}
-          buyLabel="Add capacity"
+          // NOT "Add capacity", which is the slot to the left's label. The stage 4
+          // browser check found two buttons reading the same three words side by
+          // side, which is a worse problem read aloud than it is read on screen.
+          // This one says what it does that the other does not.
+          buyLabel="Raise both phases"
           onBuy={() => {
             runtime.buyGlycolysisStep();
           }}

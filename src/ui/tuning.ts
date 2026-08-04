@@ -98,9 +98,27 @@ export const DASH_LENGTH = 8;
  * ceiling exists rather than trusting this comment.
  *
  * 55 puts the unlock in reach just as the pathway dies, so the wall and its
- * answer arrive together. Whether that is the right beat, or whether the answer
- * should appear only after the player has sat in the stall for a while, is
- * precisely what stage 7 plays to find out.
+ * answer arrive together.
+ *
+ * THIS NUMBER CANNOT BE TUNED TO CHANGE THAT, AND STAGE 4 MEASURED THE RANGE.
+ * V3 left open whether the answer should instead appear only after the player
+ * has sat in the stall for a while. It cannot, by moving this. Cumulative ATP
+ * converges on 60 in the same breath as the pathway dies:
+ *
+ *     50      reached at 2.45s      0.50s BEFORE the wall
+ *     55                 2.60s      0.35s before
+ *     58                 2.70s      0.25s before
+ *     59.9               2.90s      0.05s before
+ *     59.99              3.05s      0.10s after
+ *
+ * The wall arrives at 2.95s. The whole usable range of this number spans half a
+ * second either side of it, and the top of the range is unbuyable. **A delay
+ * between the wall and its answer is not a threshold decision**, it is an
+ * interface one, and it belongs with the coach mark rather than here.
+ *
+ * 55 is kept rather than raised. It sits 8 percent below the ceiling, where a
+ * later change that lowers the nicotinamide total has room to move before this
+ * becomes unbuyable, and the alternative buys nothing measurable.
  */
 export const FERMENT_ATP_THRESHOLD = 55;
 
@@ -132,16 +150,21 @@ export const UPTAKE_VMAX_STEPS: readonly number[] = [8, 10, 12];
 /**
  * Cumulative gross ATP for each purchasable uptake step.
  *
- * One entry per step above the first, so index 0 buys step 1. Spaced from the
- * measurement in unlockPacing.report.test.ts against stage 7's play session
- * rather than against docs/PROGRESSION.md's 45 to 90 minutes for the whole act:
- * V3 has two unlocks and act 1 will eventually have many, so pacing the slice to
- * the full act's length would put both purchases in the first two minutes and
- * leave eighty-eight with nothing in them.
+ * One entry per step above the first, so index 0 buys step 1.
  *
- * At the default Vmax these land at roughly one minute and roughly seven.
+ * RE-DERIVED FROM A CLOCK IN UPDATELOGV5.md STAGE 4, was 1500 and 12000. V3
+ * spaced these against its own play session and said so, on the argument that a
+ * two-unlock slice paced to a full act would put both purchases in the first two
+ * minutes and leave eighty-eight with nothing in them. Act 1 has seven purchases
+ * now, so that argument has expired and the act's own target is usable for the
+ * first time.
+ *
+ * HOW THEY WERE DERIVED. Target times were chosen first, then a run was
+ * instrumented to record what cumulative ATP stood at when it reached them.
+ * These are those readings, rounded: 2m00s and 9m00s. Adjusting a threshold by
+ * feel and then measuring where it landed is the loop this replaces.
  */
-export const UPTAKE_ATP_THRESHOLDS: readonly number[] = [1500, 12000];
+export const UPTAKE_ATP_THRESHOLDS: readonly number[] = [4000, 20000];
 
 /* ===========================================================================
    GLYCOLYTIC CAPACITY. UPDATELOGV5.md stage 3.
@@ -229,13 +252,25 @@ export const GLYCOLYSIS_STEPS: readonly GlycolysisStep[] = [
 /**
  * Cumulative gross ATP for each purchasable glycolytic step.
  *
- * One entry per rung above the first, so index 0 buys rung 1. Spaced across the
- * back of the act, because the front of it is already full: stage 3 measured
- * every existing event landing inside the first 5m13s. Stage 4 of
- * UPDATELOGV5.md re-derives these against a measured act length, which is the
- * first time any threshold in this file has been set against one.
+ * One entry per rung above the first, so index 0 buys rung 1.
+ *
+ * DERIVED FROM A CLOCK IN STAGE 4, was 40000, 90000, 160000 and 250000 as
+ * first-fit values in stage 3. Those landed at 16m16s, 32m47s, 52m37s and
+ * 74m52s, so the gaps between events grew from 11m03s to 22m16s across the act,
+ * which is the wrong shape: the longest wait fell where the player has least
+ * reason to still be watching.
+ *
+ * Targets of 22, 35, 48 and 62 game-minutes were chosen first, then a run was
+ * instrumented to record cumulative ATP at each, and these are those readings
+ * rounded. The gap is roughly 13 minutes throughout instead of growing.
+ *
+ * WHY THE LAST ONE IS AT 62 MINUTES AND NOT AT 90. docs/PROGRESSION.md gives act
+ * 1 45 to 90 minutes and six gaps have to fit inside it. Pushing the last rung
+ * to 75 minutes stretches every gap to 16.5, and the longest gap is the number
+ * NOW.md blocking item 2 is about. 62 minutes is inside the target and it keeps
+ * the worst wait at 14.
  */
-export const GLYCOLYSIS_ATP_THRESHOLDS: readonly number[] = [40000, 90000, 160000, 250000];
+export const GLYCOLYSIS_ATP_THRESHOLDS: readonly number[] = [53000, 93000, 139000, 195000];
 
 /* ===========================================================================
    SAVE MANAGEMENT. UPDATELOGV4.md stage 5.
