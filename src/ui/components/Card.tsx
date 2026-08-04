@@ -64,7 +64,17 @@ export function Card({
         SURFACE_CLASS[surface],
         'rounded-card border-ink text-ink',
         dashed ? 'border-dashed' : 'border-solid',
-        dimmed ? 'opacity-55' : '',
+        // 85 rather than 55, changed by UPDATELOGV7.md stage 5.
+        //
+        // A locked slot is dimmed AND dashed AND shadowless AND its button is
+        // disabled, so lockedness has four channels. At 0.55 the dim was
+        // destroying the other three: the slot's title measured 3.85:1, its
+        // detail line 2.36:1 and its button label 1.65:1, which is under the
+        // floor for a decorative border, let alone for text. At 0.85 they are
+        // 11.00, 4.51 and 4.51, and the dashed border with no shadow still says
+        // locked at a glance. DESIGN.md wants locked content visible, and it
+        // was not.
+        dimmed ? 'opacity-85' : '',
         className,
       ]
         .filter(Boolean)

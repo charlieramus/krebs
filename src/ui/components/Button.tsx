@@ -51,7 +51,12 @@ export function Button({ children, surface = 'white', className = '', ref, ...re
         // grid: it is a motion distance rather than a layout distance.
         'shadow-hard active:translate-x-[3px] active:translate-y-[3px] active:shadow-none',
         'transition-[transform,box-shadow]',
-        'disabled:text-ink3 disabled:cursor-not-allowed',
+        // `ink2`, not `ink3`. UPDATELOGV7.md stage 5 measured `ink3` at 2.96:1
+        // on white, which is under the 4.5:1 floor at FULL opacity, and a
+        // disabled button most often sits inside a dimmed locked slot where it
+        // compounded to 1.65:1. `ink3` cannot carry text on any surface in this
+        // palette. See DESIGN.md, Accessibility.
+        'disabled:text-ink2 disabled:cursor-not-allowed',
         className,
       ]
         .filter(Boolean)

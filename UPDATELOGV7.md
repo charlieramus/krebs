@@ -964,7 +964,121 @@ summaries.
 
 ## Stage 5 Report
 
-_Pending._
+### 1. The rule, as DESIGN.md now writes it
+
+Promoted out of Motion into its own **Accessibility** section, and widened by one word:
+
+> **Nothing in the game may be encoded in movement or colour alone.**
+>
+> The reasoning is the direction's own. Every visual property carries simulation state, so a player who cannot perceive a property cannot read the state. That was accepted for motion on 2026-07-28 and the only reason it was not written for colour is that colour was decided first and never revisited.
+>
+> **It is not an argument, it is a measurement.** V7 stage 1 simulated the three common colour vision deficiencies against real screenshots of the act screen. `reduced` and `oxidized`, which this document calls the single most important colour decision in the system, are 37.50 dE apart in normal vision, 17.35 under deuteranopia and **7.64 under protanopia, end to end**. The two states a player actually moves between during act 1 sit 3.21 apart, against a just-noticeable difference of 2.3.
+>
+> **The fix is redundant encoding, never replacement.** Colour stays and keeps being the fast channel. A second channel is added alongside so the information survives the loss of the first.
+
+The section then carries five subsections: the redox level, `a semantic colour fills and ink writes`, the focus indicator, what speech is told, and how much of it is mechanism. Motion keeps its own rule and now points at the section rather than owning it.
+
+**Six decisions-log rows, all dated 2026-08-04**, and every one of them leads with the measurement rather than the argument: the widened rule and its dE figures; the level winning over the electron dots and over texture; `a semantic colour fills, ink writes` with the 6.54 to 3.30 badge arithmetic; the locked-slot dim at 0.85 with the three ratios it repairs; the focus indicator drawn inside with the shadow as the reason; and the speech rule with sixteen events against roughly 74000 ticks.
+
+**Illustration rule 3 was amended rather than replaced.** It read "Redox is saturation, not hue" and now reads "Redox is saturation and a level", with a note saying the original was right about hue and incomplete about everything else.
+
+### 2. The palette did not change, and that is the finding
+
+**`src/index.css` has no colour edit in this whole log.** That was not the expected outcome and it is the more useful one.
+
+Stage 1 found eight contrast failures that were a semantic colour used as text. The obvious fix is to darken the tokens, so it was costed rather than assumed:
+
+    token       darkened until its worst TEXT use passes    what it costs
+    gain        #34B276 -> #237950                          the Sourced badge
+                                                            word drops 6.54 -> 3.30  BREAKS
+    atp         #F5883C -> #C46D30                          badge 4.69, fill 3.02  ok
+    substrate   #5AA9E6 -> #4989BA                          fill on sky 3.18  ok
+
+**`gain` cannot move, and that settles it for all of them.** The palette is built so that ink reads on every semantic colour, which is exactly what makes the badge contract work, and a colour with that property cannot also read as text on a pale surface. Moving two tokens and not the third would be a palette with a rule that holds for some of its colours, which is not a rule.
+
+**So the fix is a usage rule and the call sites moved instead.** `a semantic colour fills, ink writes`.
+
+    the top bar figures    text-atp and text-substrate, 2.00:1 and 2.05:1 on
+                           the page ground, the two worst ratios anywhere and
+                           on the largest type in the game            -> ink
+    a pool card net rate   gain or loss, 2.17:1 on the pink carrier card  -> ink,
+                           and ink2 when the pool is flat
+    the unlock progress    gain, 2.70:1 as micro text on white           -> ink
+
+**Nothing lost a channel.** Direction is the sign character, which `Figure` renders and which `pathway.test.tsx` has asserted since stage 2. A threshold being reached is the button below it becoming operable, which is a stronger signal than a green number. And the change settles a tension that had been in DESIGN.md since 2026-07-28: **Direction has said "illustration can be warm, numbers cannot" from the start, and a coloured headline figure was warming a number.**
+
+**Two things the measurement found that were not on stage 1's list as such.**
+
+**`ink3` cannot carry meaning at all.** 2.96:1 on white at full opacity, so it is under the text floor on every surface in the palette, and 2.83:1 as a mark on cream, so it is under the non-text floor too. Darkening it does not help while an ancestor opacity is applied on top: even at `#6A6A84` a dimmed locked slot only reaches 2.14:1. It was the disabled button label and the stopped arrow. Both are `ink2` now. **The token stays defined, DESIGN.md keeps naming it, and nothing uses it**, which is honest: the description said "disabled, locked" and that is what it can no longer be trusted to say.
+
+**Dimming compounds and a flat pair table misses it.** At `opacity-55` a locked slot's title measured 3.85:1, its detail line 2.36:1 and its button label **1.65:1**, under the floor for a decorative border let alone for text. At 0.85 they are 11.00, 4.51 and 4.51. The dim did not need to be that heavy, because lockedness was already on four channels and the dim was destroying the other three: the dashed border with no shadow still says locked at a glance.
+
+### 3. The fifth guard
+
+`src/ui/__tests__/accessibility.test.ts`, 43 assertions, after the determinism lint, the `Needs source` release gate, the DESIGN.md colour test and the divergence-row test, and built to look like them.
+
+**Tested, because it is arithmetic:**
+- every pair the act screen renders clears its WCAG 2.2 AA threshold, **computed from the tokens parsed out of `index.css` and from the dim read out of `Card.tsx`**, so a palette change or a dim change fails the build rather than failing a user
+- no semantic colour is used as a text colour by either route, the Tailwind class or the live `style.color` write, the second of which no class scan would ever see
+- every meaning in this log's channel table names a second channel and that channel is present in the build
+- the arithmetic that forced the usage rule is kept as an assertion, so a later log that finds a way to make `gain` readable revisits the rule rather than quietly relaxing it
+
+**Not tested, and deliberately not faked: whether a channel READS.** Whether an ink rule across a blob says "half the carrier is reduced" to somebody who has never seen the game is the same kind of question as whether the voice in docs/CONTENT_STYLE.md is right, and `contentStyle.test.ts` refuses to fake that one for the same reason. The test file says so in its header.
+
+**The pair table is chosen by a reading rather than by listing everything.** WCAG 1.4.11 governs what is required to understand the content against its adjacent colours. For an ink-outlined shape the identifying boundary is the ink outline at 14:1 or better, so a blob fill against the card behind it is not the governing pair; what the fill has to do is distinguish that shape from another, and those are all above 85 dE under every deficiency. The same reading applies to a pathway arrow: `substrate` against cream measures 2.44 and is not asserted, because an arrow whose colour vanished would still be six pixels of dashes with a solid head against two of solid line with a hollow one. **The test says all of that in place of asserting it, so the next person can disagree with the reading rather than with a missing row.**
+
+**Probed three ways, and the probe found a hole in the guard itself.**
+
+    gain restored to the net rate      FAILS: "expected 'const colour = moving ?
+                                       'var(--color-gain)'...' not to contain
+                                       '--color-gain'"
+    a palette token changed in
+    index.css                          FAILS, 8 assertions at once
+    the dim dropped back to 55         PASSED. THE GUARD WAS WRONG.
+
+**The dim had been written into the test as a literal `0.85`**, so restoring `opacity-55` in `Card.tsx` left the whole locked-slot block passing against a number nobody had to honour. The test now parses it out of the component, plus a vacuity assertion so a regex that stops matching fails loudly instead of making `DIM` NaN. Re-probed: three assertions fail with 3.86, 2.36 and 2.36. **A guard that agrees with itself is not a guard**, and this is the second time in this log that a probe caught an assertion rather than the code. The other was stage 2's arrow-colour test, which searched markup that no per-frame callback ever writes to.
+
+### 4. Coherence pass
+
+Swept `src/ui/` for the four things the stage names.
+
+**Every interactive element has an accessible name**, checked on the running page rather than in the source. Ten focusable elements, ten names, including the file input, which takes its name from the label wrapping it: `"Import from file"`.
+
+**Every image has a label describing state.** Eighteen images, eighteen names, asserted. The carrier's is the reading and every other one is the geometry, which for those blobs is the state.
+
+**Every focus target has a visible indicator.** One global `:focus-visible` rule with one documented opt-out for controls too small for it, and a test asserting the offset is negative and the colour is ink.
+
+**Nothing announces per tick.** One live region, asserted as exactly one, with a separate assertion that nothing carrying `data-reaction` or `tabular-nums` is anywhere near an `aria-live`.
+
+**One thing found and fixed in the sweep rather than planned:** `grep` for semantic colours used as text now returns only the comment in `TopBar.tsx` explaining why they are not used, which is the state a coherence pass is supposed to leave behind.
+
+### 5. Verify
+
+    npm run typecheck   clean
+    npm run lint        clean
+    npm test            415 passed across 34 files
+    npm run build       clean, 268.94 kB, 83.73 kB gzipped
+
+    against V6          329 tests across 31 files, 263.44 kB, 81.90 kB gzipped
+    V7 added            86 tests, 3 files, 5.50 kB raw, 1.83 kB gzipped
+
+**The act 1 canonical hash is `49ea08d3`, unchanged**, and asserted by `src/content/act1/__tests__/determinism.test.ts` as it has been since V5.
+
+**No tuned number moved, and this is checked over the whole log rather than over this stage.** `git diff main` across `src/content/act1/tuning.ts`, `src/ui/tuning.ts`, `src/save/tuning.ts`, `docs/SCIENCE.md`, `docs/ECONOMY.md`, `src/sim/` and `src/content/` is **empty**. An accessibility log that moved the simulation hash would have changed the simulation, and this one did not touch the simulation at all: every change is in `src/ui/`, `src/App.tsx`, `src/index.css`, `DESIGN.md` and `NOW.md`.
+
+**No divergence row was owed**, because no accessibility fix needed a tuned number. The one candidate, the locked-slot dim, is a design token decision recorded in DESIGN.md rather than a balance decision, on the same footing as the outline widths and the shadow offset that have always lived there.
+
+### 6. The diffs
+
+**DESIGN.md.** New `Accessibility` section, roughly 60 lines, with five subsections. Motion's obligation reduced to a pointer at it. Illustration rule 3 amended. The Colour section's "colour leaving" sentence corrected, with the wrong version kept on the page and the reason it stood for two logs written next to it. The matching entry under "What turned out to be wrong" struck through and closed. Six decisions-log rows. Header updated to 2026-08-04.
+
+**NOW.md.** Status rewritten. Build state table: V7 done. A new "What the accessibility layer does" section, sibling to the others. A "Settled 2026-08-04, by V7" section with ten entries. The reduced-motion open item narrowed rather than closed, with both halves stated. The "colour leaving" item closed. The hover-tooltip item rewritten, because the level removed the part of it that mattered. Blocking gains item 0b, no screen reader has been run, and items 4 and 5, forced-colors as a conflict and `prefers-contrast` as an absence. "Next, in order" is now offline progress then CI, with both noted as independent and CI noted as pullable forward.
+
+### One claim this log deliberately does not make
+
+**Every claim V7 makes is arithmetic and none of it is comprehension.** Contrast is computable, a tab order is a fact about the DOM, an accessibility tree is what Chrome hands the platform, and a level rule is either drawn or it is not. **What none of it establishes is whether any of it reads.** Whether a rising ink line says "the carrier is filling up" to a fourteen year old, or whether sixteen announcements in an hour is the right number to hear, are questions of the same kind as every comprehension question this project has been unable to answer since V3.
+
+V7 does not claim to have answered them and adds a second person to the list of people it needs: NOW.md Blocking item 0 wants one cold reader, and item 0b now wants one screen reader user. **The second is cheaper, because half of it can be bought by installing NVDA**, which turns "unrun" into a builder's reading. That is worth less than a real one and considerably more than nothing.
 
 ---
 

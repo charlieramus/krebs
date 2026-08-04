@@ -51,14 +51,32 @@ import { FERMENT_ATP_THRESHOLD } from '../tuning';
 const FLAT_RATE = 1e-6;
 
 function SignedRate({ read }: { read: (snapshot: Act1Snapshot) => number }) {
+  /**
+   * MOVING OR FLAT, IN INK. UPDATELOGV7.md stage 5.
+   *
+   * This used to be `gain` when rising and `loss` when falling, which is
+   * DESIGN.md's own definition of those two tokens and read well. It measured
+   * at 2.17:1 for `gain` on the pink carrier card against a 3:1 floor for text
+   * this size, and it cannot be fixed by moving the token: darkening `gain`
+   * enough to read on a pale surface takes the ink word on the Sourced badge
+   * from 6.54:1 to 3.30:1, which breaks the badge contract to fix a rate.
+   *
+   * The semantic colours in this palette are chosen so INK reads on them, and a
+   * colour with that property cannot also read as text on a pale surface. That
+   * is a fact about how the palette is built rather than a defect in it, and
+   * DESIGN.md now states it as a rule: a semantic colour fills, ink writes.
+   *
+   * Nothing is lost that was only here. Direction is carried by the sign
+   * character, which `Figure` renders explicitly and which `pathway.test.tsx`
+   * has asserted since stage 2, and the channel table in UPDATELOGV7.md already
+   * listed the sign rather than the colour as what survives. What remains is a
+   * lightness step: a pool that is moving is ink and a pool that is flat is
+   * ink2, both well clear of the floor.
+   */
   const ref = useLiveNode<HTMLSpanElement>((element, snapshot) => {
     const rate = read(snapshot);
-    const colour =
-      rate > FLAT_RATE
-        ? 'var(--color-gain)'
-        : rate < -FLAT_RATE
-          ? 'var(--color-loss)'
-          : 'var(--color-ink2)';
+    const moving = rate > FLAT_RATE || rate < -FLAT_RATE;
+    const colour = moving ? 'var(--color-ink)' : 'var(--color-ink2)';
     if (element.style.color !== colour) element.style.color = colour;
   });
 

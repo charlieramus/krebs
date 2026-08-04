@@ -1,6 +1,6 @@
 # Now
 
-Last updated: 2026-08-04
+Last updated: 2026-08-04, by V7
 
 Where the project actually is. Read this before the spec docs.
 
@@ -9,6 +9,12 @@ This file holds state. CLAUDE.md holds instruction and changes rarely. This chan
 If this file disagrees with a spec doc, the spec doc wins and this file is stale. Fix it.
 
 ## Status
+
+**The game is now perceivable without colour, without a pointer and without sight, and the one thing it still cannot be is read by somebody who has never seen it.**
+
+That is V7's sentence and it should be read against V6's, which is still true and still first below. What V7 changed is the set of people who can reach the thing V6 built. **Act 1 is completable from the keyboard alone**, which it turns out it always was, and is now legible while you do it. **The NAD+ wall is readable without hue**, which it was not: the axis DESIGN.md calls the single most important colour decision in the system measured 7.64 dE end to end under protanopia, and a second channel now carries it at 5.70:1 or better under every deficiency and in greyscale. **A screen reader hears sixteen events across a whole act and never hears the tick.**
+
+**None of that is a comprehension claim and none of it needs a reader to be true.** Contrast is arithmetic, a tab order is a fact about the DOM, and a level rule is either drawn or it is not. What still needs a person is whether any of it *reads*, and V7 adds a second name to that list: nobody who uses a screen reader has heard this game either. See Blocking.
 
 **The game now explains itself, and nobody has checked whether the explanation works. 0 readers, out of 0 asked.**
 
@@ -36,7 +42,7 @@ One sentence per log. The "does not" column is the fence each stage doc inherits
 | V4 | Persistence: save and load against docs/SAVE_SCHEMA.md version 1, plus the migration harness and its fixture test | Offline progress, any network or account | Done 2026-07-31 |
 | V5 | The economy pass: docs/ECONOMY.md and its divergence table, the ATP bootstrap repair, the glycolytic capacity ladder, and act 1 balanced end to end against its target duration | Offline progress, new pathway content, the steady-state display question | Done 2026-08-03 |
 | V6 | The comprehension pass: docs/CONTENT_STYLE.md, the first run, the about panel, the teaching layer, and the style guide as mechanism | The economy, new unlocks, the timeline, the beast, act 2, and any change to a tuned number | Done 2026-08-04, **unvalidated**. Stages 2 and 5 unrun for want of a cold reader |
-| V7 | Accessibility, and the colour-alone problem: making V6's text and the illustration perceivable | New content, new teaching beats, the economy | Not started |
+| V7 | Accessibility, and the colour-alone problem: the redox second channel, keyboard and focus, the screen reader layer, and DESIGN.md's accessibility rule | New content, new teaching beats, the economy, the simulation | Done 2026-08-04 |
 | V8 | Offline progress: steady-state detection, the analytic jump to the next event, and validation of STEADY_EPSILON and STEADY_WINDOW | New content, any interface beyond a return summary | Not started |
 | V9 | CI, cross-engine determinism and deployment | Not read in detail yet. Scheduled after V8 | Not started |
 | V10+ | Unplanned, deliberately | Anything written here now would be fiction | Held |
@@ -208,6 +214,51 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
 
 **The guard found two strings the audit that went looking for them missed**, which is the argument for building it: the wordmark, hardcoded in `TopBar.tsx` and the string in this game most likely to change, and the "of" in "60 of 55 ATP made". **And its own probe found two holes in it.** The prose detector was a character allowlist and `<h2>Resources so far!</h2>` walked through it, because an exclamation mark was not in the list. The -ise rule was a suffix pattern and flagged "Pool sizes are tuned". Both were fixed before the guard was believed.
 
+## What the accessibility layer does
+
+`DESIGN.md`'s Accessibility section plus five components and one guard, added by V7. The part of the interface whose job is to make every other part reachable.
+
+    DESIGN.md, Accessibility  the rule, promoted out of Motion and widened
+    Blob.tsx                  the redox level, and the state label
+    Announcer.tsx             one live region, and the event set
+    index.css, focus section  the indicator, drawn inside
+    Overlay.tsx               focus in, trapped, and given back
+    accessibility.test.ts     the fifth guard
+
+**The rule DESIGN.md should have had from the start is one word longer than the one it had.** "Nothing in the game may be encoded in movement alone" becomes "in movement or colour alone". It is the same argument, it was already accepted for motion on 2026-07-28, and the only reason it was not written for colour is that colour was decided first and never revisited. It is its own section now rather than a clause under Motion.
+
+**It is a measurement rather than an argument, and the number is 7.64.** V7 stage 1 simulated the three common colour vision deficiencies against real screenshots using the Machado 2009 matrices Chromium's own emulation uses. `reduced` to `oxidized` is 37.50 dE end to end in normal vision, 17.35 under deuteranopia and **7.64 under protanopia**, with the two states act 1 actually moves between 3.21 apart against a just-noticeable difference of 2.3. Tritanopia is fine and always was, at 35.47, because the axis is a red-channel difference and a blue-yellow deficiency leaves it alone. **The design got that for free and did not know it.**
+
+**The second channel is a level, and it is a truer encoding than the one it replaces.** The carrier is filled `oxidized`, the reduced fraction overlaid in `reduced`, and the boundary drawn as a hard ink rule whose height is the reading. The rule measures 5.70:1 or better against both sides of the boundary under every deficiency and in greyscale, against a colour channel that peaks at 1.58:1. And a pool at 56 percent reduced does not contain a substance of intermediate colour: it contains real NAD+ and real NADH in that proportion, which is what the simulation holds in two pool amounts. **The mix said the carrier is somewhat reduced. The level says 56 percent of the carriers are.**
+
+**The silhouette did not move and neither end of the axis did.** A fully oxidized carrier is the flat blob V3 shipped, to the pixel, and so is a fully reduced one, which needed `redoxLevelY` written as a weighted sum rather than as the obvious subtraction that lands three ulps short. The claim is identical, not nearly identical, and a test asserts it.
+
+**The channel has one blind spot and the electron dots cover it.** A level gauge carries no signal at its own ends, so at exactly 0 and exactly 1 the rule sits on the outline and vanishes in both cases. Those two are told apart by the two ink electron dots, which DESIGN.md rule 3 already gives NADH and denies NAD+, verified against a starved cell held at exactly 0. **The level is load-bearing across the range and the dot count is load-bearing at the ends**, which was not designed and is the better outcome.
+
+**The keyboard finding went the other way and the log's own premise was wrong.** V7's Decisions section said "the game cannot be played at all without a pointer", from a grep that found no `tabIndex` and no key handlers. **Every control is a native `<button>`, which needs neither**, and act 1 was completable by keyboard before this log touched it. What was actually broken was narrower: import was unreachable because its file input carried `display: none` since V4, the focus ring was the browser default at **1.02:1 against the ink border it was drawn on**, buying an unlock dropped focus to `document.body` and threw the player past the whole shelf, and two panels claimed `aria-modal="true"` while all nine controls behind them stayed tabbable.
+
+**The focus indicator is drawn inside the element and the hard offset shadow is why.** An outer ring is clean along the top and left and merges into the shadow along the other two, and an indicator visible on two sides is not an indicator. 3px of ink at `outline-offset: -6px`, on `:focus-visible`, at 14.19:1 or better against every surface it can appear on. Small controls take it outside, because 16px has no room inside and a pill has no shadow to collide with.
+
+**A coach mark takes focus only when the player asked for it.** Applied literally, "opening a coach mark moves focus into it" would move focus on the automatic NAD+ mark, three seconds in, with nobody having touched anything. That is the one thing a screen reader user experiences as the page grabbing them. Manual marks take focus and give it back on Escape; the automatic one draws itself and leaves the keyboard alone.
+
+**Speech announces events, exposes rates on demand, and never narrates the tick.** The line is the one the three-clocks architecture already draws. One polite atomic live region, nothing else on the screen carrying `aria-live` at all, and **sixteen announcements across a whole act against roughly 74000 ticks.** Measured on the real page: five in the first two minutes, covering affordability, the wall, the purchase and the recovery, and then a hundred seconds of silence while the cell held steady state.
+
+**The rates a screen reader reads are the same figures the reduced-motion path renders, not a parallel set.** The figure is now in the DOM in both motion modes and merely `sr-only` when the dashes are carrying it. A parallel readout is how two numbers about one fact drift apart.
+
+**An accessible name states the reading, not the legend.** The carrier announced as "One shape, and the colour is which one it is", which told a screen reader user the colour means something and never what it currently was. It says the state, in bands rather than as a figure, because **a number in an `aria-label` has nowhere to put a badge** and would be a quantitative claim with no provenance. The hover `<title>` keeps the encoding, because a sighted pointer user asking a shape what it means needs the encoding. They differ on exactly one blob.
+
+**The palette did not move and the rule that fell out of the measurement is why.** Eight of stage 1's contrast failures were a semantic colour used as text. They cannot be fixed by darkening the token: taking `gain` far enough to read as micro text drops the ink word on the Sourced badge from 6.54:1 to 3.30:1. **The palette is built so ink reads on every semantic colour, and a colour with that property cannot also read as text on a pale surface.** So the rule is a usage rule, `a semantic colour fills and ink writes`, and `src/index.css` is byte-identical: the top bar figures, the pool card net rates and the unlock progress went to ink, and none of them lost a channel.
+
+**`ink3` can carry nothing and now carries nothing.** 2.96:1 on white at full opacity, under the text floor on every surface, and 2.83:1 as a mark on cream, under the non-text floor too. It was the disabled button label and the stopped arrow. Both moved to `ink2`. The token stays defined and unused, and DESIGN.md says why.
+
+**Dimming compounds, and the locked slot is the place it showed.** At `opacity-55` a locked slot's title measured 3.85:1, its detail 2.36:1 and its button label **1.65:1**, which is under the floor for a decorative border let alone for text. The dim is 0.85 now, where the three are 11.00, 4.51 and 4.51. The dashed border with no shadow still says locked, which is the point: lockedness was always on four channels and the dim was destroying the other three.
+
+**The fifth guard.** `accessibility.test.ts`, after the determinism lint, the `Needs source` release gate, the colour test and the divergence-row test. It computes every rendered pair from the tokens in `index.css` **and from the dim read out of `Card.tsx`**, so a palette change or a dim change fails the build rather than failing a user. It bans a semantic colour as text by both routes, the class and the live style write, and it holds every meaning in the channel table to naming a second channel. Probed three ways and the probe found a hole: the dim had been written into the test as a literal, so restoring `opacity-55` left the whole block passing. **A guard that agrees with itself is not a guard.**
+
+**Voice, taste and "does it read" are not tested and are not faked**, for the same reason `contentStyle.test.ts` refuses to test voice.
+
+86 tests were added, taking the suite to **415 across 34 files**, and the bundle to **268.94 kB, 83.73 kB gzipped**. **The act 1 canonical hash is `49ea08d3` and no tuned number moved**: `git diff main` across the three tuning files, `docs/SCIENCE.md`, `docs/ECONOMY.md`, `src/sim/` and `src/content/` is empty for the whole log.
+
 ## What exists
 
     docs/BRIEF.md          orientation, the idea and the reasoning
@@ -233,6 +284,8 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
     UPDATELOGV3.md         the first interface log, seven stages, all reported
     UPDATELOGV4.md         the persistence log, six stages, all reported
     UPDATELOGV5.md         the economy log, five stages, all reported
+    UPDATELOGV6.md         the comprehension log, five stages, two unrun
+    UPDATELOGV7.md         the accessibility log, five stages, all reported
 
 Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system-20260728/`. `preview-cartoon.html` is the current direction. `preview.html` is a rejected earlier direction kept for comparison.
 
@@ -264,6 +317,19 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - Content lives in `src/content/` and the kernel never imports it. The arrow points one way, permanently.
 - ATP is a flux, not a score. The adenylate pool is fixed and closed and `maintain` hydrolyses ATP back to ADP and phosphate. Cumulative production is a counter beside the simulation, never a pool inside it.
 
+## Settled 2026-08-04, by V7
+
+- **Nothing in the game may be encoded in movement or colour alone.** DESIGN.md's Accessibility section, promoted out of Motion and widened. The same argument the motion rule already had, applied to the property it should always have covered.
+- **Redundant encoding, never replacement.** Colour stays and keeps being the fast channel. A second channel is added alongside so the information survives losing the first. Replacing colour with a pattern for everyone would make the game worse for the majority to serve a minority.
+- **A semantic colour fills, and ink writes.** The palette is built so ink reads on every semantic colour, which is what makes the badge contract work, and a colour with that property cannot also read as text on a pale surface. Measured, not preferred: darkening `gain` enough to read as micro text takes the Sourced badge word from 6.54:1 to 3.30:1.
+- **`ink3` may not carry meaning.** Under the text floor on every surface in the palette and under the non-text floor on most. Still defined, used by nothing.
+- **Dimming compounds and has to be measured that way.** A pair table that lists flat colours misses the case where an ancestor's opacity is what breaks the text. The locked slot is the example and it was the worst ratio on the screen at 1.65:1.
+- **The focus indicator is drawn inside the element.** The hard offset shadow makes an outer ring clean on two edges and invisible on the other two.
+- **Speech announces events, exposes rates on demand, and never narrates the tick.** Sixteen events in a whole act against roughly 74000 ticks. The rates a screen reader reads are the same figures the reduced-motion path renders, never a parallel set.
+- **An accessible name states the reading, not the legend**, and it carries no figure, because an `aria-label` has nowhere to put a badge.
+- **Focus moves into an overlay only when the player opened it.** An automatic coach mark draws itself and leaves the keyboard alone. Announcing it is the alternative and it is what the live region is for.
+- **A guard that agrees with itself is not a guard.** Two of V7's five probes found the assertion rather than the code: a contrast test that hardcoded the value it was checking, and an arrow-colour test that searched markup no per-frame callback ever writes to. **Probe every guard by breaking the thing it guards, not by reading it.**
+
 ## Settled 2026-08-03, by V5
 
 - **A tuned number lives in exactly one of the three tuning files and has exactly one row in docs/ECONOMY.md.** Enforced by `divergenceTable.test.ts`, which counts scalars rather than names, so adding a rung to a ladder fails it. This is docs/PILLARS.md rule 5 turned into the same kind of mechanism as hard rules 1, 4, 5 and 7.
@@ -289,7 +355,15 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Blocking
 
-**V6 added one and it is now the top of the list.**
+**V6 added one, V7 widened it and added two conflicts. The list is still headed by a person rather than a feature.**
+
+0b. **Nobody who uses a screen reader has heard this game, and no screen reader has been run against it at all.** Opened 2026-08-04 by V7 stages 1 and 4, which both had to report the same limitation.
+
+   **What was done instead is Chrome's computed accessibility tree, before and after, on the real page.** That tree is what Chrome hands to the platform accessibility API, so it is what a screen reader consumes, and every defect stage 1 named is visible in it as fixed: landmarks 3 to 8, headings 3 to 4, live regions 0 to 1, the carrier's name from the encoding to the reading, the pathway from unreachable by structure to a region with a heading.
+
+   **What a tree cannot tell you is how it sounds, how long it takes, or whether it is bearable**, and every claim V7 makes is of the first kind. NVDA and JAWS are not installed on this machine and Narrator exposes no way to capture what it said, so driving one would have meant reporting the builder's reading of the page as a reading of the page. **That is the substitution UPDATELOGV6.md stages 2 and 5 refused and it was refused again here.**
+
+   **This is a smaller ask than item 0 and it is a different person.** One screen reader user, ten minutes, `npm run dev` at a fresh state. Or, much cheaper and worth doing first: install NVDA and run act 1 end to end, which at least turns "unrun" into a builder's reading, which is worth less than a real one and more than nothing.
 
 0. **Nobody who is not the author has ever looked at this game.** Opened 2026-08-04 by V6, which was built to close it and could not. It is stated as blocking rather than as an open question because **it blocks the two things docs/PILLARS.md lists as its first and second success conditions**, and because no amount of further building closes it. Every other item on this page can be worked on; this one cannot be worked around.
 
@@ -298,6 +372,18 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
    **The single most valuable data point named in the protocol is unmeasured and it is the one docs/PROGRESSION.md predicts**: what a player thinks buying lactate dehydrogenase will do, asked before they buy it. Most players arrive expecting fermentation to be an energy upgrade. Nobody has watched that expectation be corrected or fail to be.
 
    **One thing is permanently lost and should be recorded rather than hoped away.** Stage 2 was a pre-change baseline and the change has now landed. A cold read taken today measures this build, with the first run and the teaching layer in it, against nothing. **The comparison V6 was designed around cannot be recovered.** A single post-change reading is still worth far more than none.
+
+4. **Forced-colors mode removes the hard offset shadow without removing it, and this is a conflict rather than a bug.** Opened 2026-08-04 by V7 stage 1.
+
+   In `forced-colors: active` the page goes black ground, white text, white outlines. Text and card outlines are fine and every card still reads as a card. `box-shadow` is not forced, so DESIGN.md's `4px 4px 0` ink shadow is still painted, onto a black ground, where it is invisible while the layout still reserves its offset. **The paper cutout read collapses entirely**, and DESIGN.md calls that shadow load-bearing.
+
+   **It is recorded as a conflict because both sides are right.** A user setting says "remove your colours, use mine" and a design decision says "this shadow is what makes the system legible". Naming it a defect implies somebody was careless and nobody was. The available fix is a `forced-colors` block that swaps the shadow for a second outline, and it is a design decision rather than a repair, so it was not taken inside an audit stage.
+
+   **Two things that survived and should not be lost.** The badge fills flatten to black-on-white, so Sourced, Tuned and Contested become typographically identical and are told apart only by the word, which is exactly what V7's channel table predicted. And SVG `fill` set as a presentation attribute is not forced, so the blobs keep their colours and the redox axis keeps working: **forced-colors is not a second route to the colour-alone problem.**
+
+5. **`prefers-contrast: more` does nothing, and "nothing" is exact.** Opened 2026-08-04 by V7 stage 1. The query matches and the rendered page is indistinguishable from the default, because there is no `prefers-contrast` block anywhere in `src/index.css` and no component reads it.
+
+   This is an absence rather than a regression, and it is the cheapest item on this page: the failing pairs are all enumerated, the guard already computes them, and after V7 every one of them clears AA anyway. What a `prefers-contrast` block would buy is AAA for a user who asked for it, and nobody has decided whether that is worth a second palette.
 
 **One item closed, one narrowed, and nothing new added.** Both belonged to docs/ECONOMY.md, which is why neither moved for three logs.
 
@@ -327,7 +413,7 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 - **Working title is still TBD, and the wordmark is now one edit rather than a search.** docs/BRIEF.md line 4 says so and no naming shortlist exists. `krebs` names an act 3 mechanic that unlocks roughly four hours into a game whose first 45 to 90 minutes are anaerobic. **V6's content guard found it hardcoded in `TopBar.tsx`**, which the audit that went looking for hardcoded strings had missed, and it now lives in `src/ui/content.ts` as `WORDMARK` with a badge saying the title is provisional.
 - **The teaching panel sits behind two 16px affordances and nobody knows whether it is reached.** It carries the most important thing in act 1, docs/PILLARS.md success condition 2 in the only form act 1 can state it, and it opens from the ferment unlock slot or from either of the two new coach marks. **The obvious automatic trigger was identified and deliberately not built**: the moment fermentation is bought is also the moment the two headline numbers visibly diverge, and whether that moment wants an overlay on top of it is a comprehension question. It was left for the readers V6 did not find.
-- **The blob readout is a hover tooltip, so a touch player and a keyboard player cannot reach it.** `aria-label` covers screen readers and the carbon coach mark covers the argument for shape-equals-carbon, but **colour-equals-redox exists on the hover channel alone for a sighted touch player**. DESIGN.md calls that its most important colour decision. This is the clearest single item V7 inherits.
+- **The blob readout is still a hover tooltip, and V7 removed the reason that mattered rather than the tooltip.** The entry used to say colour-equals-redox exists on the hover channel alone for a sighted touch player. It does not: the level rule carries it on the shape itself, with no affordance to find and nothing to hover. What is still hover-only is the *explanation* of the encoding, which is a smaller thing than the state it explains. A touch player now reads the carrier without ever opening anything.
 - **Moving the disclosure off the act screen is compliance and it has a cost nobody has measured.** docs/SCIENCE.md Part 1 asks for it "in the about screen and on first launch" and it is now in both, verbatim, with a test parsing the document. It used to be visible without any action and is now one click away after being shown once. Whether that reads as burial is a reader's call and there has been no reader.
 - **The first run has one button and no gate, which is correct and also the easiest thing in the world to skip.** docs/PILLARS.md rule 2 rules out a gated tutorial, so this is the right shape. Whether it is read or clicked through is unmeasured.
 - **The divergence debt is discharged and the obligation to keep it discharged is new.** This entry used to be a count of what docs/ECONOMY.md was owed. It is now a count of what it holds: **thirty-seven rows across three tuning files**, 17 in `src/content/act1/tuning.ts`, 19 in `src/ui/tuning.ts` and 1 in `src/save/tuning.ts`. The old count of twenty-two was wrong in three places at once and the correction is recorded under "What the economy does". What replaces the debt is a standing rule with a test behind it: **a tuned number lives in exactly one of the three tuning files and has exactly one row.** Three numbers had been sitting outside those files since V2, the atp, adp and phosphate starting amounts in `pools.ts`, in a file whose own header said they owed a row. They were moved at unchanged values in V5 stage 5 and the guard is what found them.
@@ -346,8 +432,16 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - **`FERMENT_ATP_THRESHOLD` has no usable range and V5 measured it.** V3 left open whether the wall's answer should appear only after the player has sat in the stall for a while. It cannot be done with this number: cumulative ATP converges on the walled ceiling of 60 in the same breath as the pathway dies, so 50 is reached 0.50s before the wall and 59.99 is reached 0.10s after it. **A delay between the wall and its answer is an interface decision**, and it belongs with the coach mark rather than with a threshold.
 - **A development-time tick rate change costs one tick of game time per save, and that is the price of the rule rather than a defect.** `elapsedGameMs` is a whole multiple of the TICK_MS that wrote it, so reconstruction is exact while the rate is unchanged and floors when it is not. Storing milliseconds decouples the duration from `TICK_RATE_HZ`, which is what hard rule 6 depends on; it does not decouple the alignment. A save with a remainder is not corrupt and the loader must never treat it as corrupt. Written into docs/SAVE_SCHEMA.md Part 3 by V4.
 - ~~**Buying an unlock is not part of hashed state, and V4 has to persist it.**~~ Closed 2026-07-31. It still is not hashed state, which is why it needed saying: `setReactionVmax` and `setReactionEnabled` touch no pool, no tick count and no PRNG, so a reload that dropped unlock state would pass every determinism test in the project while silently refunding every purchase. `progression.unlocked` persists it and the runtime re-applies the capacity Vmax at load. Two tests in `reloadDeterminism.test.ts` fail on purpose without each half.
-- **The media query behind reduced motion has never run in a browser.** The reduced path itself was verified by forcing the flag, and it works. `usePrefersReducedMotion` is small and ordinary, but small and ordinary is not tested, and `Emulation.setEmulatedMedia` is not on the browse tool's CDP allowlist. It needs one check through real OS settings.
-- **DESIGN.md's "colour leaving" sentence is backwards as written.** It says the player watches the NAD+ wall arrive as colour leaving, but `oxidized` is the desaturated end of the axis, so as NAD+ drains colour arrives. V3 encodes the reduced fraction, which is monotonic and reads well, but it is not what the sentence says. Recorded in DESIGN.md's "What survived contact".
+- **The reduced-motion media query has now run in a browser, and the entry is narrowed rather than closed.** Two halves, and only one of them was ever in doubt.
+
+   **The app's half passes outright.** A real Chrome launched with the feature true at the platform layer, on the running act screen: `matchMedia` true, zero animated dash lines rendered, and all five reactions showing an explicit numeric rate. Photographed. A running reaction is a solid dark track with a filled arrowhead reading 7.95 /s and a stopped one is a thin grey hairline with a hollow head reading 0.00 /s. **DESIGN.md's obligation is discharged in full and it is the only part of the V7 audit that needed nothing.**
+
+   **The OS to browser link is live and was verified.** A headed Chrome, no forced flags, reported `prefers-reduced-motion: reduce` as false, and `SPI_GETCLIENTAREAANIMATION` independently reported animations on. They agree, and the browser was confirmed headed rather than headless, so the query is being evaluated against the real setting rather than stubbed.
+
+   **What could not be observed is the transition, and the reason is Windows rather than the code.** `SPI_SETCLIENTAREAANIMATION` is a no-op on this Windows 11 build. The setting's real home, bit `0x02` of byte 2 of `HKCU\Control Panel\Desktop\UserPreferencesMask`, took the write and broadcast `WM_SETTINGCHANGE`, and the running session kept reporting animations on, because that value is cached per session and Chrome reads the cache. Confirming it needs a sign out. The original mask was restored byte for byte and verified. **What remains unobserved is a player flipping the toggle mid-session, which `usePrefersReducedMotion` listens for and which nothing has watched happen.**
+- ~~**DESIGN.md's "colour leaving" sentence is backwards as written.**~~ **Closed 2026-08-04 by V7 stage 5.** The Colour section says colour arrives now, and keeps the old sentence on the page with the correction rather than deleting it, because the wrong version is the more useful record. The player-facing text was corrected too: the carrier's readout says "The level rises and the colour arrives as NAD+ is spent", which is the first player-facing string in the game to say which way the beat runs.
+
+   **What is worth keeping is why it took two logs.** It was recorded as wrong on 2026-07-29 and nothing depended on it, so nothing forced it. V7 had to describe the axis correctly in order to build a second channel for it, and that is what finally moved it. **A wrong sentence in a specification survives until something is built on top of it.**
 - **The wordmark scale does not fit a persistent top bar.** DESIGN.md gives it 60 to 104px, which is a hero scale, and on the act screen it takes a permanent 100px band for a word that never changes. Implemented as specified and recorded as wrong.
 - **docs/SIMULATION.md line 90 names three conserved quantities and act 1 has five.** It says "carbon, phosphate and redox equivalents". `nicotinamide` and `adenylate` are conserved too under the act 1 decomposition and are the more useful invariants, because they are what turn the NAD+ wall into a testable property. V2 deliberately did not edit docs/SIMULATION.md. Recommendation is that Part 2's wording be widened to say the conserved set is content's to declare, since act 3 will add more, but that is a spec edit and should be deliberate rather than incidental.
 - **The timeline date column has no treatment for a stop with no date.** Two stops now carry `unresolved` and `hypothesis` instead of a figure. They need to read as deliberate statements at the same visual weight as a real date, and the non-linear axis has to place an undated stop by ordering constraint alone. See DESIGN.md open question 5.
@@ -361,11 +455,17 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 0. **Find one cold reader.** Not a log and not a stage. It is listed first because it is the only item on this page that no amount of building advances, because it gates docs/PILLARS.md's first two success conditions, and because every log after this one adds more to a screen nobody outside this project has looked at. See Blocking item 0. It does not block V7 and V7 should not wait for it.
 
-1. **Accessibility, and the colour-alone problem.** `UPDATELOGV7.md`. **It follows this log rather than preceding it, and the reason is direction of dependency: its job is to make text and illustration perceivable, and both had to exist first.** Before V6 there was one coach mark, no panel, no first run and no readout on any blob, so an accessibility pass would have been auditing an empty room and would then have had to run again over everything V6 added. It now inherits a real teaching layer and it inherits three specific defects V6 created or exposed: the blob readout is hover-only, so it is unreachable by touch and by keyboard; colour-equals-redox exists on that channel alone for a sighted touch player; and the media query behind reduced motion has still never run in a browser.
+1. **Offline progress.** `UPDATELOGV8.md`, docs/SIMULATION.md Part 3, plus validating `STEADY_EPSILON` and `STEADY_WINDOW`, which have been unvalidated placeholders since V1. Act 1 has been a real configuration to validate them against since V2, can be saved mid-run since V4, and since V5 has a steady state that is genuinely steady and reachable without falling into a trap first. **V5 chose more unlocks over a varying environment specifically to avoid handing this log a permanent fallback to coarse replay**, so it inherits an economy that suits it rather than one that fights it. It also inherits a real accumulated `pendingOfflineMs` rather than a zero, and V6 has corrected the save panel badge that told the player offline progress was landing in V5.
 
-2. **Offline progress.** `UPDATELOGV8.md`, docs/SIMULATION.md Part 3, plus validating `STEADY_EPSILON` and `STEADY_WINDOW`, which have been unvalidated placeholders since V1. Act 1 has been a real configuration to validate them against since V2, can be saved mid-run since V4, and since V5 has a steady state that is genuinely steady and reachable without falling into a trap first. **V5 chose more unlocks over a varying environment specifically to avoid handing this log a permanent fallback to coarse replay**, so it inherits an economy that suits it rather than one that fights it. It also inherits a real accumulated `pendingOfflineMs` rather than a zero, and V6 has corrected the save panel badge that told the player offline progress was landing in V5.
+   **It also inherits a rule it has to obey rather than discover.** The offline return screen shows an event sequence, and every one of those events is the same kind of thing `Announcer.tsx` already says out loud. Whatever it renders has to reach speech too, and DESIGN.md's Accessibility section is now the place that says so.
 
-**The ordering note that stood here for two logs is discharged.** It said docs/ECONOMY.md should go first and warned that building on an unsettled economy costs a rewrite, and V4 built saves on top of a known hole anyway. V5 paid that debt. **The same reasoning put docs/CONTENT_STYLE.md ahead of offline progress and it was right for the same reason: text written against numbers that are about to move gets written twice, and the numbers had stopped moving.** It now puts accessibility ahead of offline progress, for text rather than for numbers.
+2. **CI, cross-engine determinism and deployment.** `UPDATELOGV9.md`.
+
+**Both are independent of V7 and of each other, and CI could be pulled forward at any point.** It is the one remaining log with no dependencies: it needs no content, no economy and no interface decision, and the case for it grows with every log rather than with any particular one. **There are five build-failing guards in this project and nothing runs them except a person remembering to.** The determinism lint, the `Needs source` release gate, the DESIGN.md colour test, the divergence-row test and now the accessibility test are all mechanism on a machine nobody has automated. That is the argument for CI and it is stronger after V7 than before it, because V7 added a guard that a palette edit is exactly the kind of change somebody makes without running the suite.
+
+**The ordering note that stood here for two logs is discharged.** It said docs/ECONOMY.md should go first and warned that building on an unsettled economy costs a rewrite, and V4 built saves on top of a known hole anyway. V5 paid that debt. **The same reasoning put docs/CONTENT_STYLE.md ahead of offline progress and it was right for the same reason: text written against numbers that are about to move gets written twice, and the numbers had stopped moving.** It then put accessibility ahead of offline progress, for text rather than for numbers.
+
+**And that ordering was right, for a reason nobody predicted.** The stated argument was that V7 needed V6's text to exist before it could make it perceivable, which is true and turned out to be the smaller half. The larger half is that **V7 found things wrong with the parts of the build that had been finished longest**: a file input unreachable by keyboard since V4, a focus ring invisible since V3, a colour axis that fails for one reader in twelve and was described backwards in DESIGN.md since 2026-07-29. None of those were introduced by V6 and none would have been found by building anything new. **Running an audit late finds four logs of accumulated defects at once, which is an argument for running the next one earlier rather than for having run this one late.**
 
 **One ordering claim V6 cannot make.** V5's entry here said the comprehension pass "owns the question this project most needs answered by someone who is not its author". It did own it. **It did not answer it**, and the ordering above deliberately does not put another content log in front of V7 in the hope of answering it by building more, because the thing missing is a person rather than a feature.
 
@@ -382,6 +482,8 @@ Done in V3: the interface. **The slice is complete.**
 Done in V4, outside the slice: persistence. Every property this project treats as tested is now tested across a reload as well, which is a stronger claim than any earlier log could make.
 
 Done in V6, outside the slice: the comprehension pass. **It is the first log whose deliverable cannot be verified by the test suite**, and it is the first to end with a number that is zero rather than a measurement.
+
+Done in V7, outside the slice: the accessibility pass. **It is the first log that repaired defects in every earlier one**: V3's focus ring, V4's unreachable file input, V3's colour axis and a DESIGN.md sentence wrong since 2026-07-29. It is also the first whose central claim is arithmetic rather than judgement, so most of it is now a test, and the part that is not is the same part every log has left open: whether it reads.
 
 Done in V5, outside the slice: the economy. **The claim the slice exists to make is now asserted over nine purchasable configurations rather than two**: gross ATP per completed glucose is 4.000000000 and net is 2.000000000 at the shipped default and at the top of both ladders, while ATP per second goes from 31.795 to 75.494. docs/PROGRESSION.md says enzyme upgrades increase throughput and never yield, and that is measured across the whole ladder now rather than argued.
 

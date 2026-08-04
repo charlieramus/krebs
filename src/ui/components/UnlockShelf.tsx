@@ -56,7 +56,12 @@ import {
 function Progress({ threshold }: { threshold: number }) {
   const ref = useLiveNode<HTMLSpanElement>((element, snapshot) => {
     const reached = snapshot.meter.atpProduced >= threshold;
-    const colour = reached ? 'var(--color-gain)' : 'var(--color-ink2)';
+    // `ink`, not `gain`. This is micro type, so it needs 4.5:1, and `gain` on
+    // white measures 2.70. See DESIGN.md, Accessibility: a semantic colour
+    // fills and ink writes. Nothing is lost, because the threshold being
+    // reached is already carried by the button below it becoming operable,
+    // which is a stronger signal than a green number.
+    const colour = reached ? 'var(--color-ink)' : 'var(--color-ink2)';
     if (element.style.color !== colour) element.style.color = colour;
   });
 
