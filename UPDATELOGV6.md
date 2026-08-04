@@ -538,7 +538,97 @@ string lives in content.ts with a resolving badge.
 
 ## Stage 4 Report
 
-_Pending._
+**As with stage 3, every choice below is reasoned rather than measured, because stage 2 was unrun.** Where the stage prompt says "pick from the evidence", the report says what was picked and from what argument.
+
+**The strongest thing found in this stage is that docs/SCIENCE.md Part 2 contains two direct orders to the interface and neither had ever been carried out.** They are not implications, they are sentences addressed to the game:
+
+    "The 2 ATP figure is net of the 2 ATP investment. This is worth surfacing
+     in-game because the gross figure of 4 is a common point of confusion."
+
+    "Framing it as an energy pathway is a common misconception and the game
+     should correct it directly."
+
+Three logs have shipped interface since those were written. The teaching panel is built around discharging both, which turned "which concept goes in the panel" from a judgement call into a reading of the science document. A test asserts the panel states both figures and makes the fermentation correction, so neither instruction can quietly lapse again.
+
+### 1. The teaching panel
+
+`src/ui/components/TeachingPanel.tsx`, and `YIELD_PANEL` in `src/ui/content.ts`. **The screen inventory has listed it since 2026-07-28 and this is the first log to build it.**
+
+Same contract a coach mark has: heading with its badge, body, mandatory source row. Five paragraphs and 822 characters, against the 6 and 1400 that docs/CONTENT_STYLE.md Part 5 allows, and a test asserts both bounds plus the lower one that matters more, that it is longer than two paragraphs. **"Longer than a bubble" is not "unbounded"**, and a panel that grew without a ceiling would just be the coach mark problem again at a larger size.
+
+Its subject is the one V3 named when it said what would not fit in a bubble. `CoachMark.tsx`'s header has read, since V3: "What did NOT fit is the part players find most surprising, that fermentation buys throughput and buys exactly zero yield. That is reported in stage 3 rather than crammed in, and it belongs on the unlock or in a teaching panel." **It is now on both.**
+
+It says: prep spends 2 to make two 3-carbon pieces, payoff makes 2 from each, so 4 made and 2 spent and 2 net. That the 4 is the number people remember and the 2 is the one that leaves the cell better off. That nothing on the unlock shelf moves the 2. That lactate fermentation makes no ATP at all and buys rate and nothing else. And that the two headline numbers therefore do different things.
+
+**It is success condition 2 in the only form act 1 can state it.** docs/PILLARS.md wants a player who can explain the roughly fifteenfold difference between fermentation and aerobic respiration. Act 1 has one pathway and cannot make that comparison. What it can establish is the half in front of the player, and the panel deliberately stops there: **an earlier draft ended with a line pointing at aerobic respiration and it was cut**, because the build has one act and a sentence promising act 3 is a promise the build cannot keep. Same reasoning as stage 3 step 5.
+
+**Two ways in, because one would have been a lottery.** The two new coach marks escalate into it through their action rows, which is the escalation Part 5 describes. It also hangs off the fermentation slot on the unlock shelf, so a player who never opened a coach mark still reaches the most important thing in the act. **It does not open automatically and that is deliberate**: the obvious trigger, the moment fermentation is bought, is also the moment the two headline numbers visibly diverge on screen, and whether that moment wants an overlay on top of it is a comprehension question. Handed to stage 5 rather than guessed.
+
+### 2. The coach marks, from one to three
+
+    Card          Mark                        Answers, from the thirteen-item table
+    ---------------------------------------------------------------------------
+    nicotinamide  NAD+ has run out            6, what NAD+ does. 7, why it stopped
+                  (V3, unchanged)             Automatic. The only automatic one
+    g3p           6 carbons, split in two     8, what the preparatory phase is
+                  223 chars, 2 paragraphs     10, that shape means carbon count
+    adenylate     ATP does not pile up        2, what ATP is for
+                  243 chars, 2 paragraphs
+
+**The g3p card is where sides-equal-carbons goes, and the card is the argument.** DESIGN.md's case for illustration rule 1 is that a player told once that a six-sided blob has six carbons can read the whole pathway afterwards, because one six becoming two threes is visible. **Told ONCE. Nothing in the game had ever told them**, so the design's central claim was being made to nobody. The g3p card is the only place on screen where both halves of the arithmetic are visible at the same time, so the telling goes there rather than on either glucose card.
+
+**The ATP mark went on the adenylate card because that card's headline sits at 0.00 once the cell is in steady state.** A player looking at a currency that has stopped going up is exactly the player who needs to be told it was never going to.
+
+**Its source row is the finding, not its text.** Step 2 says if a beat has no source, report that rather than writing a plausible one. **docs/SCIENCE.md says nothing about the adenylate total being fixed, and a real cell synthesises adenine nucleotides.** What is sourced is the stoichiometry: every act 1 reaction converts one of the pair into the other, so under this pathway the sum does not move. Closing the pool is the game's model and it is one of the three structural departures docs/ECONOMY.md records without a row. **So the mark's heading and both paragraphs carry Tuned badges whose reasons name the sourced half and the invented half separately**, and it would have been very easy to write `sourced(PART2)` there and have nobody notice.
+
+**Two of the three marks are manual by construction rather than by `COACH_MARK_TRIGGER`.** Only the NAD+ mark has a simulation event worth interrupting for. A card that opens an unrequested bubble whenever some condition happens to be true is what turns teaching into nagging, and neither of the new ones has such a condition. The trigger constant still governs the one mark it always governed, so stage 5's decision about it is unchanged in scope.
+
+**Every source row resolves, and that is now mechanism.** `teaching.test.tsx` parses the `# Part N:` headings out of docs/SCIENCE.md and asserts each mark's and the panel's source row names a Part that exists, with a guard-the-guard assertion so the parser cannot pass vacuously. It also asserts the two paragraph ceiling and the 400 character body ceiling per mark, which had never been checked because there had only ever been one mark to check.
+
+### 3. Making the illustration say what it encodes
+
+**The smallest thing that does it, per step 3: every blob now says what it is.** `Blob` renders a `<title>`, which is a native hover tooltip, carrying the same string as its `aria-label`. The string is composed by `blobReadout` in `src/ui/content.ts` from the conserved weights in `src/content/act1/pools.ts`, which is the same table the geometry is drawn from. Read out of the running page:
+
+    Glucose (environment). 6 sides, 6 carbons
+    Glucose. 6 sides, 6 carbons
+    Glyceraldehyde 3-phosphate. 3 sides, 3 carbons. 1 phosphate
+    Pyruvate. 3 sides, 3 carbons
+
+**Derived, not written, and a test asserts the derivation rather than the strings.** It checks that glucose's count is twice g3p's and that ATP carries exactly one more phosphate than ADP, both read from the pool table. A stoichiometry change moves the picture, the readout and the test together. Composed in a `.ts` file so no `.tsx` formats a number, which keeps the tabular-figures lint rule intact.
+
+**This is the first player-facing text in the project's history with numbers in it.** Stage 1's audit found the count was zero. Every number here is a conserved weight tracing to docs/SCIENCE.md Part 2, and the badge is the one the pool card already renders for every figure on it.
+
+**Colour-equals-redox gets the same treatment on the one blob that uses it.** `CARRIER_READOUT`: "NAD+ and NADH. One shape, and the colour is which one it is. Full colour means NADH, carrying electrons." Item 11 of the thirteen, which DESIGN.md calls "the single most important colour decision in the system" and which nothing on the screen had ever stated. A legend panel was considered and rejected on step 3's own instruction to prefer the smallest thing and not build a panel nobody opens.
+
+**One honest limit: a hover readout needs a pointer.** It is not reachable by touch and it is not reachable by keyboard. The `aria-label` covers screen readers and the coach mark covers the argument, so the information exists on three channels, but a touch player gets two of the three. That is an accessibility gap and it belongs to the next log, which is the accessibility pass.
+
+### 4. The glossary: not built
+
+**Decided on reasoning, and the reasoning is against it.** Step 4 says build one only if stage 2 showed one is needed, and stage 2 showed nothing. Three arguments, in order of weight. Every molecule name on screen is already the real one, which is correct and sourced, and the three coach marks now name the hard ones in context, which is where a definition is actually usable. docs/CONTENT_STYLE.md Part 6 says a concept carried by shape must not be carried by prose, and the blob readouts now make the shapes self-describing, which is the failure mode a glossary would have been papering over. And a glossary is a surface a player has to decide to open, which is the same objection that killed the legend panel one paragraph above.
+
+**Recorded as a reversible decision rather than a closed one.** If stage 5's readers stumble on the names, the finding is specific and the fix is cheap.
+
+### 5. Where the strings live
+
+**Every string this stage added is in `src/ui/content.ts` with a badge that resolves.** Checked rather than assumed, as step 5 asks: three coach marks, the panel, the panel affordance, the carrier readout and the blob readout function, all exported from that file, all typed as `Entry` or a shape built from it, and no component in this stage writes a literal to the player.
+
+**The pre-existing violations from stage 1's audit are still there and are still stage 6's.** `UnlockShelf.tsx` renders ten literals, and building on it in this stage surfaced an eleventh the audit missed: `{bought ? 'Running' : buyLabel}` on line 119. Fixing them here would have mixed a coherence pass into a feature stage; the count is now eleven and stage 6 has it.
+
+### One correction to docs/CONTENT_STYLE.md, made by its own test
+
+**The button ceiling was 4 words and V3's best line is 5.** `teaching.test.tsx` failed on "Show me what recycles it", which V3's play reading calls the strongest beat in the build. Rewriting the best line in the game to satisfy a rule that was one day old and had never been measured is the tail wagging the dog, so **the ceiling moved to 5 and the decisions log says why**. 5 is the widest button that ships and nothing else in the game exceeds 4, so it is set at what is there rather than at a rounder number.
+
+**That is the second ceiling this document has lost on contact with real work in two stages**, after the first run's three-screens rule in stage 3. Both were written without checking them against what already existed. The pattern is worth naming: **the parts of docs/CONTENT_STYLE.md that were derived from the shipped build have held, and the parts that were chosen have not.** Neither correction weakened a rule that was doing work.
+
+### Verify
+
+`npm run typecheck` and `npm run lint` silent. `npm test` **319 passed across 30 files**, up from 300 across 29. `npm run build` clean at **262.79 kB, 81.78 kB gzipped**, up from stage 3's 257.99 kB and 80.51 kB.
+
+**19 tests added in `src/ui/__tests__/teaching.test.tsx`**, plus one existing test amended. `illustration.test.ts` failed correctly when the `<title>` landed, because it compares the NAD+ and NADH markup for identity after normalising away what is legitimately different. The readout is text about the shape rather than the shape, so it joins the fill and the `aria-label` in the normaliser, and the comment says why. **The test caught a real change and the fix did not weaken it.**
+
+**`npm run dev`, checked in a browser from a cleared localStorage.** All four affordances present with meaningful accessible names, which is an improvement in itself: the info buttons are now named by their coach mark headings rather than by "About NAD+ / NADH". The carbon mark opens, its action opens the panel, the panel states both figures and the fermentation correction and renders its source row, and the four blob readouts above were read out of the live DOM rather than from the source. Screenshots taken and read.
+
+**No tuned number moved.** The three tuning files are untouched, the V5 divergence guard passes and the act 1 canonical hash is unchanged.
 
 ---
 

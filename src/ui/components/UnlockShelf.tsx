@@ -32,8 +32,10 @@ import { useLiveNode, useRuntime, useSnapshotEffect } from '../RuntimeContext';
 import { Badge } from './Badge';
 import { Button } from './Button';
 import { Card } from './Card';
+import { InfoAffordance } from './CoachMark';
 import { Figure } from './Figure';
-import { UNLOCKS } from '../content';
+import { useOpenTeachingPanel } from './TeachingPanel';
+import { PANEL_AFFORDANCE, UNLOCKS } from '../content';
 import {
   FERMENT_ATP_THRESHOLD,
   GLYCOLYSIS_ATP_THRESHOLDS,
@@ -89,6 +91,8 @@ function Slot({
   affordable,
   onBuy,
   buyLabel,
+  onInfo,
+  infoLabel,
 }: {
   title: string;
   badge: Parameters<typeof Badge>[0]['badge'];
@@ -98,6 +102,9 @@ function Slot({
   affordable: boolean;
   onBuy: () => void;
   buyLabel: string;
+  /** Opens the teaching panel. Only the fermentation slot has one. */
+  onInfo?: () => void;
+  infoLabel?: string;
 }) {
   return (
     <Card
@@ -107,7 +114,12 @@ function Slot({
       className="flex min-w-0 flex-1 flex-col gap-2 p-3"
     >
       <span className="flex items-center justify-between gap-2">
-        <span className="font-display font-semibold text-card-title leading-tight">{title}</span>
+        <span className="flex items-center gap-1">
+          <span className="font-display font-semibold text-card-title leading-tight">{title}</span>
+          {onInfo === undefined || infoLabel === undefined ? null : (
+            <InfoAffordance onClick={onInfo} label={infoLabel} />
+          )}
+        </span>
         <Badge badge={badge} />
       </span>
 
@@ -124,6 +136,7 @@ function Slot({
 
 export function UnlockShelf() {
   const runtime = useRuntime();
+  const openPanel = useOpenTeachingPanel();
 
   /**
    * MIRRORED FROM THE SNAPSHOT, NOT OWNED.
@@ -209,6 +222,12 @@ export function UnlockShelf() {
           threshold={fermentBought ? null : FERMENT_ATP_THRESHOLD}
           bought={fermentBought}
           affordable={affordable.ferment}
+          // The teaching panel, reachable without having opened either coach
+          // mark. It hangs off this slot because this is the purchase it is
+          // about, and because the misconception docs/SCIENCE.md Part 2 asks the
+          // game to correct directly is a misconception about this button.
+          onInfo={openPanel}
+          infoLabel={PANEL_AFFORDANCE.text}
           buyLabel="Express it"
           onBuy={() => {
             runtime.buyFerment();

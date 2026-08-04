@@ -143,10 +143,18 @@ describe('illustration rule 3: redox is saturation, not hue', () => {
     expect(geometry(oxidized).length).toBeGreaterThan(0);
 
     // And they really are distinguished by the fill and nothing else. Normalise
-    // away the two things that are legitimately different, the fill and the
-    // accessible label, and the remaining markup must be identical.
+    // away the things that are legitimately different, the fill and the readout,
+    // and the remaining markup must be identical.
+    //
+    // The readout appears twice since UPDATELOGV6.md stage 4: once as
+    // `aria-label` and once as a `<title>`, which is what makes it a hover
+    // tooltip. Both are text about the shape rather than the shape, so both are
+    // normalised away. This assertion is about geometry.
     const normalise = (markup: string): string =>
-      markup.replace(/fill="#[0-9A-Fa-f]{6}"/, 'fill="X"').replace(/aria-label="[^"]*"/, 'label');
+      markup
+        .replace(/fill="#[0-9A-Fa-f]{6}"/, 'fill="X"')
+        .replace(/aria-label="[^"]*"/, 'label')
+        .replace(/<title>[^<]*<\/title>/, '<title/>');
     expect(oxidized).not.toBe(reduced);
     expect(normalise(oxidized)).toBe(normalise(reduced));
   });

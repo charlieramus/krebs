@@ -35,7 +35,8 @@ import { Blob } from './Blob';
 import { Card } from './Card';
 import { CoachMark, COACH_MARK_TRIGGER, InfoAffordance, useCoachMark } from './CoachMark';
 import { Figure } from './Figure';
-import { MOLECULES, NAD_COACH_MARK, POOL_FIGURES } from '../content';
+import { useOpenTeachingPanel } from './TeachingPanel';
+import { blobReadout, CARRIER_READOUT, MOLECULES, POOL_FIGURES } from '../content';
 import { carbonOf, phosphateOf, type PoolCardSpec } from '../poolCards';
 import { FERMENT_ATP_THRESHOLD } from '../tuning';
 
@@ -138,7 +139,11 @@ function NicotinamideBlob({ seed }: { seed: number }) {
       seed={seed}
       electrons={2}
       size={54}
-      label={`${MOLECULES.nad.text} and ${MOLECULES.nadh.text}`}
+      // One silhouette, two states, and the readout is what says the colour is
+      // the state rather than a decoration. Item 11 of UPDATELOGV6.md's
+      // thirteen-item table, which DESIGN.md calls its most important colour
+      // decision and which nothing on the screen had ever stated.
+      label={CARRIER_READOUT.text}
       pathRef={pathRef}
       electronsRef={electronsRef}
     />
@@ -168,13 +173,26 @@ export function PoolCard({ spec }: { spec: PoolCardSpec }) {
   const headline = poolIndex(spec.headline);
   const runtime = useRuntime();
 
-  // The one coach mark in the slice sits on the carrier card, because the
-  // carrier card is where the wall is visible.
-  const teaches = spec.kind === 'nicotinamide';
-  const coach = useCoachMark(teaches ? COACH_MARK_TRIGGER : 'manual');
+  /**
+   * Which mark this card teaches, if any. Three of eight do, declared in
+   * src/ui/poolCards.ts beside the card rather than branched on here.
+   *
+   * ONLY THE NAD+ MARK IS EVER AUTOMATIC. It is the only one with a simulation
+   * event to fire on, and it is the only one whose moment a player would
+   * otherwise sit inside without an explanation. The other two are manual by
+   * construction rather than by the COACH_MARK_TRIGGER setting: a card that
+   * opens an unrequested bubble every time some condition happens to be true is
+   * the thing that turns teaching into nagging, and neither of them has a
+   * condition worth interrupting for.
+   */
+  const mark = spec.coach;
+  const autoTriggered = spec.kind === 'nicotinamide';
+  const coach = useCoachMark(autoTriggered ? COACH_MARK_TRIGGER : 'manual');
+  const openPanel = useOpenTeachingPanel();
+
   const [canAct, setCanAct] = useState(false);
   useSnapshotEffect((snapshot) => {
-    if (!teaches) return;
+    if (!autoTriggered) return;
     const next = !snapshot.fermentUnlocked && snapshot.meter.atpProduced >= FERMENT_ATP_THRESHOLD;
     setCanAct((current) => (current === next ? current : next));
   });
@@ -186,8 +204,8 @@ export function PoolCard({ spec }: { spec: PoolCardSpec }) {
           <span className="font-display font-semibold text-card-title leading-tight">
             {spec.title.text}
           </span>
-          {teaches ? (
-            <InfoAffordance onClick={coach.show} label={`About ${spec.title.text}`} />
+          {mark !== undefined ? (
+            <InfoAffordance onClick={coach.show} label={mark.heading.text} />
           ) : null}
         </span>
         {/* One badge per card. Every Figure below passes the same provenance
@@ -204,13 +222,20 @@ export function PoolCard({ spec }: { spec: PoolCardSpec }) {
         Absolutely positioned out of the column it sits at 42ch, and it no
         longer shoves the six cards below it down the page when it opens.
       */}
-      {teaches && coach.open ? (
+      {mark !== undefined && coach.open ? (
         <span className="absolute left-0 top-full z-20 mt-2 w-max max-w-[min(42ch,80vw)]">
           <CoachMark
-            content={NAD_COACH_MARK}
+            content={mark}
             onDismiss={coach.dismiss}
-            actionEnabled={canAct}
-            onAction={() => runtime.buyFerment()}
+            // Only the buy action can be unaffordable. An action that opens a
+            // panel is always available, and disabling it would read as the
+            // explanation being locked behind a purchase, which is the opposite
+            // of what a teaching layer is for.
+            actionEnabled={mark.actionKind === 'buy-ferment' ? canAct : true}
+            onAction={() => {
+              if (mark.actionKind === 'buy-ferment') runtime.buyFerment();
+              else openPanel();
+            }}
           />
         </span>
       ) : null}
@@ -229,7 +254,18 @@ export function PoolCard({ spec }: { spec: PoolCardSpec }) {
                 seed={blob.seed}
                 electrons={blob.electrons ?? 0}
                 size={spec.blobs.length > 1 ? 48 : 54}
-                label={MOLECULES[blob.poolId].text}
+                // The blob says what it encodes. DESIGN.md's illustration rules
+                // put real information in the geometry and nothing told the
+                // player it was there. Composed in src/ui/content.ts from the
+                // same conserved-weight table the geometry is drawn from, so it
+                // cannot describe a shape the pathway no longer makes.
+                label={
+                  blobReadout(
+                    MOLECULES[blob.poolId].text,
+                    carbonOf(blob.poolId),
+                    phosphateOf(blob.poolId),
+                  ).text
+                }
               />
             ))
           )}
