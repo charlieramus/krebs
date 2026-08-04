@@ -7,7 +7,7 @@
  * card that will eventually be given one that is not in the palette.
  */
 
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 /** DESIGN.md, Colour, Surfaces. These seven and no others. */
 export type Surface = 'page' | 'cream' | 'pink' | 'mint' | 'sky' | 'lilac' | 'white';
@@ -33,6 +33,18 @@ export interface CardProps {
   dimmed?: boolean;
   /** Dashed outline. DESIGN.md uses dashed to mean unfinished or not yet bought. */
   dashed?: boolean;
+  /**
+   * Handle on the card element. Added by UPDATELOGV7.md stage 3, for focus
+   * management: a card is where focus has to go when the control inside it
+   * stops being focusable, and where a coach mark's first control is found.
+   */
+  containerRef?: Ref<HTMLDivElement>;
+  /**
+   * Makes the card a focus TARGET without making it a tab stop. Used when a
+   * purchase disables the button focus was on and there is nowhere left inside
+   * the card for it to go.
+   */
+  focusable?: boolean;
 }
 
 export function Card({
@@ -41,9 +53,13 @@ export function Card({
   className = '',
   dimmed = false,
   dashed = false,
+  containerRef,
+  focusable = false,
 }: CardProps) {
   return (
     <div
+      ref={containerRef}
+      tabIndex={focusable ? -1 : undefined}
       className={[
         SURFACE_CLASS[surface],
         'rounded-card border-ink text-ink',

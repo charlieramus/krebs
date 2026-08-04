@@ -586,7 +586,121 @@ whole of act 1 is completable by keyboard.
 
 ## Stage 3 Report
 
-_Pending._
+**This stage was scoped to make the game playable without a pointer and it was already playable without a pointer.** Stage 1 refuted that premise by tabbing the real page, and the reason V3 got it right without meaning to is worth keeping: **every control is a native `<button>`, and a native button needs no `tabIndex` and no key handler to be operable.** The grep in this log's Decisions section looked for `tabIndex` and keyboard handlers, found neither, and concluded there was no keyboard path. It was reading the absence of the wrong thing.
+
+So this stage did the narrower and sharper job that was actually there: one unreachable control, an invisible focus indicator, and four pieces of focus management, two of which were actively misleading.
+
+### 1. Reachability, and the one control that was not
+
+**Import from file was unreachable by keyboard, by anyone, since V4.** `SavePanel` wraps `<input type="file">` in a styled `<label>`, and the input carried Tailwind's `hidden`, which is `display: none`, which removes an element from the tab order entirely. It appeared in Chrome's accessibility tree as a bare `LabelText` with no role. Export worked and import did not, and the comment directly above it read "the native control is the accessible one" while the native control was display-none.
+
+`sr-only` instead: clipped to one pixel, still in the layout, still focusable, still operable, because a focused file input opens the picker on Enter or Space with no handler of ours involved. The picker itself was deliberately not triggered in the headless browser, since a native modal blocks the session; the behaviour is the browser's and is not something this change alters. Confirmed in the tab order after the change: `Export to file`, then `INPUT`.
+
+Everything else was already reachable. `Button.tsx` and `InfoAffordance` were both real buttons and neither needed fixing, which was checked rather than assumed.
+
+### 2. The focus indicator
+
+**An inner ink rule, 3px, offset -6px, on `:focus-visible`.**
+
+The default was `outline: auto` at 1px in Chrome's near-black, drawn immediately outside a 2.5px `#16162E` border. Stage 1 measured it against the colour it is actually adjacent to, which is that border rather than the page, at **1.02:1**. It was rendered and it was not perceivable.
+
+**Inside rather than outside, and the shadow is the reason.** DESIGN.md's `4px 4px 0` is a solid ink copy of the shape down and to the right, so an outer ring is clean along the top and left edges and merges into the shadow along the other two. An indicator visible on two sides of an element is not an indicator. Drawn inside, it sits on the element's own surface, is identical on all four sides, and never interacts with the shadow.
+
+It also reads as deliberate, which is the other half of what this stage asks. A second hard stroke inside the first is the paper cutout language the direction is built from, and nothing else in the system draws an inner rule, so it cannot be confused with a state.
+
+**Measured contrast, against every surface a focused control can sit on**, all against a 3:1 requirement:
+
+    white 17.67    cream 16.91    mint 15.20    sky 14.89
+    page  14.26    lilac 14.25    pink 14.19
+
+The -6px inset is what makes those the adjacent colours rather than the ink border, which is precisely the mistake the browser default makes.
+
+**Small controls take the ring outside, via `data-focus-ring="outer"`.** The 16px info affordance has no room for an inner rule, and DESIGN.md gives pills no shadow, so there is nothing outside for a ring to collide with. One rule, one opt-in, and the only element using it today is `InfoAffordance`.
+
+**No new colour and no `box-shadow`.** The indicator is `outline`, which keeps it clear of `designSystem.test.ts`'s rule banning a non-zero third length in any shadow, and it is `var(--color-ink)`, so nothing was added to the palette. A semantic colour was considered and rejected: DESIGN.md says every visual property carries simulation state, and a focus ring is not simulation state, so orange would have started meaning two things.
+
+### 3. Focus management, all four behaviours, each verified in a browser
+
+**Opening an overlay moves focus into it.** Measured before: the About panel open with `document.body` still focused. After: focus lands on `Close`, the first control inside.
+
+**The trap holds, and only where the overlay claims to be modal.** Five consecutive Tabs inside the About panel, all reported `INSIDE`. `dim` drives both `aria-modal` and the trap, so the two cannot drift apart. Stage 1 found the dimmed panels claiming `aria-modal="true"` while all nine controls behind them were still tabbable, which is worse than having no dialog role: assistive technology hides a background the keyboard walks straight into.
+
+**Escape closes and focus returns to the opener.** Measured: dialog gone, focus back on the `About` button in the top bar. The return is conditional on focus still being inside the overlay or nowhere, so a player who clicked something on the act screen keeps the place they chose.
+
+**Buying an unlock no longer drops focus into the void, and this was the worst of the four.** Measured before: focus to `document.body`, and the next Tab restarting from the top of the document and landing on `Export to file`, past the entire unlock shelf. After, buying "Express it" with Space:
+
+    focus after buying   DIV[tabindex=-1] "Lactate dehydrogenase..."
+    next Tab             BUTTON "About the yield"
+    then                 BUTTON "Export to file"
+    then                 INPUT (import)
+
+Focus moves to the slot's own card, which is a focus target and never a tab stop, so the tab order is unchanged and tabbing on continues in document order. It is conditioned on focus having actually been inside that slot, so a purchase made with the pointer, or from the coach mark's action button, does not yank focus across the screen.
+
+**Confirmed on a second, different purchase.** Uptake capacity bought by keyboard after tabbing to it: ATP per second 31.80 to 36.70 and glucose per second 7.95 to 9.94 in the top bar, focus on the slot card, next Tab forward.
+
+### 4. The coach mark, and the one decision this stage made rather than inherited
+
+**A coach mark takes focus when the player asked for it and never when it fires by itself.**
+
+The stage says "opening a coach mark or the teaching panel moves focus into it". Applied literally that would move focus on the automatic NAD+ mark, which fires on the wall about three seconds in, with nobody having touched anything. Moving focus without a user action takes the keyboard out of somebody's hands mid-sentence, and it is the single thing a screen reader user experiences as the page grabbing them. So `useCoachMark` tracks whether the opening was `show()` or the snapshot subscription, and only the first takes focus.
+
+Verified both ways in a browser:
+
+    manual    focus parked on the g3p affordance, Enter, focus lands on the
+              mark's action button. Escape, focus back on the affordance.
+    auto      focus parked on the top bar About button, the wall arrives, the
+              mark opens, focus is still on the About button.
+
+Escape closes a coach mark too, to the same contract the panels have. A mark is drawn inline in the pool rail rather than as an overlay, and a player who has learned Escape dismisses the thing on top should not have to learn that this one is different. **Announcing the automatic mark instead of focusing it is stage 4's job**, and this stage deliberately left that hole open rather than filling it with a focus move.
+
+### 5. Tab order, and the skip link that should not be built
+
+**Seven stops, in reading order, and it needed no fixing.**
+
+    1  About                        top bar
+    2  6 carbons, split in two      pool rail, g3p
+    3  NAD+ has run out             pool rail, carrier
+    4  ATP does not pile up         pool rail, adenylate
+    5  About the yield              unlock shelf
+    6  Express it                   unlock shelf
+    7  Export to file               save panel
+    8  the file input               save panel, new
+
+Top bar, rail, shelf, save panel. The pathway card contributes nothing, because a reaction arrow is not a control. Nothing sets a positive `tabindex`, so DOM order is tab order, and that is now asserted rather than observed.
+
+**The skip link in step 5 was not built and the reason is a measurement.** The step assumes a keyboard user traverses eight pool cards. They traverse **three stops**, because a pool card is not focusable and only three of the eight carry an info affordance. A skip link over three stops is more furniture than it saves. A test pins the rail at four stops or fewer, so if a later log makes pool cards interactive it fails there, which is the right moment to revisit it.
+
+**One thing left as it is, deliberately.** The first run card is still last in DOM order, because it is a sibling of `<main>` in `App.tsx`. Focus moving into it on open fixes the thing that mattered, which is that a keyboard player used to meet seven unexplained controls before the card explaining the game. Moving it in the DOM would restructure the act screen to fix a problem focus management already solves.
+
+### 6. What is tested, what is browser-verified, and why the line falls there
+
+`src/ui/__tests__/keyboard.test.tsx`, 14 assertions. The suite's environment is `node` and there is no DOM in it, which is deliberate everywhere else: the illustration and the pathway are pure functions of their tables and are asserted by rendering to a string. Focus is not like that. A string has no active element.
+
+**Tested:** every control is a native button or input; no positive `tabindex` anywhere; the tab order is the reading order, asserted as a sequence of markup offsets; the rail is at most four stops; the file input is `sr-only` and not `hidden` and is a tab stop; the focus rule exists, uses `:focus-visible` rather than `:focus`, has a negative offset and is drawn in `var(--color-ink)`; the outer variant exists and something asks for it; an overlay is a dialog with `tabindex="-1"`, its `aria-modal` tracks `dim`, and the scrim stays out of the tab order; a focusable card is a target and never a stop.
+
+**Probed, both ways.** Restoring `hidden` on the file input fails the reachability assertion. Flipping the focus offset positive fails the inside-the-element assertion. Both probes removed.
+
+**Browser-verified rather than suite-tested:** focus moving into an overlay, the trap holding, focus returning to the opener, focus surviving a purchase, and the manual-versus-automatic coach mark distinction. All five are reported above with what was measured. **Making them suite-testable needs a DOM implementation this project does not depend on**, and adding `jsdom` to close an assertion is a dependency decision worth taking deliberately rather than inside an accessibility stage. It is named here so the choice is visible rather than silently deferred.
+
+### One bug this stage introduced and caught in the browser
+
+The first version of `FOCUSABLE` put its exclusions on only the trailing term, so `button:not([disabled])` matched the scrim, which is a button carrying `tabindex="-1"` precisely so it stays out of the tab order. Opening the About panel focused the scrim instead of `Close`. Found by opening the panel and reading what had focus, not by a test, and the selector now applies `:not([disabled]):not([tabindex="-1"]):not([aria-hidden="true"])` to every term.
+
+### Verify
+
+    npm test        352 passed across 32 files, up from stage 2's 338
+    npm run typecheck   clean
+    npm run lint        clean
+    npm run build       clean, 266.63 kB, 83.11 kB gzipped
+    npm run dev         played by keyboard end to end, pointer unused
+
+Bundle up 1.77 kB raw and 0.61 kB gzipped against stage 2, plus 0.67 kB of CSS for the focus rules.
+
+**Act 1 is completable by keyboard.** Stated plainly, as the stage asks: the first run is dismissed, all three coach marks and the teaching panel and the about panel open and close, both kinds of unlock are bought, export is reachable and import is now reachable, and the pointer was not used for any of it. What has changed is not that it became possible. It is that a player can now see where they are, is not thrown to the end of the page for buying something, and is not walked into a background their screen reader has been told is inert.
+
+**No tuned number moved.** No file under `src/sim/`, `src/content/` or any of the three tuning files was touched.
+
+**DESIGN.md still does not describe the focus indicator**, on the same footing as the redox level from stage 2: this log puts every DESIGN.md edit in stage 5, and the document is a stage behind the build until then.
 
 ---
 

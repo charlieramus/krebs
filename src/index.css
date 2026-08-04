@@ -156,6 +156,51 @@ body {
 }
 
 /* ===========================================================================
+   THE FOCUS INDICATOR. UPDATELOGV7.md stage 3.
+
+   THE BROWSER DEFAULT IS INVISIBLE IN THIS SYSTEM AND STAGE 1 MEASURED IT.
+   Chrome draws `outline: auto` as a 1px near-black ring immediately outside the
+   element's own border, and every element here has a 2.5px `--color-ink`
+   border. Measured against the colour it is actually adjacent to, which is that
+   border rather than the page, it is 1.02:1. It is rendered, and it is not
+   perceivable. A keyboard player could not see where they were.
+
+   SO THE RING GOES INSIDE. Not outside, and the reason is the hard offset
+   shadow. `4px 4px 0` is a solid ink copy of the shape down and to the right,
+   so an outer ring is clean along the top and left edges and merges into the
+   shadow along the other two. An indicator you can only see on two sides of an
+   element is not an indicator. Drawn inside, it sits on the element's own
+   surface, is the same on all four sides, and never interacts with the shadow
+   at all.
+
+   It also reads as deliberate rather than as a mistake, which is the other half
+   of what stage 3 asks for: a second hard stroke inside the first is the paper
+   cutout language the whole direction is built from, and nothing else in the
+   system draws an inner rule, so it cannot be confused with a state.
+
+   CONTRAST. Ink against the surfaces a focused control can sit on: 17.67:1 on
+   white, 16.91 on cream, 15.20 on mint, 14.89 on sky, 14.26 on page, 14.25 on
+   lilac, 14.19 on pink. The requirement for a non-text indicator is 3:1. The
+   6px inset is what makes those the adjacent colours rather than the ink border,
+   which is the specific mistake the browser default makes.
+
+   `:focus-visible` rather than `:focus`, so a pointer user never sees it.
+   =========================================================================== */
+
+:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: -6px;
+}
+
+/* Small controls have no room for an inner rule and no shadow for an outer one
+   to collide with, so they take the ring outside. The 16px info affordance is
+   the only one today. DESIGN.md gives pills no shadow, which is what makes this
+   safe rather than a special case. */
+[data-focus-ring='outer']:focus-visible {
+  outline-offset: 3px;
+}
+
+/* ===========================================================================
    REDUCED MOTION
 
    DESIGN.md's obligation has two halves and they pull in opposite directions,

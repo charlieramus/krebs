@@ -27,7 +27,7 @@
  * screen that change twenty times a second.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLiveNode, useRuntime, useSnapshotEffect } from '../RuntimeContext';
 import { Badge } from './Badge';
 import { Button } from './Button';
@@ -106,12 +106,45 @@ function Slot({
   onInfo?: () => void;
   infoLabel?: string;
 }) {
+  const card = useRef<HTMLDivElement>(null);
+  const buy = useRef<HTMLButtonElement>(null);
+
+  /**
+   * WHERE FOCUS GOES WHEN A PURCHASE DISABLES THE BUTTON IT WAS ON.
+   *
+   * Measured in stage 1, by keyboard, on the real page: tab to "Express it",
+   * press Space, and the button becomes disabled, so the browser has nowhere to
+   * put focus and drops it to `document.body`. The next Tab does not resume
+   * where the player was. It restarts from the top of the document and lands on
+   * "Export to file", PAST the whole unlock shelf, because everything before it
+   * is behind the current position in DOM order. A player who buys act 1's
+   * central unlock by keyboard is silently thrown to the end of the page.
+   *
+   * Focus moves to the slot's own card instead. It is a focus target and not a
+   * tab stop, so it adds nothing to the tab order, and tabbing on from it
+   * continues in document order, which is the next slot. The player stays where
+   * they were and their next Tab does the obvious thing.
+   *
+   * Conditioned on focus actually having been inside this slot, so a purchase
+   * made with the pointer, or from the coach mark's action button, does not
+   * yank focus across the screen to a card nobody was looking at.
+   */
+  const wasFocused = useRef(false);
+  useEffect(() => {
+    if (!wasFocused.current) return;
+    wasFocused.current = false;
+    if (buy.current !== null && !buy.current.disabled) return;
+    card.current?.focus();
+  }, [bought, affordable]);
+
   return (
     <Card
       surface={bought ? 'mint' : 'white'}
       dashed={!bought}
       dimmed={!bought && !affordable}
       className="flex min-w-0 flex-1 flex-col gap-2 p-3"
+      containerRef={card}
+      focusable
     >
       <span className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1">
@@ -127,7 +160,18 @@ function Slot({
 
       {threshold === null ? null : <Progress threshold={threshold} />}
 
-      <Button surface={bought ? 'mint' : 'white'} disabled={bought || !affordable} onClick={onBuy}>
+      <Button
+        ref={buy}
+        surface={bought ? 'mint' : 'white'}
+        disabled={bought || !affordable}
+        // Recorded before the click rather than read after it, because by the
+        // time the effect runs the button is disabled and `document.activeElement`
+        // has already been reset to the body.
+        onClick={() => {
+          wasFocused.current = true;
+          onBuy();
+        }}
+      >
         {bought ? SHELF.bought.text : buyLabel}
       </Button>
     </Card>

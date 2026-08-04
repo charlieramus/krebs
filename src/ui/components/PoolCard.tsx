@@ -236,6 +236,10 @@ export function PoolCard({ spec }: { spec: PoolCardSpec }) {
         <span className="absolute left-0 top-full z-20 mt-2 w-max max-w-[min(42ch,80vw)]">
           <CoachMark
             content={mark}
+            // Only when the player asked. See CoachMark's `autoFocus`: the NAD+
+            // mark fires on the wall by itself and must not take the keyboard
+            // out of anybody's hands to do it.
+            autoFocus={coach.requested}
             onDismiss={coach.dismiss}
             // Only the buy action can be unaffordable. An action that opens a
             // panel is always available, and disabling it would read as the

@@ -12,7 +12,7 @@
  * costs nothing the frame budget notices.
  */
 
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 import type { Surface } from './Card';
 
 const SURFACE_CLASS: Readonly<Record<Surface, string>> = {
@@ -28,12 +28,19 @@ const SURFACE_CLASS: Readonly<Record<Surface, string>> = {
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   surface?: Surface;
+  /**
+   * Handle on the button. Added by UPDATELOGV7.md stage 3, so a caller can ask
+   * whether the control focus was on has just become unfocusable. React 19
+   * passes `ref` as an ordinary prop, so no forwardRef is needed.
+   */
+  ref?: Ref<HTMLButtonElement>;
 }
 
-export function Button({ children, surface = 'white', className = '', ...rest }: ButtonProps) {
+export function Button({ children, surface = 'white', className = '', ref, ...rest }: ButtonProps) {
   return (
     <button
       type="button"
+      ref={ref}
       {...rest}
       className={[
         SURFACE_CLASS[surface],
