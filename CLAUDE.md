@@ -30,7 +30,7 @@ TypeScript, React, Vite, Tailwind. Vitest for tests. Deployed to Cloudflare Page
 - docs/SIMULATION.md, engine math, tick loop, offline progress and determinism.
 - docs/SAVE_SCHEMA.md, the data contract and migration policy.
 - docs/ECONOMY.md, tuned game numbers and the divergence table. Written after a playable prototype exists, not before.
-- docs/CONTENT_STYLE.md and content entries. Written last.
+- docs/CONTENT_STYLE.md, the writing contract. Voice, naming, numbers in prose, length ceilings per surface, and the rule that a concept carried by shape or colour must not be carried by a paragraph. Read before writing any player-facing string.
 - DESIGN.md, the visual contract. Read before any UI decision.
 - NOW.md, current state, blocking items and what is next. Read first, update as you go.
 

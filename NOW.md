@@ -182,7 +182,7 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
     NOW.md                 this file
 
     docs/ECONOMY.md        tuned numbers and the divergence table, 37 rows
-    docs/CONTENT_STYLE.md  not written, deliberate, next
+    docs/CONTENT_STYLE.md  the writing contract, eight parts and a decisions log
 
     UPDATELOGV1.md         the kernel build log, five stages, all reported
     UPDATELOGV2.md         the act 1 content log, six stages, all reported
