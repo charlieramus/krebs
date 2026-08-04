@@ -126,7 +126,241 @@ reduced-motion result, and the forced-colors result.
 
 ## Stage 1 Report
 
-_Pending._
+**No source changed. `git status` is clean across the whole stage.** Everything below was measured against the running build at `npm run dev`, in a real Chrome 150 on Windows 11, with the numbers computed from the shipped tokens rather than read off a swatch. The scripts live in the session scratchpad and are deliberately not committed: they are measurement, not code the game needs.
+
+**The headline, and it is not the one this log's Context predicted.** The colour-alone problem is real and it is worse than the Context said, because the axis does not merely become hard under deuteranopia, **it collapses under protanopia to a 7.6 dE lightness ramp with the two states a mid-game player has to tell apart sitting 3.2 apart.** But the keyboard finding goes the other way: this log's Decisions section says "the game cannot be played at all without a pointer" and **that is wrong.** Every control is a real `<button>`, every one is reachable, and act 1 is completable from the keyboard today. What is broken is narrower, sharper and still disqualifying. See step 3.
+
+---
+
+### 1. Contrast
+
+61 rendered pairs, WCAG 2.2 AA. 4.5:1 for body and micro text, 3:1 for text at 24px or above and for non-text that carries meaning. Pairs were enumerated from the components rather than from DESIGN.md's cross product, so a colour that exists in the palette but never lands on a given surface has no row.
+
+**Everything ink and ink2 passes, everywhere, with room.**
+
+      ratio  need  pass  pair
+      -----  ----  ----  ----
+      14.26   4.5  PASS  ink on page
+      16.91   4.5  PASS  ink on cream
+      14.19   4.5  PASS  ink on pink
+      15.20   4.5  PASS  ink on mint
+      14.89   4.5  PASS  ink on sky
+      14.25   4.5  PASS  ink on lilac
+      17.67   4.5  PASS  ink on white
+       5.35   4.5  PASS  ink2 on page
+       6.34   4.5  PASS  ink2 on cream
+       5.32   4.5  PASS  ink2 on pink
+       5.70   4.5  PASS  ink2 on mint
+       5.59   4.5  PASS  ink2 on sky
+       6.63   4.5  PASS  ink2 on white
+
+The single near-black ink is doing real work here. A design that had reached for a lighter body colour would have failed the most common pair on the screen, and this one does not fail it anywhere.
+
+**ink3 fails everywhere it is rendered, and the dimming compounds it.**
+
+      ratio  need  pass  pair
+      -----  ----  ----  ----
+       2.96   4.5  FAIL  ink3 on white          disabled button label
+       2.55   4.5  FAIL  ink3 on mint           disabled button on a bought slot
+       1.65   4.5  FAIL  ink3, card at opacity 0.55 over page   LOCKED SLOT
+       3.86   4.5  FAIL  ink on white, card at opacity 0.55      locked slot title
+       2.36   4.5  FAIL  ink2 on white, card at opacity 0.55     locked slot detail
+
+This is the failure this log's step 1 predicted by name and it is the one that is hardest to fix, because DESIGN.md's "locked content stays visible and dimmed rather than hidden" is a genre decision and a good one. The compounding is the part worth stating: a locked slot is `opacity-55` on the whole `Card`, and the disabled `Button` inside it is already `ink3`, so the two multiply and the label lands at **1.65:1**, which is under the 3:1 floor that applies to a decorative border, let alone to text. Two of the three unlock slots are in that state for most of act 1.
+
+**The semantic colours as text. Six of eight fail.**
+
+      ratio  need  pass  pair
+      -----  ----  ----  ----
+       2.00   3.0  FAIL  atp on page          ATP/s headline
+       2.05   3.0  FAIL  substrate on page    glucose/s headline
+       2.28   3.0  FAIL  gain on sky          net rate rising
+       2.17   3.0  FAIL  gain on pink         net rate rising
+       3.14   3.0  PASS  loss on sky          net rate falling
+       2.99   3.0  FAIL  loss on pink         net rate falling
+       5.59   3.0  PASS  ink2 on sky          net rate flat
+       5.32   3.0  PASS  ink2 on pink         net rate flat
+       2.70   4.5  FAIL  gain on white        threshold reached, micro
+       2.32   4.5  FAIL  gain on mint         threshold reached, micro
+
+`loss on pink` at 2.99 against a 3.0 threshold is a fail by four thousandths and is reported as a fail rather than rounded, because rounding a compliance number in the direction you want is the failure mode this project exists to avoid. The two top bar headlines are the biggest type on the screen and they are the worst two ratios in the set.
+
+**The badge pills all pass**, because the badge word is ink on a saturated fill rather than saturated text on a pale one: 6.54 on gain, 7.13 on atp, 14.25 on lilac, 12.96 on the development yellow. The badge contract was designed around a word and it is the part of the semantic palette that survives.
+
+**Non-text. The distinction that matters is between a shape's boundary and a shape's state, and only one of them is in trouble.**
+
+Every blob is enclosed in a 2.5px ink outline, so "is there a shape here" is carried at 14:1 or better on every surface and no blob is at risk of disappearing. Reporting fill-against-surface as a WCAG 1.4.11 failure would be wrong: the outline is the identifying boundary. What 1.4.11 actually governs here is **state**, and state is fill against fill:
+
+      ratio  need  pass  pair
+      -----  ----  ----  ----
+      14.26   3.0  PASS  ink outline against page          the card edge
+      16.91   3.0  PASS  ink track on cream                a running arrow's track
+       5.97   3.0  PASS  ink vs ink3                       running vs stopped track
+       2.83   3.0  FAIL  ink3 arrow on cream               the STOPPED reaction
+       1.20   3.0  FAIL  oxidized vs reduced               THE REDOX AXIS, END TO END
+
+**1.20:1 is the number this log exists for.** The two ends of the axis DESIGN.md calls the single most important colour decision in the system are `#A9BFB8` and `#23BFA0`, whose relative luminances differ by less than a fifth. They are the same lightness by construction, which is what makes the transition read as saturation rather than as fading, and it is also what leaves nothing behind when the hue goes.
+
+The stopped arrow at 2.83 is a near miss and it is mitigated in a way the number does not see: a stopped arrow is 2px where a running one is 6px, solid where the other is dashed, and hollow-headed where the other is filled. Four channels, one of which is colour. **That row is a warning, not a defect**, and it is recorded so stage 2 step 4 does not spend effort on a state that is already redundantly encoded.
+
+---
+
+### 2. Colour vision deficiency
+
+Three moments, captured from the running game, with the carrier's reduced fraction read off the card at the instant of capture rather than assumed:
+
+    moment                         NAD+    NADH   reduced fraction
+    pathway running                26.85    3.15  0.105
+    just after fermentation        13.24   16.76  0.559
+    the NAD+ stall                  0.00   30.00  1.000
+
+Simulated with the Machado, Oliveira and Fernandes 2009 matrices at severity 1.0, which are the matrices Chromium's own vision deficiency emulation uses, applied to the captured pixels through an `feColorMatrix` in sRGB. `Emulation.setEmulatedVisionDeficiency` is not on the browse tool's CDP allowlist, which is the same reason NOW.md records for `setEmulatedMedia`, so the transform was applied to the real screenshots instead of to the live page. That is the more reproducible of the two and the images are the record.
+
+**The answer to the one question per image, plainly.**
+
+    deficiency      running   just after ferment   the stall     can the state be read
+    normal          pale      mid teal             vivid teal    YES
+    deuteranopia    grey      grey blue            slate blue    NO
+    protanopia      grey      warm grey            khaki grey    NO
+    tritanopia      pale teal teal                 vivid cyan    YES
+
+**Tritanopia is fine and should be said first.** The axis is a red channel difference with green and blue held nearly constant, so a blue to yellow deficiency leaves it almost untouched: 35.47 dE end to end against 37.50 for normal vision. The design got that for free and it did not know it.
+
+**Deuteranopia and protanopia are where it fails, and the two fail differently.**
+
+    deficiency      full axis dE   0.105 vs 0.559   0.559 vs 1.000
+    normal                 37.50            19.67            12.78
+    deuteranopia           17.35             8.09             7.63
+    protanopia              7.64             3.21             3.52
+    tritanopia             35.47            20.91             8.79
+
+Protanopia is the severe one and its number is unambiguous: **7.64 dE across the entire axis**, and 3.21 between the two states a player actually moves between during play, against a just-noticeable difference of 2.3. That is not a degraded signal, it is a signal indistinguishable from noise.
+
+**Deuteranopia's 17.35 needs a caveat that makes it worse than it sounds, not better.** That number is a CIE76 distance and it is almost entirely lightness: the three states go `#b4b4b6`, `#a0a3ad`, `#8d92a3`, three greys getting darker. Side by side, as they are on the comparison sheet, a difference of 17 is visible. **The player never sees them side by side.** They see one card, and they are being asked to notice that a grey has got slightly darker than the grey it was three seconds ago, on a pink card, from across a classroom. The dE overstates what is available, because it measures a spatial comparison and the game is asking for a temporal one.
+
+**One finding that belongs to stage 2 rather than to this stage, and it should be read before stage 2 picks a channel.** The electron dots already exist and they are already the wrong shape for the job. `Blob.tsx` draws two of them at `data-role="electron"` and `PoolCard.tsx` drives the group's `opacity` from the reduced fraction. So at 1.000 both dots are at full opacity, at 0.105 both are at ten percent, and **the count never changes, only the fade.** Photographed at 3x in the stalled state, the two dots are `--color-ink` sitting directly on a 3.25px `--color-ink` outline at the upper right, where they read as a lump in the outline rather than as two countable particles. DESIGN.md rule 3 says NADH carries two and NAD+ is empty. What ships is one silhouette whose dots dissolve. **The channel candidate stage 2 calls strongest is half built and the half that is built is the half that does not work.**
+
+**Two other colour-carried distinctions were checked the same way and both survive**, so stage 2 does not need to widen its scope. Net rate rising versus falling drops from 108.6 dE to 26.8 under deuteranopia and 24.4 under protanopia, and it carries a `+` or `-` character anyway. A substrate blob against an ATP blob stays above 85 dE under every deficiency.
+
+---
+
+### 3. Keyboard
+
+**This log's Decisions section is refuted on its central claim and the refutation is worth more than the confirmation would have been.** The claim is that "buying an unlock and opening a coach mark are currently mouse-only, which means the game cannot be played at all without a pointer". The grep that produced it looked for `tabIndex` and keyboard handlers and found none, and concluded there was no keyboard path. There is one, and the reason the grep missed it is the reason it works: **every control is a native `<button>`, so it needs no `tabIndex` and no handler to be operable.** `Button.tsx` renders a real button with `type="button"`, and so does `InfoAffordance`. V3 got this right without writing it down.
+
+**The full tab order on a fresh act 1, measured by dispatching real Tab keys and reading `document.activeElement`.** Seven stops:
+
+    1  button  "About"                        top bar
+    2  button  "6 carbons, split in two"      pool rail, g3p card
+    3  button  "NAD+ has run out"             pool rail, carrier card
+    4  button  "ATP does not pile up"         pool rail, adenylate card
+    5  button  "About the yield"              unlock shelf, ferment slot
+    6  button  "Express it"                   unlock shelf, buy
+    7  button  "Export to file"               save panel
+
+**It follows the reading order of the layout and it needed no fixing.** Top bar, then rail, then shelf, then save panel, in DOM order, which here is also visual order. The two disabled shelf buttons are correctly skipped.
+
+**The skip link this stage's step 5 asks for is not needed and should not be built.** The expectation was that a keyboard user would have to traverse eight pool cards. They traverse **three**, because a pool card is not focusable and only three of the eight carry an info affordance. A skip link over three stops is more furniture than it saves. Recorded so stage 3 does not build it out of obedience.
+
+**Four real defects, in descending order of severity.**
+
+**(a) Buying an unlock drops focus to the document body.** Measured, reproducibly. Focus "Express it", press Space, and the button becomes `disabled` with its label changed to "Running", which makes it no longer focusable, and the browser has nowhere to put focus so it goes to `body`. The next Tab does not resume where the player was. It resumes at "Export to file", **past the entire unlock shelf**, because tabbing from `body` restarts from the top of the document and the first six stops are behind the current scroll position in DOM order. A player who buys act 1's central unlock by keyboard is silently thrown to the end of the page and has to work out where they went. This is the exact failure step 3 of stage 3 calls out by name and it is confirmed rather than predicted.
+
+**(b) Import from file is not reachable by keyboard at all.** `SavePanel.tsx` wraps `<input type="file">` in a styled `<label>` and gives the input `className="hidden"`, which is `display: none`, which makes it unfocusable. The label is not focusable either. It appears in the accessibility tree as `[LabelText]` with no role and no focusable property, and it is absent from the tab order between stop 7 and the wrap. The comment above it says "the native control is the accessible one", and the native control has been display-none since V4. **Export works, import does not, and the asymmetry is invisible from the code.**
+
+**(c) The first run card is the last thing in the tab order.** `aria-modal` is correctly `false`, because the card is undimmed and deliberately non-blocking, and that decision holds. But nothing moves focus into it and it sits after all seven act screen stops in DOM order, so a keyboard player's first launch is: seven controls they have no context for, then the card explaining what the game is, then the wrap. It is reachable and it is in the wrong place.
+
+**(d) There is a focus indicator and it is the browser default, which this design erases.** Every focused control reports `outline-style: auto`, `outline-width: 1px`, `outline-color: rgb(16, 16, 16)`. Chrome draws that ring immediately outside the element's own border, and every element's own border here is 2.5px of `#16162E`. Photographed at 2x with "Express it" focused, the ring is a hairline of near black against 2.5px of near black. It is present and it is not perceivable. Measured against the surfaces it appears on it is nominally above 3:1 in every case, which is exactly why a ratio alone is not the test: **it fails against the adjacent colour that matters, which is the border it is drawn on top of, at 1.02:1.**
+
+**Act 1 is completable by keyboard today.** Dismiss the first run, tab to "Express it", press Space, and ATP per second went 0.00 to 42.22. It is completable and it is not usable, which is a different sentence and a smaller repair than stage 3 was scoped for.
+
+---
+
+### 4. Screen reader
+
+**No screen reader was run and this is reported as unrun rather than substituted for.** NVDA is not installed on this machine and neither is JAWS. Narrator is present, as it is on every Windows install, and it exposes no interface for capturing what it said, so an agent driving it would be reporting its own reading of the page and calling it a reading of the page. That is the same substitution UPDATELOGV6.md stages 2 and 5 refused to make and it is refused here for the same reason.
+
+**What was done instead, and what it is worth.** Chrome's own computed accessibility tree was dumped over CDP with `Accessibility.getFullAXTree`, on the real page, at three states. That tree is the thing a screen reader consumes: it is what Chrome hands to the platform accessibility API, so a defect visible in it is a defect a screen reader will have. What it cannot tell you is how the result sounds, how long it takes, or whether it is bearable. Every finding below is of the first kind. **Step 6 of stage 4 asks for a before and after comparison of what a full act 1 sounds like, and on this machine that stage will have to report the same limitation or the reader will have to be installed.**
+
+**Landmarks. Three, and the middle of the screen is not one of them.**
+
+    [main]
+      [sectionheader]                 the top bar. NOT a banner landmark
+      [navigation]  "Pools"           the left rail
+      ...the pathway card, bare, no landmark and no heading...
+      [region]      "Unlocks"         the shelf
+      ...the save panel, an h2 but no landmark...
+
+The top bar is a `<header>` inside `<main>`, and a `<header>` that descends from `<main>` does not get the `banner` role. It comes out as `sectionheader`, which is not a landmark, so the three headline figures cannot be reached by landmark navigation. **The pathway card is the centre of the screen, it is the thing the game is about, and it has neither a landmark nor a heading**, so a user navigating by structure goes from "Pools" straight to "Unlocks" and the pathway is only reachable by reading linearly through it.
+
+**Headings. Three, well formed, and one is missing.** `h1 "krebs"`, `h2 "UNLOCKS"`, `h2 "SAVE"`. No skipped levels. The pathway has no heading, consistent with having no landmark.
+
+**Live regions. Zero.** `grep` for `live=` over the whole tree returns nothing. **The answer to "what does a user hear when a rate changes" is nothing, as expected.** More usefully, the answer to "what does a user hear when the NAD+ wall arrives" is also nothing, and the wall is an event rather than a rate. So is a coach mark opening, and so is an unlock becoming affordable. Stage 4's rule of announcing events and never narrating the tick has three real events waiting for it in act 1 and currently announces none of them.
+
+**The blob labels, which stage 4 step 4 asks about specifically.** There are 18 labelled images and every one has a name, so nothing is unlabelled. What they say is the problem, and they say three different kinds of thing:
+
+    pool rail, carbon pools    "Glucose (environment). 6 sides, 6 carbons"
+    pool rail, the carrier     "NAD+ and NADH. One shape, and the colour is
+                                which one it is. Full colour means NADH,
+                                carrying electrons."
+    pathway card, every node   "Glucose (environment)"
+
+The rail labels describe **geometry**, which is honest and useful, and they are V6's contribution. The carrier label describes **the encoding** and never the state: it tells a screen reader user that the colour means something and does not tell them what the colour currently is. **On the one card in the game where colour is the whole signal, the accessible name explains the legend and withholds the reading.** And the pathway blobs describe **identity** only, so the same molecule announces two different ways depending on which half of the screen it is on.
+
+**Every figure on the screen is an unlabelled StaticText.** A pool card reads out as: `"Glucose"`, `"SOURCED"`, image, `"+7.95"`, `"/s"`, `"GLUCOSE"`, `"944.72"`. Two numbers, no statement of which is a rate and which is a stock, and the flux-is-the-headline decision that carries that distinction in type size carries nothing at all here. The badge word is read as a bare `"SOURCED"` floating between them.
+
+**The coach mark is not a dialog.** When it fires on the wall it renders inline inside the pool rail as ordinary content: static text, two paragraphs, two buttons. Nothing announces it, nothing moves focus to it, and its own heading is not a heading. A screen reader user gets no signal that the most important teaching beat in act 1 just happened. The About and teaching panels do carry `role="dialog"` and `aria-modal="true"`, so those two are correctly typed.
+
+**And `aria-modal="true"` on those two is currently a lie, which is worse than omitting it.** Measured with the About panel open: focus is still on `body`, it was never moved in, and all nine buttons behind the panel are still focusable. So assistive technology is told the background is inert and hides it, while the keyboard walks straight into it and lands on controls the screen reader is no longer reading. Escape does close the panel, which `Overlay.tsx` wires and which works, and focus is not returned anywhere because it was never taken.
+
+---
+
+### 5. prefers-reduced-motion
+
+**Split result. The app's half passes outright. The OS half is established one way and could not be established the other, and the reason is Windows rather than the code.**
+
+**What was established.** A headed Chrome 150 was launched against the real machine, with no forced flags, and asked what it thought. It reported `prefers-reduced-motion: reduce` as **false**. Independently, `SystemParametersInfo(SPI_GETCLIENTAREAANIMATION)` reports animations **on**. The two agree, and the browser was verified to be genuinely headed rather than headless from its user agent. So the OS to browser link is live and the query is being evaluated against the real setting rather than stubbed. That is more than NOW.md has today, and it is only half of what the entry asks.
+
+**What could not be established, and what was tried.** The other half needs the setting flipped. `SPI_SETCLIENTAREAANIMATION` returns success on this Windows 11 build and changes nothing, which is a known no-op. The setting's real home is bit `0x02` of byte 2 of `HKCU\Control Panel\Desktop\UserPreferencesMask`. That byte was read as `0x07`, cleared to `0x05`, and `WM_SETTINGCHANGE` was broadcast the way the Settings app does it. The registry took the write and **the running session kept reporting animations on**, because `SPI_GETCLIENTAREAANIMATION` is cached per session and Chrome reads the cache. Confirming it would need a sign out, which is not something to do to somebody's machine to close an audit item. **The original mask was restored byte for byte and verified as `9E 1E 07 80 12 00 00 00`, identical to what was read.** Nothing was left changed.
+
+**The app's half was then closed properly and it passes.** Chrome was relaunched with `--force-prefers-reduced-motion`, which sets the media feature at the platform layer rather than faking `matchMedia`, so the CSS `@media` block and `usePrefersReducedMotion` both see the genuine article. Measured on the running act screen:
+
+    matchMedia('(prefers-reduced-motion: reduce)')    true
+    animated dash lines rendered                      0
+    reactions showing an explicit numeric rate        5 of 5
+
+Photographed at 2x, and it is the best thing in this audit. A running reaction is a solid dark track with a filled arrowhead reading `7.95 /s`. A stopped one is a thin grey hairline with a hollow arrowhead reading `0.00 /s`. Both the state and the rate arrive, through two channels, with no motion at all. **DESIGN.md's accessibility obligation is discharged in full and it is the only part of this audit that needs nothing.**
+
+**What NOW.md's open item can honestly be changed to.** Not "closed". The entry says the media query has never run in a browser, and it has now: in a real headed Chrome reading a real OS setting, and separately with the feature genuinely true at the platform layer. What has not been observed is the transition, on this machine, driven by a user flipping the toggle. Stage 5 should rewrite the entry to that, rather than close it or leave it as it stands.
+
+---
+
+### 6. prefers-contrast and forced-colors
+
+Both emulated through CDP `Emulation.setEmulatedMedia`, which switches Chrome's real forced-colors pipeline rather than toggling a class. Real Windows high contrast was not enabled, because it repaints the user's entire desktop and the emulated pipeline is the same code path.
+
+**`prefers-contrast: more` does nothing, and "nothing" is exact.** The query matches, and the rendered page is indistinguishable from the default. There is no `prefers-contrast` block anywhere in `src/index.css` and no component reads it. A user who has asked their operating system for more contrast gets `ink3` at 2.96:1 and a redox axis at 1.20:1, the same as everyone else. This is not a regression, it is an absence, and it is the cheapest of the findings to act on because the failing pairs are already enumerated above.
+
+**`forced-colors: active` is more interesting than expected and the log's prediction is half right.** The page goes black ground, white text, white outlines. What happens to each thing:
+
+- **Text and outlines are fine.** White on black everywhere, well above any threshold, and every card still reads as a card because the 2.5px border is forced to `CanvasText`.
+- **The hard offset shadow is gone in effect if not in fact.** `box-shadow` is not forced, so a `#16162E` shadow is still being painted, onto a black ground, where it is invisible. **The paper cutout read collapses entirely.** DESIGN.md calls the shadow load-bearing, and forced-colors mode removes it without removing it, which is the worst version: the layout still reserves the offset and nothing occupies it.
+- **The badge fills are gone and the badge words survive.** Every pill goes to black with a white outline, so Sourced, Tuned and Contested become typographically identical and are told apart only by the word. This log's channel table predicted exactly that and the prediction holds.
+- **The blob fills survive.** SVG `fill` set as a presentation attribute is not forced, so glucose is still `substrate` blue and the carrier is still on its redox axis against a black card. **The one thing that most needed to survive did**, which means forced-colors is not an additional route to the colour-alone problem, only the existing one on a different ground.
+
+**Stage 5 should record the shadow as a conflict rather than as a bug**, exactly as this log's stage 5 step 5 anticipates. A user setting says "remove your colours, use mine" and a design decision says "this shadow is what makes the system legible". Both are right. Naming it a defect implies somebody was careless and nobody was.
+
+---
+
+### What stages 2 to 4 inherit, and one thing they do not
+
+**Stage 2 inherits a sharper problem than it was written for.** Protanopia at 3.21 dE between adjacent play states, not merely "deuteranopia is the common one". And it inherits the finding that its own preferred candidate, the electron dots, is half implemented in the wrong direction: opacity rather than count, ink on ink, on the outline.
+
+**Stage 3 inherits a much smaller job than it was written for and should say so rather than pad it.** No focus indicator that survives the design, focus dropped on purchase, import unreachable, first run last in order, and no focus trap on two panels that claim `aria-modal`. Not "make the game playable without a pointer", which it already is. **The skip link should not be built.**
+
+**Stage 4 inherits the full list of what the tree says and a limitation it cannot design around.** No live regions, no landmark or heading on the pathway, unlabelled figures, a coach mark that is not announced, and blob labels that describe the encoding instead of the state. It also inherits the fact that no screen reader is installed on this machine, so its step 6 comparison will be a comparison of accessibility trees unless one is installed first.
+
+**And one thing found in passing that is not this log's to fix.** The pathway card renders five figures with `badgeDisplay="attached"` and displays no badge anywhere on the card. `Figure.tsx`'s own comment names that as "a bug, and the only kind of bug in this contract that a type cannot catch". Under reduced motion those five figures are the only numbers on the card, so five unsourced-looking numbers are the whole readout. It is a badge contract problem rather than an accessibility one, it does not belong to any stage of this log, and it is recorded here so it is not lost.
 
 ---
 
