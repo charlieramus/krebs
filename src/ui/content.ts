@@ -101,7 +101,9 @@ export const REACTIONS: Readonly<Record<Act1ReactionId, Entry>> = {
     text: 'Maintenance',
     // The stoichiometry is real: ATP hydrolyses to ADP and inorganic phosphate.
     // What is invented is that the whole rest of cellular metabolism is one
-    // Michaelis-Menten reaction in ATP.
+    // saturating reaction in ATP, and since UPDATELOGV5.md stage 2, that its
+    // response is cooperative. The badge below says the invented part out loud
+    // and does not name a curve, which is why it did not have to change.
     badge: tuned(
       'ATP hydrolysis to ADP and phosphate is real. Standing in for the entire rest of cellular metabolism with one reaction is not',
     ),
@@ -160,6 +162,17 @@ export const UNLOCKS = {
   uptakeCapacity: {
     text: 'Uptake capacity',
     badge: tuned('A finite ladder of transport steps. Neither the steps nor their number is sourced'),
+  },
+  glycolyticCapacity: {
+    text: 'Glycolytic capacity',
+    // One purchase raising both phases, because the preparatory phase spends the
+    // ATP the payoff phase makes and raising it alone bankrupts the cell. The
+    // 2:1 relationship IS sourced, in Part 2: one glucose becomes two trioses,
+    // so the payoff phase runs twice per preparatory turn. What is tuned is the
+    // rungs. The badge names the sourced half and the tuned half separately.
+    badge: tuned(
+      'The payoff phase runs twice per preparatory turn, which is sourced. How much capacity each rung buys is not',
+    ),
   },
 } as const satisfies Readonly<Record<string, Entry>>;
 

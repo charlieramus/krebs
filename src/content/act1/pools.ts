@@ -43,7 +43,13 @@
  */
 
 import type { PoolDefinition } from '../../sim/pools';
-import { ACT1_GLUCOSE_ENV_INITIAL, ACT1_NICOTINAMIDE_TOTAL } from './tuning';
+import {
+  ACT1_ADP_INITIAL,
+  ACT1_ATP_INITIAL,
+  ACT1_GLUCOSE_ENV_INITIAL,
+  ACT1_NICOTINAMIDE_TOTAL,
+  ACT1_PI_INITIAL,
+} from './tuning';
 
 export type Act1PoolId =
   | 'glucose_env'
@@ -135,33 +141,31 @@ const CONSERVED: Readonly<Record<Act1PoolId, Readonly<Record<string, number>>>> 
 };
 
 /**
- * PROVISIONAL. Not measurements, not balanced, introduced by UPDATELOGV2.md.
+ * Starting amounts. NOT A TUNING FILE, and as of UPDATELOGV5.md stage 5 there
+ * is no longer a tuned number written down here.
  *
- * These are starting amounts chosen so the pathway runs, in the same status as
- * the rates in tuning.ts and under the same obligation: a row in the
- * docs/ECONOMY.md divergence table once that document exists. docs/SCIENCE.md
- * Part 1 forbids implying they are anything else. Nothing here may reach
- * player-facing text.
+ * Every non-zero value below is imported from tuning.ts. UPDATELOGV2.md wrote
+ * three of them, atp, adp and pi, as literals in this file while its own header
+ * said they owed a row in the divergence table, and they then sat outside the
+ * three tuning files for three logs while every count of the debt omitted them.
+ * `docs/ECONOMY.md` has a row for each now and a test asserts the rule that put
+ * them there: a tuned number lives in exactly one of the three tuning files.
  *
- * Two of them are structural rather than arbitrary:
+ * The zeros are structural rather than tuned. A pathway with no intermediates in
+ * it at t=0 is a cell that has not run yet, and that is not a balance decision.
+ *
+ * Two of the imports carry the act rather than merely starting it:
  *
  *   nad + nadh   the nicotinamide total, and the entire act 1 mechanic.
- *                docs/SCIENCE.md Part 2 line 108 sources that the pool is small
- *                and fixed. It does not source how small, so the number is ours
- *                and it lives in tuning.ts with the rates, sized in stage 4
- *                against how long the stall takes to arrive. All of it starts
- *                as NAD+, so the wall is approached rather than started at.
+ *                docs/SCIENCE.md Part 2, "The NAD+ constraint", sources that the
+ *                pool is small and fixed. It does not source how small, so the
+ *                number is ours. All of it starts as NAD+, so the wall is
+ *                approached rather than started at.
  *
  *   atp + adp    the adenylate total. Fixed and closed, because ATP is a flux
  *                and not a score. `maintain` hydrolyses ATP back to ADP and Pi,
  *                which is what a cell does with it. Cumulative ATP produced is
  *                a counter, not a pool, so it cannot leak into conservation.
- *
- *   glucose_env  the environment. Also in tuning.ts, and raised there from
- *                10000 to 80000 by UPDATELOGV3.md stage 6 to move the ATP
- *                bootstrap trap beyond the horizon of act 1. Read the comment
- *                on it before changing it: it is a deferral rather than a fix,
- *                and the NOW.md blocking item it defers is still open.
  */
 export const ACT1_INITIAL: Readonly<Record<Act1PoolId, number>> = {
   glucose_env: ACT1_GLUCOSE_ENV_INITIAL,
@@ -171,9 +175,9 @@ export const ACT1_INITIAL: Readonly<Record<Act1PoolId, number>> = {
   lactate: 0,
   nad: ACT1_NICOTINAMIDE_TOTAL,
   nadh: 0,
-  atp: 20,
-  adp: 20,
-  pi: 40,
+  atp: ACT1_ATP_INITIAL,
+  adp: ACT1_ADP_INITIAL,
+  pi: ACT1_PI_INITIAL,
 };
 
 /**

@@ -28,10 +28,12 @@
 
 import { TICK_MS, TICK_SECONDS } from '../sim/constants';
 import { createLoop, elapsedMs, type Loop } from '../sim/loop';
-import { michaelisMenten, type Kinetics } from '../sim/reactions';
+import { hill, michaelisMenten, type Kinetics } from '../sim/reactions';
 import type { SimulationState } from '../sim/state';
 import {
   FERMENT_ATP_THRESHOLD,
+  GLYCOLYSIS_ATP_THRESHOLDS,
+  GLYCOLYSIS_STEPS,
   UPTAKE_ATP_THRESHOLDS,
   UPTAKE_VMAX_STEPS,
   ZERO_FLUX_THRESHOLD,
@@ -55,6 +57,7 @@ import {
 import {
   ACT1_NO_CARRIED_COUNTERS,
   ACT1_UNLOCK_FERMENT,
+  act1GlycolysisUnlockId,
   act1UptakeUnlockId,
   captureAct1,
   restoreAct1,
@@ -158,6 +161,12 @@ export interface Act1Snapshot {
   fermentUnlocked: boolean;
   /** Index into UPTAKE_VMAX_STEPS. 0 is the shipped default and is not bought. */
   uptakeStep: number;
+  /**
+   * Index into GLYCOLYSIS_STEPS. 0 is the state at the top of the uptake ladder
+   * and is not bought. The two ladders are sequential: this one does not open
+   * until `uptakeStep` is at the top of its own.
+   */
+  glycolysisStep: number;
 
   /**
    * The pathway is walled: the payoff phase has stopped and it is not because
@@ -293,9 +302,15 @@ export interface Act1Runtime {
   buyFerment(): boolean;
   /** Buy the next uptake capacity step, under the same rules. */
   buyUptakeStep(): boolean;
+  /**
+   * Buy the next glycolytic capacity rung, under the same rules, plus one more:
+   * it refuses until the uptake ladder is finished. See GLYCOLYSIS_STEPS.
+   */
+  buyGlycolysisStep(): boolean;
   /** Whether the meter has reached each threshold. Display only. */
   canBuyFerment(): boolean;
   canBuyUptakeStep(): boolean;
+  canBuyGlycolysisStep(): boolean;
 
   /* ===== Persistence, UPDATELOGV4.md stage 5 ===== */
 
@@ -477,6 +492,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     frameCount: 0,
     fermentUnlocked: state.reactions[reactionIndex('ferment')]?.enabled ?? false,
     uptakeStep: 0,
+    glycolysisStep: 0,
     walled: false,
   };
 
@@ -499,6 +515,23 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     const step = Math.min(restoredOk.unlocks.uptakeStep, UPTAKE_VMAX_STEPS.length - 1);
     setReactionVmax(state, 'uptake', UPTAKE_VMAX_STEPS[step] as number);
     snapshot.uptakeStep = step;
+  }
+
+  /**
+   * Re-apply the glycolytic capacity rung, second and therefore last.
+   *
+   * ORDER MATTERS AND IT IS NOT AN ACCIDENT. Both ladders set `uptake`, and this
+   * one always sets it higher, because it only opens at the top of the other. It
+   * runs second so its value wins, and a save carrying both kinds of id lands on
+   * the configuration the player actually had rather than on whichever line ran
+   * last by chance. The three rates of a rung are applied together for the same
+   * reason they are sold together: the intermediate configurations are lethal.
+   * See GLYCOLYSIS_STEPS in src/ui/tuning.ts.
+   */
+  if (restoredOk !== null && restoredOk.unlocks.glycolysisStep > 0) {
+    const step = Math.min(restoredOk.unlocks.glycolysisStep, GLYCOLYSIS_STEPS.length - 1);
+    applyGlycolysisStep(state, step);
+    snapshot.glycolysisStep = step;
   }
 
   /* =========================================================================
@@ -749,6 +782,31 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       return true;
     },
 
+    canBuyGlycolysisStep(): boolean {
+      // SEQUENTIAL, NOT INTERLEAVED. The uptake ladder finishes first. Both
+      // ladders raise `uptake` and this one always raises it further, so
+      // offering them at once would let a player buy a rung that immediately
+      // undoes a purchase they can still see on the shelf.
+      if (snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1) return false;
+      const next = snapshot.glycolysisStep + 1;
+      if (next >= GLYCOLYSIS_STEPS.length) return false;
+      const threshold = GLYCOLYSIS_ATP_THRESHOLDS[snapshot.glycolysisStep];
+      return threshold !== undefined && meter.atpProduced >= threshold;
+    },
+
+    buyGlycolysisStep(): boolean {
+      if (snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1) return false;
+      const next = snapshot.glycolysisStep + 1;
+      if (next >= GLYCOLYSIS_STEPS.length) return false;
+      const threshold = GLYCOLYSIS_ATP_THRESHOLDS[snapshot.glycolysisStep];
+      if (threshold === undefined || meter.atpProduced < threshold) return false;
+      applyGlycolysisStep(state, next);
+      snapshot.glycolysisStep = next;
+      unlocked.push(act1GlycolysisUnlockId(next));
+      autosave?.saveNow('unlock');
+      return true;
+    },
+
     /* ===== Persistence ===== */
 
     session,
@@ -847,6 +905,48 @@ function setReactionVmax(state: SimulationState, id: Act1ReactionId, vmax: numbe
     throw new Error(`runtime: "${id}" is not Michaelis-Menten and has no simple Vmax to raise`);
   }
   (reaction as { kinetics: Kinetics }).kinetics = michaelisMenten(vmax, kinetics.km);
+}
+
+/**
+ * Raise a Vmax without caring which curve the reaction is on.
+ *
+ * `setReactionVmax` above deliberately refuses anything but Michaelis-Menten,
+ * because the uptake ladder is only ever pointed at `uptake` and a surprise Hill
+ * form there would mean something had gone wrong. The glycolytic ladder points
+ * at `prep`, which is Hill, so it needs the version that carries the shape
+ * across. Same narrow cast, same validating constructors, and every field of the
+ * old descriptor except Vmax is preserved rather than re-guessed.
+ */
+function setReactionVmaxPreservingShape(
+  state: SimulationState,
+  id: Act1ReactionId,
+  vmax: number,
+): void {
+  const reaction = state.reactions[reactionIndex(id)];
+  if (reaction === undefined) throw new Error(`runtime: no reaction "${id}"`);
+  const kinetics = reaction.kinetics;
+  (reaction as { kinetics: Kinetics }).kinetics =
+    kinetics.kind === 'hill'
+      ? hill(vmax, kinetics.k, kinetics.n)
+      : michaelisMenten(vmax, kinetics.km);
+}
+
+/**
+ * Apply one rung of the glycolytic capacity ladder. Four reactions, one call.
+ *
+ * THE FOUR MOVE TOGETHER OR NOT AT ALL. Raising `prep` without `payoff` makes
+ * the preparatory phase spend ATP faster than the payoff phase returns it and
+ * the cell collapses, and raising `payoff` without `ferment` walls it on NAD+.
+ * Both were measured in UPDATELOGV5.md stage 3 and both are why this is one
+ * function rather than four calls a caller could make three of.
+ */
+function applyGlycolysisStep(state: SimulationState, step: number): void {
+  const rung = GLYCOLYSIS_STEPS[step];
+  if (rung === undefined) throw new Error(`runtime: no glycolysis rung ${step}`);
+  setReactionVmaxPreservingShape(state, 'uptake', rung.uptake);
+  setReactionVmaxPreservingShape(state, 'prep', rung.prep);
+  setReactionVmaxPreservingShape(state, 'payoff', rung.payoff);
+  setReactionVmaxPreservingShape(state, 'ferment', rung.payoff);
 }
 
 /** Pool index by id, for a display that knows what it is looking at. */

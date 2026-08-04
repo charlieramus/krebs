@@ -1,6 +1,6 @@
 # Now
 
-Last updated: 2026-07-31
+Last updated: 2026-08-03
 
 Where the project actually is. Read this before the spec docs.
 
@@ -10,11 +10,13 @@ If this file disagrees with a spec doc, the spec doc wins and this file is stale
 
 ## Status
 
-**The slice is playable and it persists. A refresh no longer costs the run.** `npm run dev` gives an act 1 screen: a top bar, eight pool cards, the pathway with dashes flowing at the rate each reaction is running, an unlock shelf, one coach mark and a save panel. The NAD+ wall arrives about three seconds in, the coach mark opens on it, and buying lactate dehydrogenase brings the cell back inside two ticks. The game autosaves every thirty seconds, on the way out of a tab, and the instant anything is bought.
+**Act 1 is balanced, it is inside its target duration, and the economy has a document.** `npm run dev` gives an act 1 screen: a top bar, eight pool cards, the pathway with dashes flowing at the rate each reaction is running, an unlock shelf with three slots, one coach mark and a save panel. The NAD+ wall arrives about three seconds in, the coach mark opens on it, and buying lactate dehydrogenase brings the cell back inside two ticks. The game autosaves every thirty seconds, on the way out of a tab, and the instant anything is bought.
 
-Verified in a real browser rather than only in tests: played to 89950 ms of game time with lactate at 904.663 and fermentation bought, refreshed, and game time continued from 89950 rather than resetting. Lactate kept climbing, the unlock stayed bought, no console errors.
+**docs/PROGRESSION.md has given act 1 a target of 45 to 90 minutes since 2026-07-29 and V5 is the first log to measure against it.** A player buying everything the instant it is affordable reaches the last purchase at 61m57s. A player who checks every five game-minutes reaches it at 70m00s. Both are inside. There are seven purchases and the longest gap between them is 13m51s, against 84m47s before this log.
 
-V3 answered one of the two questions in docs/BRIEF.md line 110 and half of the other. See "What the interface answered" below, which replaces the old "Why the UI waits" section. The short version: the NAD+ wall reads as interesting, and saturating kinetics do not yet feel like a game, because once act 1 is solved the screen stops changing.
+**Both NOW.md blocking items belonged to docs/ECONOMY.md and neither could be fixed by any earlier log.** The ATP bootstrap trap is closed. The static mid-game is narrowed from an 85 minute dead tail to a 14 minute worst gap, and it is not closed. See Blocking below.
+
+V3 answered one of the two questions in docs/BRIEF.md line 110 and half of the other. See "What the interface answered" below. The short version: the NAD+ wall reads as interesting, and the reason saturating kinetics did not feel like a game was that a solved act 1 stopped changing. V5 gave it something to keep responding to; whether that is enough is a question for a reader who is not the person who built it.
 
 ## Build state
 
@@ -26,12 +28,13 @@ One sentence per log. The "does not" column is the fence each stage doc inherits
 | V2 | Act 1 content: glucose uptake, glycolysis, the NAD+ pool, lactate fermentation | Any interface, the ethanol branch, glycogen storage | Done 2026-07-29 |
 | V3 | The first interface, only what is needed to play the slice and answer the two questions in docs/BRIEF.md line 110 | The timeline, the beast, the rest of DESIGN.md, saves | Done 2026-07-29 |
 | V4 | Persistence: save and load against docs/SAVE_SCHEMA.md version 1, plus the migration harness and its fixture test | Offline progress, any network or account | Done 2026-07-31 |
-| V5 | Offline progress: steady-state detection, the analytic jump to the next event, and validation of STEADY_EPSILON and STEADY_WINDOW | New content, any interface beyond a return summary | Not started |
-| V6+ | Unplanned, deliberately | Anything written here now would be fiction | Held |
+| V5 | The economy pass: docs/ECONOMY.md and its divergence table, the ATP bootstrap repair, the glycolytic capacity ladder, and act 1 balanced end to end against its target duration | Offline progress, new pathway content, the steady-state display question | Done 2026-08-03 |
+| V6 | Offline progress: steady-state detection, the analytic jump to the next event, and validation of STEADY_EPSILON and STEADY_WINDOW | New content, any interface beyond a return summary | Not started |
+| V7+ | Unplanned, deliberately | Anything written here now would be fiction | Held |
 
-The horizon is V5 and it is a real horizon rather than laziness. Act 2 is the highest-risk beat in the game and docs/PROGRESSION.md lists its shape as an open question for the prototype, so it is not decidable until the slice has been played. docs/ECONOMY.md gets written in the same window for the same reason.
+**The table moved by exactly one row and act 2 is still not on it.** V5 was the horizon for two logs because act 2 is the highest-risk beat in the game and docs/PROGRESSION.md lists its shape as an open question for the prototype. What V5 has changed is that act 1 no longer has a hole in it: the trap is repaired, the act is measured against its target, and every tuned number has a row. That licenses planning on top of act 1, which is what the offline log now is, and it does not license act 2.
 
-**The table is deliberately NOT extended past V5, and V3 having answered the questions is the reason rather than an exception to it.** Line 30 used to say "do not extend until V3 has answered the two questions". V3 has now attempted both, and the answers do not license an extension: question 1 came back negative. Saturating kinetics do not currently feel like a game, because a solved act 1 is a static screen. That is a finding about the economy, not about act 2, and writing a V6 row for act 2 content while act 1's own loop has a hole in it would be planning on top of a known defect. What the answers do license is docs/ECONOMY.md, which is now unblocked and is the next thing that should be written. Extending this table is a decision for after that.
+**What closing blocking item 1 unlocks, and what it does not.** Act 1 can now be played to the end of its content and past it without reaching an unrecoverable state, so a log can build on it without inheriting a defect. That is the precondition offline progress needed and did not have before. What it does not unlock is act 2, which needs the comprehension question answered by somebody who is not the author, and which needs docs/CONTENT_STYLE.md to exist so its text can be written once rather than twice.
 
 The docs/SCIENCE.md reconciliation that used to gate V2 landed as V2 stage 1. It was a docs-only pass and it is done.
 
@@ -79,7 +82,9 @@ Five conserved quantities rather than three. `carbon`, `phosphate` and `redox` a
 
 The determinism lint guard was extended from `src/sim/**` to `src/content/**` in V2 stage 6, because content builds the descriptors the kernel runs and the hashed state is a function of content. Hard rules 4 and 5 are mechanism in both directories now.
 
-**The act 1 canonical hash moved once, in V3 stage 6, from `e9b720a8` to `657594cb`.** Exactly one thing changed it: `ACT1_GLUCOSE_ENV_INITIAL` from 10000 to 80000, and starting amounts are hashed state. No coefficient, pool, ordering, rate or kinetic form was touched. The reason is written into the assertion itself.
+**The act 1 canonical hash has moved twice and it is `49ea08d3`.** V3 stage 6 took it from `e9b720a8` to `657594cb` by raising `ACT1_GLUCOSE_ENV_INITIAL` from 10000 to 80000, because starting amounts are hashed state. V5 stage 2 took it to `49ea08d3` by repairing the ATP bootstrap trap: `maintain` from Michaelis-Menten to Hill with `ACT1_MAINTAIN_HILL_N` of 3, and `ACT1_KM.maintain` from 20 to 12 in the same edit, because the K is derived from the form and there is no version of the repair that makes only one of them. Both reasons are written into the assertion itself. **V5 stages 3 and 4 moved no shipped default**, so the ladder and every re-derived threshold left the hash alone, which is the result rather than the absence of one: a stage that added unlock content and moved the canonical hash would have changed the starting state by accident.
+
+**One kinetic form changed in V5, and it is the second Hill in act 1.** `maintain` is Hill n = 3 rather than Michaelis-Menten. Unlike `prep`'s Hill, which is an attribution to PFK-1 and a claim about a real enzyme, this one is not a claim about anything. It is the ATP bootstrap repair and it has a divergence row saying so.
 
 Not built, deliberately: the ethanol branch, glycogen storage, the ten-enzyme decomposition.
 
@@ -130,9 +135,38 @@ Determinism across reload is a 36-case sweep on hash equality, four seeds by thr
 
 109 tests were added, taking the suite from V3's 160 to 269. Bundle 251.29 kB, 78.79 kB gzipped, up from V3's 229.44 kB and 72.36 kB.
 
+V5 added 16 more, taking the suite to **285 across 27 files**, and the bundle to **253.48 kB, 79.41 kB gzipped**. Act 1 conservation drift improved from 2.351e-13 to 1.113e-13 over the same 60 long runs, as a side effect of the bootstrap repair rather than as a goal.
+
+**Two act 1 unlock ids were added and no schema bump was needed.** `glycolysis-capacity-N` per rung, alongside the existing `ferment` and `uptake-capacity-N`. docs/SAVE_SCHEMA.md Part 1 makes an additive change new code can default a non-breaking one: a V4 save has no id with the new prefix and derives rung 0, which is what it was. Read from the other side, `Act1Unlocks.unknown` already carried unrecognised ids through capture untouched, so a V4 build loading a V5 save keeps the purchase in the file rather than deleting it. The committed version 1 fixture is untouched and still loads.
+
 The ESLint determinism guard now covers `src/save/**` too, in two halves. Hard rules 4 and 5 apply in full, because a save carries pool amounts and a PRNG state that go straight back into the tick loop. The clock ban applies everywhere except `src/save/meta.ts`, because docs/SAVE_SCHEMA.md Part 3 makes `lastSavedAt` the only wall-clock input in the system and exactly one file has to read it. The property worth keeping is not "save code may read the clock", it is that the places that read the clock are countable. There is one.
 
 Not built, deliberately: offline progress, cloud sync, accounts, compression, and any value under `enzymes` or `environment` that act 1 does not honestly make true.
+
+## What the economy does
+
+`docs/ECONOMY.md`, added by V5. The record docs/PILLARS.md rule 5 requires and the place CLAUDE.md hard rule 2 sends balance numbers. Not a design document, and no number in it may be cited as biology.
+
+**Thirty-seven rows, one per tuned number, split by the file the number lives in.** Thirteen were expected. The count was wrong three times before this log settled it: NOW.md said twenty-two twice while enumerating twenty-three things, `src/save/tuning.ts` said twenty-one, and both undercounted the same thing, the uptake ladder. Counting scalars consistently gives 17 in `src/content/act1/tuning.ts`, 19 in `src/ui/tuning.ts` and 1 in `src/save/tuning.ts`.
+
+**Every row is DEPARTURE or UNSOURCED and the split is the point.** 25 and 12.
+
+    DEPARTURE   a number standing where a real quantity could have stood, that
+                does not match it. Every rate, pool size, starting amount and
+                kinetic exponent in act 1.
+
+    UNSOURCED   a number with no real counterpart at all. A dash length in
+                pixels, a purchase threshold, an autosave interval. Its "real
+                behaviour" cell is EMPTY, and that emptiness is the content of
+                the row rather than a gap in it.
+
+Rule 5 requires departures to be recorded. It does not require inventing a departure for a number that never departed from anything, and a plausible sentence in an UNSOURCED row would be the exact failure the table exists to prevent.
+
+**Three departures are structural and have no row, because no single number carries them**: unlocks are thresholds against a lifetime ATP counter, the environment is a finite unreplenished pool, and the game refuses a death a real cell can die. They are written out in their own section.
+
+**The guard keeps the table and the code in step.** `src/ui/__tests__/divergenceTable.test.ts` parses both and fails the build if a tuned scalar has no row, if a row names a constant that no longer exists, or if the document's own stated count disagrees with what it contains. It counts scalars rather than names, so adding a rung to a ladder fails it too. Proved by adding a probe constant and reading the failure. Same shape as the DESIGN.md colour test from V3 stage 2, and it turns rule 5 into the same kind of mechanism as hard rules 1, 4, 5 and 7.
+
+**Hard rule 2 was live for the first time and it held.** `docs/SCIENCE.md` is untouched across every commit of V5, confirmed by diff. Every balance decision went into docs/ECONOMY.md, which is the whole reason the two documents are separate.
 
 ## What exists
 
@@ -147,13 +181,14 @@ Not built, deliberately: offline progress, cloud sync, accounts, compression, an
     DESIGN.md              visual contract, direction Honest Cartoon
     NOW.md                 this file
 
-    docs/ECONOMY.md        not written, deliberate, needs a prototype first
-    docs/CONTENT_STYLE.md  not written, deliberate, written last
+    docs/ECONOMY.md        tuned numbers and the divergence table, 37 rows
+    docs/CONTENT_STYLE.md  not written, deliberate, next
 
     UPDATELOGV1.md         the kernel build log, five stages, all reported
     UPDATELOGV2.md         the act 1 content log, six stages, all reported
     UPDATELOGV3.md         the first interface log, seven stages, all reported
     UPDATELOGV4.md         the persistence log, six stages, all reported
+    UPDATELOGV5.md         the economy log, five stages, all reported
 
 Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system-20260728/`. `preview-cartoon.html` is the current direction. `preview.html` is a rejected earlier direction kept for comparison.
 
@@ -185,6 +220,17 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - Content lives in `src/content/` and the kernel never imports it. The arrow points one way, permanently.
 - ATP is a flux, not a score. The adenylate pool is fixed and closed and `maintain` hydrolyses ATP back to ADP and phosphate. Cumulative production is a counter beside the simulation, never a pool inside it.
 
+## Settled 2026-08-03, by V5
+
+- **A tuned number lives in exactly one of the three tuning files and has exactly one row in docs/ECONOMY.md.** Enforced by `divergenceTable.test.ts`, which counts scalars rather than names, so adding a rung to a ladder fails it. This is docs/PILLARS.md rule 5 turned into the same kind of mechanism as hard rules 1, 4, 5 and 7.
+- **The unit of a divergence row is the scalar a balance pass can move on its own.** A record of five Vmax values is five rows and a ladder of three rungs is three, for the same reason. The one exception is a glycolytic rung, whose three Vmax values are bound by two measured constraints and cannot be moved independently, so it is one row.
+- **The real behaviour column is left empty for numbers that never departed from anything.** Rule 5 requires departures to be recorded and does not require inventing one.
+- **`payoff` Vmax must strictly exceed twice `prep` Vmax.** Not a design nicety, a stability condition, measured: every configuration at exactly twice died. The preparatory phase makes two trioses per glucose, so the payoff phase has to run twice per prep turn just to keep up, and it needs headroom over that or the investment phase spends ATP the payoff phase has not made back yet.
+- **Preparatory-phase capacity is not sellable on its own, so it is sold with the payoff phase in one purchase.** Selling them separately would ship a purchasable configuration that kills the player's cell.
+- **Unlock thresholds are derived from a target time rather than chosen and then measured.** Pick when the purchase should land, instrument a run, read cumulative ATP off it. The loop this replaces is adjusting by feel until the landing looks right, which is how a table of numbers ends up with no reason attached to any of them.
+- **Maintenance falls off faster in ATP than the preparatory phase does, and it has to.** Third order against second. Anything else and the cell has a state it cannot come back from, whatever the constants are.
+- **Line-number citations into docs/ are banned in favour of section names.** Five docs/SCIENCE.md pointers had drifted 42 lines and all five landed in the wrong Part. Two docs/PROGRESSION.md pointers broke inside V5 itself, when stage 5 edited the act 1 unlock list.
+
 ## Settled 2026-07-31, by V4
 
 - Storage keys are permanent from here: `krebs.save.active`, `krebs.save.backup`, `krebs.save.temp`. The prefix is the repository name and deliberately not the game's title, which is still TBD. A prefix that was never claiming to be the title cannot go stale, and renaming one orphans every save in existence with no error and no way back.
@@ -199,29 +245,35 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Blocking
 
-**V4 found nothing new for this list.** Both items below are the ones V3 left, both belong to docs/ECONOMY.md, and neither is touched by persistence. That is the point of the ordering note at the end of this file: saves were built on top of an economy known to have a hole in it, so the hole is now saved too.
+**One item closed, one narrowed, and nothing new added.** Both belonged to docs/ECONOMY.md, which is why neither moved for three logs.
 
-1. **Act 1 as tuned has an unrecoverable state. Still open, now deferred rather than fixed.** Below roughly 400 environmental glucose, baseline maintenance drains ATP faster than the pathway can bootstrap. ATP decays to denormal, the preparatory phase can no longer pay its 2 ATP entry cost, and nothing restarts it: `prep` needs ATP and `payoff` needs the g3p that only `prep` makes. Glucose keeps arriving and the cell stays dead.
+1. ~~**Act 1 as tuned has an unrecoverable state.**~~ **Closed 2026-08-03 by V5 stage 2.** Open since V2 stage 5, deferred by V3 stage 6 and again by V4.
 
-   V3 measured when a player actually reaches it and moved it out of reach rather than repairing it. `ACT1_GLUCOSE_ENV_INITIAL` went from 10000 to 80000, which puts the crossing at 114m14s at the top of the capacity ladder and out of the window entirely at the default rate, against docs/PROGRESSION.md's 45 to 90 minutes for act 1. A replenishment boundary flux was rejected because a reaction producing carbon from nothing breaks conservation on its first tick and teaching the V1 conservation test to treat the environment as a boundary is not a UI log's edit to make. Repairing the trap itself was rejected as an economy decision: it needs either a maintenance rate that backs off as ATP falls or a floor under the preparatory phase, and both are docs/ECONOMY.md's to own.
+   **It was worse than this entry described.** "Below roughly 400 environmental glucose" was not the boundary: every environment size from 10 to 2000 killed a healthy cell, and what was constant was the damage, exactly 169.57 glucose stranded inside a corpse at every size large enough to have it. The unrecoverable part was measured directly for the first time by emptying an environment and then refilling it: ATP at refeed 3.953e-323 and 0.00 ATP produced over the following ten game-minutes, with a full larder in front of the cell.
 
-   **The trap still exists.** Any change that raises uptake capacity, lengthens the act, or lowers the environment size brings it straight back. Reproduce with `npm run dev` at `/?glucose=500&ferment=on`, or `npm run sim:drain`.
+   **The cause was an ordering fact rather than a tuning one.** `prep` is Hill n = 2 in ATP so its flux falls as the square at low ATP, while Michaelis-Menten maintenance falls only linearly, so consumption beat production below some level for every possible choice of constants. Sweeping `ACT1_KM.maintain` from 5 to 500 repairs it at no value. The repair makes maintenance fall off faster than the preparatory phase does: `maintain` moved to the Hill form with n of 3, its K derived at 12 so the new curve passes through the old one at act 1's steady-state ATP. **The healthy economy did not move.** ATP per second, gross and net yield, the walled ceiling of 60 and the wall's arrival time are all unchanged.
 
-2. **A solved act 1 is a static screen, and this is the finding V3 exists to have produced.** Once fermentation is running, the pathway reaches steady state in about a minute and then nothing on the screen changes. Every net rate reads exactly 0.00 except lactate, ATP per second sits at 31.80 to twelve decimal places, and it stays that way indefinitely. Observed for eight consecutive minutes with an affordable upgrade sitting unbought. The only thing moving is a cumulative counter the player cannot see.
+   **What is not fixed and never will be, stated plainly.** ATP of exactly zero with no stranded g3p is still absorbing, because `prep` is the only route to g3p and making ATP from no ATP would break conservation. Recovery time from a near-zero ATP scales as 1/atp. The repair works by making the collapse not happen, not by making those levels survivable. `src/content/act1/__tests__/bootstrap.test.ts` asserts both halves including the mechanism, so a later balance pass that drops maintenance back to Michaelis-Menten fails there rather than reintroducing this quietly.
 
-   This is correct simulation. A metabolic steady state is genuinely steady, and the flux-is-the-headline inversion is what surfaces it honestly rather than hiding it behind a stock that keeps climbing. It is also the reason question 1 came back negative. Act 1 currently has two events in it, the wall and the ladder, and roughly ten minutes of nothing between them.
+2. **A solved act 1 is a static screen. NARROWED, NOT CLOSED**, and it stays in Blocking rather than being downgraded, because V5 stage 3 existed to fix it and got most of the way rather than all of it.
 
-   The fix is an economy question and not an interface one, so it belongs to docs/ECONOMY.md. Candidates, none chosen: more unlocks so there is always something approaching, an environment that varies so the steady state is disturbed, or accepting that an idle game's mid-game is meant to be quiet and making the quiet legible rather than empty. That last one is also DESIGN.md open question 7.
+   **The measurement was much worse than this entry described.** Act 1 as V4 shipped it had six discrete events, every one inside the first 5m13s, and then **84m47s in which nothing happened at all**, against a 45 to 90 minute target. "Roughly ten minutes of nothing between two events" understated it by an order of magnitude. One correction to the old wording: the screen is not literally frozen. The displayed ATP per second declines monotonically as the environment drains, crossing a two-decimal boundary every one to three minutes. A number very slowly going down is not an event, which is why it reads as nothing happening.
+
+   **What V5 did.** More unlocks, chosen over a varying environment because docs/SIMULATION.md Part 3 builds offline progress on the system reaching steady state, and an environment that never settles would make the next log's central mechanism fall back to coarse replay permanently. The glycolytic capacity ladder adds four purchases. **Events went from 6 to 7 and the longest gap from 84m47s to 13m51s**, with the last purchase at 61m57s instead of 5m13s.
+
+   **What is left, and why this log could not do it.** Fourteen minutes between events is still a long time to look at a screen that is not changing. Shortening it needs more things to sell, and act 1's three remaining unbuilt unlocks in docs/PROGRESSION.md, individual glycolytic enzymes, ethanol fermentation and glycogen storage, all extend the pathway, which V5's scope forbade. **The remaining gap is a content question rather than a balance one.** The other half of the answer is making the quiet legible, which is DESIGN.md open question 7, a display decision, and one V5 said out loud it was not taking.
 
 ## Open, not blocking
 
 - **Working title is still TBD.** docs/BRIEF.md line 4 says so and no naming shortlist exists. The wordmark is drawn as `krebs`, but the Krebs cycle unlocks roughly four hours in and does not exist during act 1.
-- **docs/ECONOMY.md exists as of V5 stage 1, and the count it was owed was wrong.** There is a playable prototype, which is the thing it was waiting for. **Twenty-four provisional numbers across three files** owe it a divergence row: thirteen in `src/content/act1/tuning.ts` (five Vmax, five Km, the Hill coefficient, the nicotinamide total and the environment size), ten in `src/ui/tuning.ts` (the zero-flux threshold, dash speed, dash length, the ferment threshold, the three rungs of the uptake ladder, its two thresholds, and the offline report threshold), and one in `src/save/tuning.ts` (the autosave interval). This entry said twenty-two for two logs, and it said seven for `src/ui/tuning.ts` while listing eight things. Counted from the files with one rule applied consistently, the unit being the scalar a balance pass can move on its own, the ladder is three numbers and not one. Each of the three files exists as a single file full of provisional numbers specifically so the divergence table has three places to point rather than twenty-four. The tension with hard rule 2 is resolvable rather than merely recorded, and V5 is the log resolving it.
+- **The divergence debt is discharged and the obligation to keep it discharged is new.** This entry used to be a count of what docs/ECONOMY.md was owed. It is now a count of what it holds: **thirty-seven rows across three tuning files**, 17 in `src/content/act1/tuning.ts`, 19 in `src/ui/tuning.ts` and 1 in `src/save/tuning.ts`. The old count of twenty-two was wrong in three places at once and the correction is recorded under "What the economy does". What replaces the debt is a standing rule with a test behind it: **a tuned number lives in exactly one of the three tuning files and has exactly one row.** Three numbers had been sitting outside those files since V2, the atp, adp and phosphate starting amounts in `pools.ts`, in a file whose own header said they owed a row. They were moved at unchanged values in V5 stage 5 and the guard is what found them.
 - **The coach mark trigger is chosen but weakly.** `COACH_MARK_TRIGGER` in `src/ui/components/CoachMark.tsx` is `'auto'`, picked in V3 stage 7 because under `'manual'` nothing on the screen explains the stall at all and the player has to find a 16px info affordance. Both behaviours are built and switching is a one-word edit. The choice was made by the person who built it, which is the least reliable possible reader.
-- **The uptake ladder stops at 12 because `prep` runs at Vmax 12.** Above that, uptake delivers glucose the preparatory phase cannot consume, measured: Vmax 12 reaches 30000 cumulative ATP in 11m24s and Vmax 18 reaches it in 11m03s. A longer capacity ladder needs preparatory-phase capacity to be sellable too. That is the shape of act 1's next unlock and it is a real design lead rather than a defect.
+- **The uptake ladder stops at 12, and V5 both confirmed the reason and found it had been overstated.** Re-measured after the bootstrap repair, time to 30000 cumulative ATP is 11m51.7s at Vmax 12 and 11m51.4s at 26, so everything above the knee sells three tenths of a second. The figures this entry used to quote, 11m24s and 11m03s, were measured before V3 stage 6 raised the environment in the same stage and were never re-run. **The lead this entry recorded was acted on and it was wrong as stated.** Preparatory-phase capacity is not sellable on its own: raising `prep` without `payoff` kills the cell, so V5 sells them together as the glycolytic capacity ladder.
+- **The top of the uptake ladder over-delivers, permanently, and that is now a feature with a purchase attached.** `prep` never reaches its Vmax of 12, settling near 10.554 because it is second order in ATP, so uptake at 12 pushes intracellular glucose up by about 87 a minute forever. V3 sized that rung against a nameplate rather than a realized rate. Each rung of the glycolytic ladder narrows the gap, to +23.0 a minute, then +17.2, then +9.2, then -1.5 at the top, so the pile of unusable glucose visibly drains as the phase that consumes it is bought.
 - **A backgrounded tab still loses game time. The hole is narrower and it is not closed.** What changed: `pendingOfflineMs` now survives a reload, and real time away is measured at load, capped at `MAX_OFFLINE_HOURS` and added to the same field. So the time is no longer thrown away, it is recorded, and it accumulates across sessions rather than resetting. What has not changed: **nothing spends it.** Not one tick of it is simulated, the player still sees no progress for it, and the field just grows. Narrower means the accounting is now honest, not that the player gets their time back. V5 owns spending it, and it now starts from a real number instead of from zero.
 - **The offline delta is accumulated and never credited, on purpose.** `time.offlineCreditedMs` is 0 in every save this build writes. The save panel says the time away is being kept and not spent, which is the honest sentence, and it will stay wrong-sounding until V5 makes it true.
-- **The autosave interval is 30 seconds and it is provisional.** `AUTOSAVE_INTERVAL_MS` in `src/save/tuning.ts`, reasoned from the unlock pacing measurement rather than measured. Along with `OFFLINE_REPORT_THRESHOLD_MS` in `src/ui/tuning.ts` it takes the docs/ECONOMY.md debt to twenty-four provisional numbers across three files.
+- **The autosave interval is 30 seconds and it is provisional.** `AUTOSAVE_INTERVAL_MS` in `src/save/tuning.ts`, reasoned from the unlock pacing measurement rather than measured. It is row S1 in docs/ECONOMY.md and the pacing it was reasoned from has since moved: purchases now sit 13 to 14 minutes apart rather than one and seven, so half a minute is a smaller fraction of a beat than it was. Nothing about that makes it wrong, and nobody has measured what tolerable loss is.
+- **`FERMENT_ATP_THRESHOLD` has no usable range and V5 measured it.** V3 left open whether the wall's answer should appear only after the player has sat in the stall for a while. It cannot be done with this number: cumulative ATP converges on the walled ceiling of 60 in the same breath as the pathway dies, so 50 is reached 0.50s before the wall and 59.99 is reached 0.10s after it. **A delay between the wall and its answer is an interface decision**, and it belongs with the coach mark rather than with a threshold.
 - **A development-time tick rate change costs one tick of game time per save, and that is the price of the rule rather than a defect.** `elapsedGameMs` is a whole multiple of the TICK_MS that wrote it, so reconstruction is exact while the rate is unchanged and floors when it is not. Storing milliseconds decouples the duration from `TICK_RATE_HZ`, which is what hard rule 6 depends on; it does not decouple the alignment. A save with a remainder is not corrupt and the loader must never treat it as corrupt. Written into docs/SAVE_SCHEMA.md Part 3 by V4.
 - ~~**Buying an unlock is not part of hashed state, and V4 has to persist it.**~~ Closed 2026-07-31. It still is not hashed state, which is why it needed saying: `setReactionVmax` and `setReactionEnabled` touch no pool, no tick count and no PRNG, so a reload that dropped unlock state would pass every determinism test in the project while silently refunding every purchase. `progression.unlocked` persists it and the runtime re-applies the capacity Vmax at load. Two tests in `reloadDeterminism.test.ts` fail on purpose without each half.
 - **The media query behind reduced motion has never run in a browser.** The reduced path itself was verified by forcing the flag, and it works. `usePrefersReducedMotion` is small and ordinary, but small and ordinary is not tested, and `Emulation.setEmulatedMedia` is not on the browse tool's CDP allowlist. It needs one check through real OS settings.
@@ -230,14 +282,17 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - **docs/SIMULATION.md line 90 names three conserved quantities and act 1 has five.** It says "carbon, phosphate and redox equivalents". `nicotinamide` and `adenylate` are conserved too under the act 1 decomposition and are the more useful invariants, because they are what turn the NAD+ wall into a testable property. V2 deliberately did not edit docs/SIMULATION.md. Recommendation is that Part 2's wording be widened to say the conserved set is content's to declare, since act 3 will add more, but that is a spec edit and should be deliberate rather than incidental.
 - **The timeline date column has no treatment for a stop with no date.** Two stops now carry `unresolved` and `hypothesis` instead of a figure. They need to read as deliberate statements at the same visual weight as a real date, and the non-linear axis has to place an undated stop by ordering constraint alone. See DESIGN.md open question 5.
 - **Recovery from the NAD+ wall is instantaneous, and V3 found it is not anticlimactic.** Measured from a 20000-tick stall, which is 16.7 minutes: the payoff phase restarts after 2 ticks, 100 milliseconds. The way back in is the stranded g3p, 6.8 units left sitting in the pool for the whole stall, because ATP is at denormal by then and the preparatory phase cannot pay its entry cost. Asserted in `src/ui/__tests__/stallRecovery.test.ts`, mechanism as well as outcome, so a future balance change that consumes g3p during a stall fails there rather than silently making the wall unsolvable. On screen it reads as a whole dead pathway coming alive at once, which is the opposite of anticlimactic. The worry was misplaced.
-- `STEADY_EPSILON` and `STEADY_WINDOW` shipped in V1 as unvalidated placeholders, 1e-6 and 20. docs/SIMULATION.md Part 6 marks them tune during prototype and no measurement exists yet. V5 validates them, and that measurement is the first thing it has to do.
+- `STEADY_EPSILON` and `STEADY_WINDOW` shipped in V1 as unvalidated placeholders, 1e-6 and 20. docs/SIMULATION.md Part 6 marks them tune during prototype and no measurement exists yet. **They are not tuned numbers in the docs/ECONOMY.md sense**, because they are engine tolerances rather than balance decisions, and they live in `src/sim/constants.ts` with the rest of the kernel. The offline log validates them, and that measurement is the first thing it has to do.
+- **The act's last 28 minutes are empty on purpose and nothing says so on screen.** Content ends at 61m57s and the food lasts to 92m42s. The environment should outlast the act rather than define it, but a player who keeps going gets half an hour of nothing at the end. Whether the act should announce it is over, or whether act 2 arrives there, is docs/PROGRESSION.md's question.
+- **The two capacity ladders are sequential and nothing has watched a player meet the second one.** The glycolytic slot reads "Opens once uptake is at the top of its ladder" until it opens, which was checked in a browser and looks right. Whether a locked slot with no progress readout reads as a promise or as a dead card is a comprehension question.
+- **`?ferment=on` does not survive a reload.** The development scenario door enables the reaction without minting an unlock id, so a restored save has no `ferment` in `progression.unlocked` and the reaction comes back disabled. No player path reaches it and `src/ui/scenario.ts` documents itself as a development affordance. Recorded so the next person to use that door is not confused by it.
 
 ## Next, in order
 
-1. **docs/ECONOMY.md.** Recommended by V3 stage 7, not acted on, and V4 has now added a row to what it owes rather than writing it. It owns two things no log so far has been able to: the ATP bootstrap trap in blocking item 1, which is a balance decision rather than an interface one, and the static mid-game in blocking item 2, which is the reason question 1 came back negative. Twenty-four provisional numbers across `src/content/act1/tuning.ts`, `src/ui/tuning.ts` and `src/save/tuning.ts` owe it divergence rows.
-2. **V5, offline progress.** Its first task is still validating `STEADY_EPSILON` and `STEADY_WINDOW` against a real configuration, which have been unvalidated placeholders since V1. Act 1 has been that configuration since V2 and is now a configuration that **can be saved mid-run**, which is exactly what makes the docs/SIMULATION.md Part 3 validation practical to write: the piecewise steady state path can be checked against a full-fidelity replay from a saved state, on hash equality, using the harness `reloadDeterminism.test.ts` already established. V5 also inherits a real accumulated `pendingOfflineMs` rather than a zero.
+1. **docs/CONTENT_STYLE.md and the comprehension pass.** This is next because text written against numbers that are about to move is text that gets written twice, and the numbers have now stopped moving: every tuned value in the game has a row, a guard keeps them in step, and act 1 is inside its target duration. That is the settled economy the content log has been waiting for since V2. It also owns the question this project most needs answered by someone who is not its author, which is whether any of the teaching beats land for a reader who does not already know where the wall is.
+2. **Offline progress.** docs/SIMULATION.md Part 3, plus validating `STEADY_EPSILON` and `STEADY_WINDOW`, which have been unvalidated placeholders since V1. Act 1 has been a real configuration to validate them against since V2, can be saved mid-run since V4, and since V5 has a steady state that is genuinely steady and reachable without falling into a trap first. **V5 chose more unlocks over a varying environment specifically to avoid handing this log a permanent fallback to coarse replay**, so it inherits an economy that suits it rather than one that fights it. It also inherits a real accumulated `pendingOfflineMs` rather than a zero.
 
-docs/ECONOMY.md went first before V4 and it did not get written, so V4 built saves on top of an economy known to have a hole in it, which means the hole is now saved too. That was the predicted cost and it is now the actual one. It should go first before V5 for the same reason and with one more log's worth of evidence behind it.
+**The ordering note that stood here for two logs is discharged.** It said docs/ECONOMY.md should go first and warned that building on an unsettled economy costs a rewrite, and V4 built saves on top of a known hole anyway. V5 paid that debt: the hole is repaired, the saves that carried it load fine, and the schema needed no bump because the new unlock ids are additive. The same reasoning now puts docs/CONTENT_STYLE.md ahead of offline progress, and this time for text rather than for numbers.
 
 ## The vertical slice
 
@@ -250,6 +305,8 @@ Done in V2: one pool, glycolysis, the NAD+ constraint, fermentation.
 Done in V3: the interface. **The slice is complete.**
 
 Done in V4, outside the slice: persistence. Every property this project treats as tested is now tested across a reload as well, which is a stronger claim than any earlier log could make.
+
+Done in V5, outside the slice: the economy. **The claim the slice exists to make is now asserted over nine purchasable configurations rather than two**: gross ATP per completed glucose is 4.000000000 and net is 2.000000000 at the shipped default and at the top of both ladders, while ATP per second goes from 31.795 to 75.494. docs/PROGRESSION.md says enzyme upgrades increase throughput and never yield, and that is measured across the whole ladder now rather than argued.
 
 Out of scope for the slice: saves, offline progress, the timeline, the beast, and the parts of DESIGN.md the slice did not need.
 
@@ -270,6 +327,8 @@ Buying lactate dehydrogenase brings the whole thing back at once. ATP per second
 The curves behave and the bottleneck is legible. Buying uptake capacity produced an immediate visible change, ATP per second 31.79 to 39.74 and glucose per second 7.95 to 9.94, and then the system re-settled within twenty seconds. Watching a rate step up and level off is a real reading of a saturating system, and the second capacity step gave less than the first, which is the diminishing return the question is about.
 
 The problem is what happens between purchases. **Once act 1 is solved the screen stops changing entirely**, for as long as you leave it. Every net rate reads exactly 0.00 except lactate, ATP per second is pinned to twelve decimal places, and it stayed that way for eight consecutive minutes. That is correct simulation and honest display, and it is also a game with two events in it and ten minutes of nothing in between. Saturating kinetics cannot feel like a game while there is nothing arriving for them to respond to. This is blocking item 2 and it belongs to docs/ECONOMY.md.
+
+**V5 measured that and it was worse than this reading said: six events, all inside the first 5m13s, then 84m47s of nothing.** It is now seven events with a worst gap of 13m51s. **That does not turn question 1's answer positive and nobody should read it that way.** What V5 can say is that the reason the answer was negative has been reduced from an 85 minute void to a 14 minute one. Whether saturating kinetics feel like a game at that spacing is a question about feel, and the standing caveat above applies to it more strongly than to anything else on this page: it was measured by the person who chose the spacing.
 
 **On ATP per second jumping while ATP per glucose does not move.** The intended conclusion is available and it is not forced. On unlocking fermentation, ATP per second went 0.00 to 41.87 while glucose per second stayed at exactly 7.95, unchanged, in the readout right beside it. Two headline numbers side by side, one of which moved enormously and one of which did not, is as clean a statement of "this bought throughput and not yield" as the screen can make without a sentence. Whether a player draws that conclusion or the opposite one is the single thing here most in need of a reader who is not me.
 

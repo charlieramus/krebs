@@ -3,10 +3,16 @@
  * locked content stays visible and dimmed rather than hidden, because seeing
  * what is coming is the genre's engine.
  *
- * Two slots, both finite. `ferment` once, which is the teaching beat. Uptake
- * capacity in a fixed enumerated number of steps, because CLAUDE.md hard rule 3
- * forbids infinite scaling and an upgrade with no last step is infinite scaling
- * wearing a small number.
+ * Three slots, all finite. `ferment` once, which is the teaching beat. Uptake
+ * capacity in a fixed enumerated number of steps, then glycolytic capacity in
+ * another, because CLAUDE.md hard rule 3 forbids infinite scaling and an upgrade
+ * with no last step is infinite scaling wearing a small number.
+ *
+ * The two ladders are SEQUENTIAL rather than side by side. Both raise uptake and
+ * the second always raises it further, so the third slot reads "Opens once
+ * uptake is at the top of its ladder" until it does. Locked content staying
+ * visible and dimmed is DESIGN.md's rule and it is the right one here: what the
+ * player can see coming is the reason to finish the ladder they are on.
  *
  * NEITHER SUBTRACTS FROM THE ATP POOL. The adenylate pool is fixed, closed and
  * conserved, so taking ATP out of it to pay for an upgrade breaks the
@@ -30,6 +36,8 @@ import { Figure } from './Figure';
 import { UNLOCKS } from '../content';
 import {
   FERMENT_ATP_THRESHOLD,
+  GLYCOLYSIS_ATP_THRESHOLDS,
+  GLYCOLYSIS_STEPS,
   TUNING_BADGES,
   UPTAKE_ATP_THRESHOLDS,
   UPTAKE_VMAX_STEPS,
@@ -137,14 +145,25 @@ export function UnlockShelf() {
   const [bought, setBought] = useState({
     ferment: runtime.snapshot.fermentUnlocked,
     uptakeStep: runtime.snapshot.uptakeStep,
+    glycolysisStep: runtime.snapshot.glycolysisStep,
   });
-  const [affordable, setAffordable] = useState({ ferment: false, uptake: false });
+  const [affordable, setAffordable] = useState({
+    ferment: false,
+    uptake: false,
+    glycolysis: false,
+  });
 
   useSnapshotEffect((snapshot) => {
     setBought((current) =>
-      current.ferment === snapshot.fermentUnlocked && current.uptakeStep === snapshot.uptakeStep
+      current.ferment === snapshot.fermentUnlocked &&
+      current.uptakeStep === snapshot.uptakeStep &&
+      current.glycolysisStep === snapshot.glycolysisStep
         ? current
-        : { ferment: snapshot.fermentUnlocked, uptakeStep: snapshot.uptakeStep },
+        : {
+            ferment: snapshot.fermentUnlocked,
+            uptakeStep: snapshot.uptakeStep,
+            glycolysisStep: snapshot.glycolysisStep,
+          },
     );
 
     const nextFerment =
@@ -152,18 +171,27 @@ export function UnlockShelf() {
     const uptakeThreshold = UPTAKE_ATP_THRESHOLDS[snapshot.uptakeStep];
     const nextUptake =
       uptakeThreshold !== undefined && snapshot.meter.atpProduced >= uptakeThreshold;
+    // Asked of the runtime rather than recomputed here. The sequencing rule
+    // between the two ladders lives in one place and this is a mirror of it.
+    const nextGlycolysis = runtime.canBuyGlycolysisStep();
     setAffordable((current) =>
-      current.ferment === nextFerment && current.uptake === nextUptake
+      current.ferment === nextFerment &&
+      current.uptake === nextUptake &&
+      current.glycolysis === nextGlycolysis
         ? current
-        : { ferment: nextFerment, uptake: nextUptake },
+        : { ferment: nextFerment, uptake: nextUptake, glycolysis: nextGlycolysis },
     );
   });
 
   const fermentBought = bought.ferment;
   const uptakeStep = bought.uptakeStep;
+  const glycolysisStep = bought.glycolysisStep;
 
   const atTopOfLadder = uptakeStep >= UPTAKE_VMAX_STEPS.length - 1;
   const nextThreshold = UPTAKE_ATP_THRESHOLDS[uptakeStep] ?? null;
+
+  const atTopOfGlycolysis = glycolysisStep >= GLYCOLYSIS_STEPS.length - 1;
+  const glycolysisThreshold = GLYCOLYSIS_ATP_THRESHOLDS[glycolysisStep] ?? null;
 
   return (
     <section aria-label="Unlocks" className="flex min-w-0 flex-col gap-2">
@@ -201,6 +229,29 @@ export function UnlockShelf() {
           buyLabel="Add capacity"
           onBuy={() => {
             runtime.buyUptakeStep();
+          }}
+        />
+
+        <Slot
+          title={UNLOCKS.glycolyticCapacity.text}
+          badge={UNLOCKS.glycolyticCapacity.badge}
+          detail={
+            atTopOfGlycolysis
+              ? 'At the top of the ladder. Both phases are running as fast as act 1 allows.'
+              : atTopOfLadder
+                ? 'Both phases of glycolysis together. The investment phase cannot be raised without the phase that pays it back.'
+                : 'Opens once uptake is at the top of its ladder.'
+          }
+          threshold={atTopOfGlycolysis || !atTopOfLadder ? null : glycolysisThreshold}
+          bought={atTopOfGlycolysis}
+          affordable={affordable.glycolysis}
+          // NOT "Add capacity", which is the slot to the left's label. The stage 4
+          // browser check found two buttons reading the same three words side by
+          // side, which is a worse problem read aloud than it is read on screen.
+          // This one says what it does that the other does not.
+          buyLabel="Raise both phases"
+          onBuy={() => {
+            runtime.buyGlycolysisStep();
           }}
         />
       </div>

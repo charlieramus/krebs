@@ -77,13 +77,18 @@ export const ACT1_VMAX: Readonly<Record<Act1ReactionId, number>> = {
  * four substrates and a Km near that pool's whole size would mean the payoff
  * phase never approaches Vmax even with the carrier fully oxidised. `uptake` at
  * 500 is large only because the environmental pool it draws on is large.
+ *
+ * `maintain` at 12 is a Hill K rather than a Michaelis-Menten Km, and it is 12
+ * rather than 20 for a derived reason. See ACT1_MAINTAIN_HILL_N below, which is
+ * the change this number came in with. Lowered from 20 by UPDATELOGV5.md stage
+ * 2.
  */
 export const ACT1_KM: Readonly<Record<Act1ReactionId, number>> = {
   uptake: 500,
   prep: 4,
   payoff: 2,
   ferment: 2,
-  maintain: 20,
+  maintain: 12,
 };
 
 /**
@@ -100,11 +105,71 @@ export const ACT1_KM: Readonly<Record<Act1ReactionId, number>> = {
 export const ACT1_HILL_N = 2;
 
 /**
+ * Hill coefficient for maintenance. THE ATP BOOTSTRAP REPAIR, and the reason
+ * `ACT1_KM.maintain` moved from 20 to 12 in the same stage.
+ *
+ * WHAT WAS BROKEN. NOW.md blocking item 1, open since V2 stage 5, deferred by
+ * V3 stage 6 and measured properly for the first time in UPDATELOGV5.md stage 2.
+ * `maintain` was Michaelis-Menten in ATP, so at low ATP it is first order:
+ * v approaches (Vmax / Km) * atp. `prep` is Hill n = 2 in ATP, so at low ATP it
+ * is second order: v approaches (Vmax / K^2) * atp^2. **Consumption falling
+ * linearly while production falls quadratically means consumption always wins
+ * below some ATP level, whatever the constants are.** That is why the trap is
+ * structural rather than a matter of where a Km sits, and why sweeping
+ * `ACT1_KM.maintain` from 5 to 500 does not repair it at any value.
+ *
+ * WHAT THE REPAIR IS. Make maintenance fall off faster in ATP than the
+ * preparatory phase does. n = 3 is the smallest integer that strictly dominates
+ * n = 2, in the same spirit as ACT1_HILL_N being the smallest integer that is
+ * sigmoidal at all. Below the crossover, production now beats consumption and
+ * the cell climbs back out instead of spiralling in.
+ *
+ * WHY K IS 12 AND WHY THAT IS DERIVED RATHER THAN PICKED. Act 1 sits at an ATP
+ * pool of 9.323 at steady state, measured. K is chosen so the new Hill curve
+ * passes through the same point as the old Michaelis-Menten curve there:
+ *
+ *     a^3 / (K^3 + a^3)  =  a / (Km + a)   at a = 9.323, Km = 20
+ *     K^3 = a^3 * (Km / a) = 810.4 * 2.145 = 1738.5,  K = 12.02
+ *
+ * At 12, steady-state ATP moves from 9.323 to 9.305, a fifth of a percent, and
+ * ATP per second, gross ATP per glucose, the walled cumulative ceiling and the
+ * arrival time of the NAD+ wall are all unchanged to the digits the interface
+ * shows. **At the shipped default the healthy economy is untouched and only the
+ * low-ATP tail differs, which is the whole point of the change.**
+ *
+ * ONE COST, AT THE TOP OF THE CAPACITY LADDER, AND IT IS REPORTED RATHER THAN
+ * HIDDEN. The Hill curve rises faster than Michaelis-Menten above the crossover
+ * as well as falling faster below it, so a cell running an elevated ATP pool now
+ * spends more. At uptake Vmax 12 the ATP pool settles at 10.808 instead of
+ * 16.6, which throttles the preparatory phase from 11.342 to 10.554 and costs
+ * about 7 percent of throughput there: 30000 cumulative ATP arrives at 11m51.7s
+ * rather than 11m03.0s. Nothing at the shipped default moves. The gap it widens
+ * is uptake outrunning the preparatory phase at the top rung, which is the
+ * bottleneck the next unlock in act 1 is supposed to sell.
+ *
+ * WHAT IT DOES NOT FIX, STATED PLAINLY. ATP of exactly zero with no stranded
+ * g3p is still absorbing, and no rate change can make it otherwise: `prep` is
+ * the only route to g3p and it cannot run without ATP, so making ATP from
+ * nothing would break conservation. Recovery time from a near-zero ATP scales
+ * as 1 / atp, measured: 4.2s from 1, 10.8s from 0.1, 11m13s from 0.001 and over
+ * four game-hours from 1e-6. The repair works by making the collapse not happen,
+ * so those levels are never reached, not by making them survivable.
+ *
+ * DISCLOSED, NOT SOURCED. docs/SCIENCE.md says nothing about a maintenance
+ * reaction, because `maintain` is a modeling convenience standing in for the
+ * rest of cellular metabolism and not a glycolytic step. A real cell can be too
+ * ATP-poor to start glycolysis and really does die that way. This game refuses
+ * to let a player reach that state, and that refusal is a departure with a row
+ * in docs/ECONOMY.md rather than a biological claim. Do not cite it as one.
+ */
+export const ACT1_MAINTAIN_HILL_N = 3;
+
+/**
  * Size of the nicotinamide pool, NAD+ plus NADH. Act 1's ceiling on everything.
  *
  * SOURCED: that the pool is small and fixed, and that glycolysis halts within
  * seconds if NADH is not reoxidised regardless of glucose availability.
- * docs/SCIENCE.md Part 2 line 108.
+ * docs/SCIENCE.md Part 2, "The NAD+ constraint".
  *
  * NOT SOURCED: how small. That number is ours and it lives here with the rates
  * rather than in pools.ts, because it is a tuned quantity wearing a pool's
@@ -162,3 +227,41 @@ export const ACT1_NICOTINAMIDE_TOTAL = 30;
  * of number docs/ECONOMY.md exists to own. Stage 7 recommends writing it.
  */
 export const ACT1_GLUCOSE_ENV_INITIAL = 80000;
+
+/* ===========================================================================
+   STARTING AMOUNTS THAT ARE TUNED RATHER THAN STRUCTURAL.
+
+   MOVED HERE FROM pools.ts BY UPDATELOGV5.md STAGE 5, at the same values.
+   `ACT1_INITIAL` said in its own header that these owed a row in
+   docs/ECONOMY.md, and they had sat outside the three tuning files for three
+   logs while every count of the debt quietly omitted them. The rule this log
+   settled is that a tuned number lives in exactly one of the three tuning files
+   and nowhere else, and a test enforces it now, so they live here.
+
+   The zeros in `ACT1_INITIAL` did not move and are not tuned. A pathway that
+   starts with no intermediates in it is structural: the cell has not run yet.
+   =========================================================================== */
+
+/**
+ * ATP at t=0, out of an adenylate total of 40.
+ *
+ * Half the pool, so the cell starts with somewhere to put the phosphate it is
+ * about to move and something to spend on the preparatory phase's 2 ATP entry
+ * cost. Neither half can be zero: no ATP and the pathway cannot start at all,
+ * which is NOW.md blocking item 1 seen from t=0, and no ADP and the payoff phase
+ * has no acceptor.
+ */
+export const ACT1_ATP_INITIAL = 20;
+
+/** ADP at t=0. With ACT1_ATP_INITIAL this fixes the adenylate total at 40. */
+export const ACT1_ADP_INITIAL = 20;
+
+/**
+ * Free phosphate at t=0.
+ *
+ * Sized so the payoff phase is never short of it. Phosphate is conserved across
+ * the whole pathway and `maintain` returns one unit per turn, so this is a
+ * buffer rather than a supply, and 40 is comfortably above the working level of
+ * roughly 48 the pathway settles at once ATP and ADP have redistributed.
+ */
+export const ACT1_PI_INITIAL = 40;

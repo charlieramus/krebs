@@ -116,12 +116,26 @@ describe('act 1 determinism', () => {
     // Fixture: createAct1({ seed: 20260729 }), 1200 ticks, setting ferment from
     // a PRNG roll every 50 ticks.
     //
-    // CHANGED ONCE, DELIBERATELY, AND HERE IS THE ENTRY THIS LINE EXISTS FOR.
-    // Was e9b720a8 from V1 through V3 stage 5. UPDATELOGV3.md stage 6 raised
-    // ACT1_GLUCOSE_ENV_INITIAL from 10000 to 80000 to move the ATP bootstrap
-    // trap in NOW.md blocking item 1 beyond the horizon of act 1, and starting
-    // amounts are hashed state, so the hash moved with it. Nothing else changed:
-    // no coefficient, no pool, no ordering, no rate. Re-frozen at 657594cb.
-    expect(hashState(runScript(CANONICAL_SEED, CANONICAL_TICKS))).toBe('657594cb');
+    // CHANGED TWICE, DELIBERATELY, AND HERE IS THE ENTRY THIS LINE EXISTS FOR.
+    //
+    // e9b720a8, V1 through V3 stage 5.
+    //
+    // 657594cb, UPDATELOGV3.md stage 6. It raised ACT1_GLUCOSE_ENV_INITIAL from
+    // 10000 to 80000 to move the ATP bootstrap trap in NOW.md blocking item 1
+    // beyond the horizon of act 1, and starting amounts are hashed state, so the
+    // hash moved with it. Nothing else changed: no coefficient, no pool, no
+    // ordering, no rate.
+    //
+    // 49ea08d3, UPDATELOGV5.md stage 2. It repaired that trap instead of moving
+    // it again. `maintain` went from Michaelis-Menten to Hill with
+    // ACT1_MAINTAIN_HILL_N of 3, so that consumption falls off faster in ATP
+    // than the preparatory phase's production does, and `ACT1_KM.maintain` went
+    // from 20 to 12 in the same edit because K is derived from that form: 12 is
+    // the value at which the new curve passes through the old one at act 1's
+    // steady-state ATP. Those two are one change and there is no version of the
+    // repair that makes only one of them. Nothing else moved: no coefficient, no
+    // pool, no ordering, no Vmax, and no starting amount. See
+    // __tests__/bootstrap.test.ts, which is the reason the change exists.
+    expect(hashState(runScript(CANONICAL_SEED, CANONICAL_TICKS))).toBe('49ea08d3');
   });
 });

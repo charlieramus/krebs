@@ -16,13 +16,17 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { TICK_MS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
-import { ACT1_UNLOCK_FERMENT, act1UptakeUnlockId } from '../../content/act1/save';
+import {
+  ACT1_UNLOCK_FERMENT,
+  act1GlycolysisUnlockId,
+  act1UptakeUnlockId,
+} from '../../content/act1/save';
 import {
   createAct1Runtime,
   type Act1PersistenceOptions,
   type Act1Runtime,
 } from '../../ui/runtime';
-import { UPTAKE_VMAX_STEPS } from '../../ui/tuning';
+import { GLYCOLYSIS_STEPS, UPTAKE_VMAX_STEPS } from '../../ui/tuning';
 import { serialize } from '../codec';
 import { computeOfflineDelta, MAX_OFFLINE_MS } from '../offline';
 import { createMemoryStore, createSaveStore, STORAGE_KEYS, type KeyValueStore } from '../storage';
@@ -320,6 +324,49 @@ describe('reloading a session', () => {
     // while the reaction still runs at 8 is the silent refund.
     const uptake = second.state.reactions.find((r) => r.id === 'uptake');
     expect(uptake?.kinetics.vmax).toBe(UPTAKE_VMAX_STEPS[1]);
+  });
+
+  it('re-applies a glycolytic capacity rung, all four of its rates', () => {
+    // UPDATELOGV5.md stage 3. The same silent refund the test above guards
+    // against, over a purchase that moves four reactions instead of one. A rung
+    // half restored is worse than one not restored at all: the configurations
+    // between rungs are the ones measured to kill the cell.
+    const h = harness();
+
+    const first = makeRuntime(h);
+    first.start();
+    play(first, 1500);
+    first.buyFerment();
+    // Climb the uptake ladder, which has to be finished before this one opens.
+    for (let i = 0; i < 200000 && first.snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1; i += 1) {
+      play(first, 1);
+      first.buyUptakeStep();
+    }
+    for (let i = 0; i < 400000 && first.snapshot.glycolysisStep < 1; i += 1) {
+      play(first, 1);
+      first.buyGlycolysisStep();
+    }
+    expect(first.snapshot.glycolysisStep).toBe(1);
+    expect(first.unlocked).toContain(act1GlycolysisUnlockId(1));
+    first.stop();
+
+    const second = makeRuntime(h);
+    expect(second.snapshot.glycolysisStep).toBe(1);
+
+    const rung = GLYCOLYSIS_STEPS[1];
+    if (rung === undefined) throw new Error('no rung 1');
+    const vmaxOf = (id: string): number | undefined =>
+      second.state.reactions.find((r) => r.id === id)?.kinetics.vmax;
+    expect(vmaxOf('uptake')).toBe(rung.uptake);
+    expect(vmaxOf('prep')).toBe(rung.prep);
+    expect(vmaxOf('payoff')).toBe(rung.payoff);
+    expect(vmaxOf('ferment')).toBe(rung.payoff);
+
+    // The preparatory phase is on the Hill form and must stay on it. Restoring a
+    // Vmax by rebuilding the descriptor is exactly where a curve gets swapped
+    // for the wrong one, and a Michaelis-Menten `prep` reintroduces NOW.md
+    // blocking item 1 without changing a single number.
+    expect(second.state.reactions.find((r) => r.id === 'prep')?.kinetics.kind).toBe('hill');
   });
 
   it('does not re-lock a purchase the meter has already paid for', () => {
