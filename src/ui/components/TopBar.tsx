@@ -20,7 +20,7 @@
 import { Figure } from './Figure';
 import { Badge, type BadgeSpec } from './Badge';
 import { Button } from './Button';
-import { ABOUT, READOUTS } from '../content';
+import { ABOUT, READOUTS, WORDMARK } from '../content';
 import { poolIndex, type Act1Snapshot } from '../runtime';
 
 const ATP = poolIndex('atp');
@@ -90,7 +90,7 @@ export function TopBar({ onOpenAbout }: { onOpenAbout: () => void }) {
             explicit because Tailwind's preflight resets h1 to inherit, which on
             a variable face silently renders 400. */}
         <h1 className="font-display font-semibold text-wordmark tracking-wordmark leading-none text-ink">
-          krebs
+          {WORDMARK.text}
         </h1>
 
         {/* The permanent way back to the first run and the disclosure. It is in

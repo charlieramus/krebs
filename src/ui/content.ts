@@ -169,7 +169,10 @@ export const POOL_FIGURES = {
 export const UNLOCKS = {
   ferment: {
     text: 'Lactate dehydrogenase',
-    badge: sourced(`${PART2}, lactate dehydrogenase reduces pyruvate to lactate, oxidizing NADH`),
+    // "oxidising", not "oxidizing". docs/CONTENT_STYLE.md Part 2 settles the
+    // spelling at -ise and -yse, because this string used to render four inches
+    // from an "oxidises" on the same shelf.
+    badge: sourced(`${PART2}, lactate dehydrogenase reduces pyruvate to lactate, oxidising NADH`),
   },
   uptakeCapacity: {
     text: 'Uptake capacity',
@@ -187,6 +190,118 @@ export const UNLOCKS = {
     ),
   },
 } as const satisfies Readonly<Record<string, Entry>>;
+
+/* ===========================================================================
+   THE UNLOCK SHELF. Moved here by UPDATELOGV6.md stage 6.
+
+   ELEVEN STRINGS THAT HAD BEEN RENDERED FROM A COMPONENT FILE SINCE V3. The
+   rule that every player-facing string lives in this file was written down in
+   V3, restated in docs/CONTENT_STYLE.md Part 1 and never enforced, and this is
+   where it was broken. A string in a component is a string nobody can audit,
+   because the audit reads one file.
+
+   Two corrections came with the move rather than after it. "The investment
+   phase" was a third name for the preparatory phase, on a card sitting under an
+   arrow labelled "Preparatory phase"; docs/CONTENT_STYLE.md Part 3 bans it. And
+   "oxidises" here disagreed with "oxidizing" in the badge two entries above.
+   =========================================================================== */
+
+export const SHELF = {
+  heading: {
+    text: 'Unlocks',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  /** The progress readout's unit, beside a Figure that carries the badge. */
+  progressUnit: {
+    text: 'ATP made',
+    badge: sourced(`${PART2}, cumulative ATP produced by the pathway`),
+  },
+  /** The word between the two figures in "60 of 55 ATP made". */
+  progressOf: {
+    text: 'of',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  /** What a bought slot's button says. Not an action, a state. */
+  bought: {
+    text: 'Running',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+
+  fermentDetail: {
+    text: 'Reduces pyruvate to lactate and oxidises NADH back to NAD+. Produces no ATP.',
+    badge: sourced(`${PART2}, fermentation produces zero additional ATP`),
+  },
+  fermentBuy: {
+    text: 'Express it',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+
+  uptakeDetail: {
+    text: 'More transport across the membrane. A fixed number of steps, and this is not the last.',
+    badge: tuned('A finite ladder. Neither the steps nor their number is sourced'),
+  },
+  uptakeDone: {
+    text: 'At the top of the ladder. Uptake is no longer the limiting step.',
+    badge: tuned('Measured at the shipped tuning, not derived. docs/ECONOMY.md row U7'),
+  },
+  uptakeBuy: {
+    text: 'Add capacity',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+
+  glycolysisDetail: {
+    // WAS "The investment phase cannot be raised without the phase that pays it
+    // back". docs/PROGRESSION.md calls it the investment phase in design prose
+    // and the pathway calls it the preparatory phase, and two names for one
+    // arrow is a puzzle handed to the player for nothing.
+    text: 'Both phases of glycolysis together. The preparatory phase cannot be raised without the phase that pays it back.',
+    badge: sourced(`${PART2}, the payoff phase runs twice per preparatory turn`),
+  },
+  glycolysisLocked: {
+    text: 'Opens once uptake is at the top of its ladder.',
+    badge: tuned(`${ABOUT_THE_BUILD}. The two ladders are sequential by design`),
+  },
+  glycolysisDone: {
+    text: 'At the top of the ladder. Both phases are running as fast as act 1 allows.',
+    badge: tuned('The top of the ladder is a tuned stopping point, not a real ceiling'),
+  },
+  glycolysisBuy: {
+    // NOT "Add capacity", which is the slot to the left's label. V3's stage 4
+    // browser check found two buttons reading the same three words side by side,
+    // which is a worse problem read aloud than it is read on screen.
+    text: 'Raise both phases',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+} as const satisfies Readonly<Record<string, Entry>>;
+
+/* ===========================================================================
+   LANDMARKS
+
+   Region names for assistive technology. An aria-label is a player-facing
+   string, docs/CONTENT_STYLE.md Part 1 says so explicitly, and these were the
+   two that had been sitting in component files since V3.
+   =========================================================================== */
+
+export const LANDMARKS = {
+  pools: { text: 'Pools', badge: tuned(ABOUT_THE_BUILD) },
+} as const satisfies Readonly<Record<string, Entry>>;
+
+/**
+ * The wordmark, which is the string in this game most likely to change and was
+ * the one hardcoded in a component.
+ *
+ * Found by the guard in contentStyle.test.ts rather than by the audit that went
+ * looking for exactly this, which is the argument for the guard. docs/BRIEF.md
+ * still says the working title is TBD and DESIGN.md open question 1 records that
+ * "krebs" names an act 3 mechanic that unlocks roughly four hours into a game
+ * whose first 45 to 90 minutes are anaerobic. So the badge says the title is
+ * provisional, and when one is chosen this is a one-line edit rather than a
+ * search through the components.
+ */
+export const WORDMARK: Entry = {
+  text: 'krebs',
+  badge: tuned('The working title is still TBD. docs/BRIEF.md, and DESIGN.md open question 1'),
+};
 
 /* ===========================================================================
    THE COACH MARK
@@ -221,6 +336,12 @@ export interface CoachMark {
   /** Mandatory. DESIGN.md: a coach mark without a source row does not ship. */
   readonly source: string;
 }
+
+/** The mark's own furniture. DESIGN.md's 16px info affordance and the way out. */
+export const COACH = {
+  affordance: { text: 'i', badge: tuned(ABOUT_THE_BUILD) },
+  dismiss: { text: 'Dismiss', badge: tuned(ABOUT_THE_BUILD) },
+} as const satisfies Readonly<Record<string, Entry>>;
 
 export const NAD_COACH_MARK: CoachMark = {
   heading: { text: 'NAD+ has run out', badge: sourced(`${PART2}, the NAD+ constraint`) },
@@ -632,7 +753,12 @@ export const SAVE = {
   },
   awayNotSimulated: {
     text: 'None of it has been simulated. It is being kept, not spent.',
-    badge: tuned(`${ABOUT_THE_BUILD}. Offline progress lands in V5`),
+    // WAS "Offline progress lands in V5", which V5 did not do: V5 was the
+    // economy log. A badge reason renders into a title attribute and is
+    // therefore player-facing, so a stale one is a stale claim on screen rather
+    // than a stale note to a developer. Named after no version at all, so it
+    // cannot go stale again by a log shipping something else.
+    badge: tuned(`${ABOUT_THE_BUILD}. Nothing spends it yet`),
   },
   awayCapped: {
     text: 'Time away is capped, and the cap was reached.',

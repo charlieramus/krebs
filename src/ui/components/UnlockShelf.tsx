@@ -35,7 +35,7 @@ import { Card } from './Card';
 import { InfoAffordance } from './CoachMark';
 import { Figure } from './Figure';
 import { useOpenTeachingPanel } from './TeachingPanel';
-import { PANEL_AFFORDANCE, UNLOCKS } from '../content';
+import { PANEL_AFFORDANCE, SHELF, UNLOCKS } from '../content';
 import {
   FERMENT_ATP_THRESHOLD,
   GLYCOLYSIS_ATP_THRESHOLDS,
@@ -69,7 +69,7 @@ function Progress({ threshold }: { threshold: number }) {
         badge={TUNING_BADGES.fermentThreshold}
         badgeDisplay="attached"
       />
-      <span className="text-micro font-body font-bold text-ink2">of</span>
+      <span className="text-micro font-body font-bold text-ink2">{SHELF.progressOf.text}</span>
       <Figure
         value={threshold}
         decimals={0}
@@ -77,7 +77,7 @@ function Progress({ threshold }: { threshold: number }) {
         badge={TUNING_BADGES.fermentThreshold}
         badgeDisplay="attached"
       />
-      <span className="text-micro font-body font-bold text-ink2">ATP made</span>
+      <span className="text-micro font-body font-bold text-ink2">{SHELF.progressUnit.text}</span>
     </span>
   );
 }
@@ -128,7 +128,7 @@ function Slot({
       {threshold === null ? null : <Progress threshold={threshold} />}
 
       <Button surface={bought ? 'mint' : 'white'} disabled={bought || !affordable} onClick={onBuy}>
-        {bought ? 'Running' : buyLabel}
+        {bought ? SHELF.bought.text : buyLabel}
       </Button>
     </Card>
   );
@@ -207,10 +207,10 @@ export function UnlockShelf() {
   const glycolysisThreshold = GLYCOLYSIS_ATP_THRESHOLDS[glycolysisStep] ?? null;
 
   return (
-    <section aria-label="Unlocks" className="flex min-w-0 flex-col gap-2">
+    <section aria-label={SHELF.heading.text} className="flex min-w-0 flex-col gap-2">
       <span className="flex items-center gap-2">
         <h2 className="font-display font-semibold text-card-title uppercase tracking-label text-ink2">
-          Unlocks
+          {SHELF.heading.text}
         </h2>
       </span>
 
@@ -218,7 +218,7 @@ export function UnlockShelf() {
         <Slot
           title={UNLOCKS.ferment.text}
           badge={UNLOCKS.ferment.badge}
-          detail="Reduces pyruvate to lactate and oxidises NADH back to NAD+. Produces no ATP."
+          detail={SHELF.fermentDetail.text}
           threshold={fermentBought ? null : FERMENT_ATP_THRESHOLD}
           bought={fermentBought}
           affordable={affordable.ferment}
@@ -228,7 +228,7 @@ export function UnlockShelf() {
           // game to correct directly is a misconception about this button.
           onInfo={openPanel}
           infoLabel={PANEL_AFFORDANCE.text}
-          buyLabel="Express it"
+          buyLabel={SHELF.fermentBuy.text}
           onBuy={() => {
             runtime.buyFerment();
           }}
@@ -239,13 +239,13 @@ export function UnlockShelf() {
           badge={UNLOCKS.uptakeCapacity.badge}
           detail={
             atTopOfLadder
-              ? 'At the top of the ladder. Uptake is no longer the limiting step.'
-              : 'More transport across the membrane. A fixed number of steps, and this is not the last.'
+              ? SHELF.uptakeDone.text
+              : SHELF.uptakeDetail.text
           }
           threshold={atTopOfLadder ? null : nextThreshold}
           bought={atTopOfLadder}
           affordable={affordable.uptake && !atTopOfLadder}
-          buyLabel="Add capacity"
+          buyLabel={SHELF.uptakeBuy.text}
           onBuy={() => {
             runtime.buyUptakeStep();
           }}
@@ -256,10 +256,10 @@ export function UnlockShelf() {
           badge={UNLOCKS.glycolyticCapacity.badge}
           detail={
             atTopOfGlycolysis
-              ? 'At the top of the ladder. Both phases are running as fast as act 1 allows.'
+              ? SHELF.glycolysisDone.text
               : atTopOfLadder
-                ? 'Both phases of glycolysis together. The investment phase cannot be raised without the phase that pays it back.'
-                : 'Opens once uptake is at the top of its ladder.'
+                ? SHELF.glycolysisDetail.text
+                : SHELF.glycolysisLocked.text
           }
           threshold={atTopOfGlycolysis || !atTopOfLadder ? null : glycolysisThreshold}
           bought={atTopOfGlycolysis}
@@ -268,7 +268,7 @@ export function UnlockShelf() {
           // browser check found two buttons reading the same three words side by
           // side, which is a worse problem read aloud than it is read on screen.
           // This one says what it does that the other does not.
-          buyLabel="Raise both phases"
+          buyLabel={SHELF.glycolysisBuy.text}
           onBuy={() => {
             runtime.buyGlycolysisStep();
           }}

@@ -840,7 +840,104 @@ summaries.
 
 ## Stage 6 Report
 
-_Pending._
+### Step 1, the coherence pass, and what it found
+
+**The audit in stage 1 listed nine non-compliant strings. The true count was fifteen, and the guard found the last two.**
+
+Eleven strings moved out of `UnlockShelf.tsx` into `src/ui/content.ts`, plus one aria-label from `PoolRail.tsx` and two pieces of coach mark furniture from `CoachMark.tsx`, the "i" and the "Dismiss". Stage 4 had already found an eleventh in the shelf that stage 1's audit missed, `{bought ? 'Running' : buyLabel}`. **Then the guard, run for the first time, found two more that three separate manual passes had walked past:**
+
+    src/ui/components/TopBar.tsx: >krebs<
+    src/ui/components/UnlockShelf.tsx: >of<
+
+**The wordmark is the find worth naming.** It is the string in this game most likely to change, because DESIGN.md open question 1 and docs/BRIEF.md both record that the working title is still TBD and that "krebs" names an act 3 mechanic that unlocks roughly four hours into a game whose first 45 to 90 minutes are anaerobic. It was hardcoded in a component through six logs. It is now `WORDMARK` in `content.ts` with a badge saying the title is provisional, so choosing one is a one-line edit rather than a search. **Three human passes looked for hardcoded strings and none of them saw the game's own name**, which is the whole argument for the guard rather than the discipline.
+
+**Two content corrections came with the move rather than after it.** "The investment phase" was a third name for the preparatory phase on a card sitting under an arrow labelled "Preparatory phase", banned by docs/CONTENT_STYLE.md Part 3. And "oxidizing" in the ferment badge disagreed with "oxidises" in the ferment detail, four inches apart on the same shelf, settled at -ise.
+
+**One badge reason was false on screen and is fixed.** `SAVE.awayNotSimulated` read "Offline progress lands in V5". V5 was the economy log. A badge reason renders into a `title` attribute, so this was a stale claim a player could hover, not a stale note to a developer. It now names no version at all, so it cannot go stale again by a log shipping something else.
+
+### Step 1, the mechanism decision
+
+**Built, and the call was to build every one of the five rules docs/CONTENT_STYLE.md Part 8 listed as testable.** `src/ui/__tests__/contentStyle.test.ts`, ten assertions in two groups.
+
+    no player-facing literal text node in any .tsx
+    no player-facing literal passed to aria-label, title, alt, placeholder,
+      label, detail, buyLabel or infoLabel
+    no em dash and no en dash, including inside ranges
+    no exclamation mark, anywhere
+    no curly quote or curly apostrophe
+    no "investment phase"
+    no -ize spelling
+    no "simply", "obviously" or "of course"
+    plus a guard-the-guard assertion on each half
+
+**Voice is not tested and was not faked.** Part 8 said so before this stage existed and this stage did not quietly reinterpret it. Neither is Part 6, which asks whether a paragraph should have been a shape, and which is a judgement every time.
+
+**One exemption, and the reason is structural rather than a convenience.** `src/ui/components/Badge.tsx` renders "Sourced", "Tuned", "Contested" and "Needs source". They cannot come from `content.ts` because `content.ts` imports `Badge` to build every badge in the game, and the import would be circular. They are also DESIGN.md's vocabulary rather than authored copy, the way the colour tokens are. The allowlist has one entry and the header says any addition should be argued in a log.
+
+### The probe, and the two holes it found in the guard
+
+**Planted `<h2>Resources so far!</h2>` and `aria-label="Your resources"` in `PoolRail.tsx`.** The aria-label assertion fired. **The text node assertion did not**, and that is the most useful thing in this stage.
+
+The prose detector was a character allowlist, `^[A-Za-z][A-Za-z0-9 ,.'+/()-]*$`, and the exclamation mark was not in the list, so the probe walked straight through. **A guard that only catches politely punctuated violations is worse than no guard, because it reads as coverage.** Inverted: anything containing a letter is prose unless it contains a character that cannot appear in a sentence a player reads. Re-probed, and both assertions fire:
+
+    src/ui/components/PoolRail.tsx: >Resources so far!<
+    src/ui/components/PoolRail.tsx: aria-label="Your resources"
+
+**The second hole was in the -ise rule and it was a false positive rather than a false negative.** The first version was the suffix pattern `\w+iz(e|ed|es|ing)\b` and it flagged **"Pool sizes are tuned"**, because English spells "size" with a z and no suffix rule separates it from "oxidize". It is now a list of the verbs the domain actually uses, and the comment says why a list rather than a pattern: a guard with false positives gets disabled.
+
+**Both were found by running the guard against a violation rather than by reading it**, which is the same lesson V3's stage 2 recorded when its shadow test failed to fire against a deliberate blur. Probe removed, repository clean.
+
+### Step 2, no tuned number moved
+
+**Confirmed by diff across the whole log rather than by assertion.**
+
+    git diff ba0c405 -- src/content/act1/tuning.ts src/ui/tuning.ts src/save/tuning.ts
+    (empty)
+
+The V5 divergence guard passes, 3 tests. No stage added a tuning constant, so no stage owed a docs/ECONOMY.md row, and the table still holds 37.
+
+**docs/SCIENCE.md is untouched across every commit of this log**, confirmed the same way and required by step 6. A comprehension pass records what readers did, not what cells do, and in this log's case it recorded that there were none.
+
+### Step 3, full verify
+
+    npm run typecheck    silent
+    npm run lint         silent
+    npm test             329 passed across 31 files    V5: 285 across 27
+    npm run build        263.44 kB, 81.90 kB gzipped   V5: 253.48 kB, 79.41 kB
+
+**44 tests added across four new files**: `firstRun.test.ts` 8, `disclosure.test.tsx` 7, `teaching.test.tsx` 19, `contentStyle.test.ts` 10. One existing test amended, `illustration.test.ts`, which failed correctly when the blob `<title>` landed and now normalises it away with a comment saying why.
+
+**The act 1 canonical hash is `49ea08d3`, unchanged from what V5 left it at**, asserted by `determinism.test.ts` rather than by inspection. A comprehension log that moved the simulation hash would have changed the simulation, and that would be a defect rather than a note.
+
+**9.96 kB of bundle for the whole teaching layer**, 2.49 kB gzipped: three components, an overlay shell, two contexts, three coach marks, a panel and every string.
+
+### Step 4, NOW.md
+
+Updated. Status now opens on the fraction rather than on a characterisation, and states the distinction the rest of the page depends on: **what changed is not that the game teaches, it is that there is now something to measure.** Build state gains V6 as done and unvalidated, and gains real rows for V7, V8 and V9, which were read off the existing log files rather than invented. A "What the teaching layer does" section sits beside the kernel, content, interface, save and economy sections.
+
+**Blocking gains item 0, "Nobody who is not the author has ever looked at this game."** It is stated as blocking rather than as an open question for two reasons: it gates docs/PILLARS.md's first two success conditions, and **no amount of further building closes it.** It also records the loss honestly, that a pre-change baseline can only be taken before the change and cannot now be recovered.
+
+**Blocking gains item 3, the one text gap: "net rate" is unexplained.** Eight cards carry it, it is the most repeated phrase in the interface, and three coach marks and a panel went by without mentioning it.
+
+**Blocking item 2 gains a warning against counting this log as progress against it.** V6 gave a solved act 1 two coach marks and a panel a player can open while nothing is happening. That is reading material rather than an event.
+
+**The COACH_MARK_TRIGGER entry stays open and says why it stayed open**, which is the opposite of what step 4 asked for and is the honest version of it. Step 4 says close it with the reader decision. **There was no reader decision.** Closing it on the same unreliable reader's second opinion would stop anybody looking at it again, which is worse than leaving it. The entry now records the one thing that did move: the teaching panel explains the stall too, so `'manual'` has two routes rather than one, and both are 16px affordances, so the objection stands.
+
+**The "builder is the least reliable reader" entry is updated and not closed, and it says how many.** Zero. It is cross-referenced to Blocking item 0, where it now lives as work rather than as a caveat.
+
+**"Next, in order" gains a step 0 that is not a log**, find one cold reader, and says explicitly that it does not block V7 and V7 should not wait for it. It then puts accessibility first with the dependency argument step 4 asked for: **before V6 there was one coach mark, no panel, no first run and no readout on any blob, so an accessibility pass would have been auditing an empty room and would have had to run again over everything V6 added.**
+
+### Step 5, DESIGN.md
+
+The screen inventory no longer describes the teaching panel or the about screen as aspirational, and gains a first run row that was never in the original inventory. The coach mark section records that its two load-bearing sentences, the mandatory source row and the two-paragraph ceiling, are mechanism as of today and had never been checked. A "What V6 found" block sits beside "What survived contact", carrying four findings, of which the sharpest is that **an encoding nobody is told about is a decoration**: rules 1 to 3 have been correctly implemented and derived since V3 and this document's own argument for rule 1 turns on the player being told once, and nothing had told them.
+
+Six decisions-log rows added, each with reader evidence as its rationale where there was any and an explicit statement of its absence where there was not. **The COACH_MARK_TRIGGER row leads with "Not a reader decision, because V6 found no readers"**, so a later reader of that table cannot mistake it for one.
+
+### What this log is, said plainly
+
+**V6 built the thing that was supposed to be measured and did not measure it.** docs/CONTENT_STYLE.md exists, which was the last document CLAUDE.md listed as deferred. The teaching panel DESIGN.md specified on 2026-07-28 exists. Eleven of thirteen unstated things are now stated. Two explicit instructions sitting unexecuted in docs/SCIENCE.md Part 2 are discharged. The style guide is mechanism and its guard found the game's own name hardcoded in a component.
+
+**And the number that decides whether any of it works is 0, out of 0 asked.** The log's own "After These Stages" section says it would give the project "a reading of whether it teaches that did not come from the person who built it". It did not. That promise is unkept, it is recorded as Blocking item 0 rather than softened, and it is the one thing on this project's list that building cannot fix.
 
 ---
 

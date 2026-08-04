@@ -40,7 +40,7 @@ import { Badge } from './Badge';
 import { Button } from './Button';
 import { Card } from './Card';
 import { useOverlayOpen } from './Overlay';
-import type { CoachMark as CoachMarkContent } from '../content';
+import { COACH, type CoachMark as CoachMarkContent } from '../content';
 
 export type CoachMarkTrigger = 'manual' | 'auto';
 
@@ -61,7 +61,7 @@ export function InfoAffordance({ onClick, label }: { onClick: () => void; label:
       className="flex size-4 shrink-0 items-center justify-center rounded-pill border-solid border-ink bg-white text-micro font-body font-extrabold leading-none text-ink"
       style={{ borderWidth: 'var(--outline-pill)' }}
     >
-      i
+      {COACH.affordance.text}
     </button>
   );
 }
@@ -115,7 +115,7 @@ export function CoachMark({
         onClick={onDismiss}
         className="self-start text-micro font-body font-bold text-ink2 underline"
       >
-        Dismiss
+        {COACH.dismiss.text}
       </button>
     </Card>
   );

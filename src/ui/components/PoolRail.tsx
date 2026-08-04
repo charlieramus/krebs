@@ -8,12 +8,13 @@
  * chose and for the same reason.
  */
 
+import { LANDMARKS } from '../content';
 import { POOL_CARDS } from '../poolCards';
 import { PoolCard } from './PoolCard';
 
 export function PoolRail() {
   return (
-    <nav aria-label="Pools" className="flex flex-col gap-3">
+    <nav aria-label={LANDMARKS.pools.text} className="flex flex-col gap-3">
       {POOL_CARDS.map((spec) => (
         <PoolCard key={spec.id} spec={spec} />
       ))}

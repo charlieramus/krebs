@@ -269,7 +269,9 @@ DESIGN.md's colour section is enforced by a test. The badge contract is enforced
 - Whether a paragraph should have been a shape. Part 6 is the most important rule here and it is a judgement every time.
 - Whether a number's badge is the right one. The type forces a badge, not a correct one.
 
-UPDATELOGV6.md stage 6 decides which of the testable half to build and proves it fires with a probe. Nothing above is a promise that it all lands.
+**All five landed, in `src/ui/__tests__/contentStyle.test.ts`, plus the per-surface ceilings in `teaching.test.tsx` and `disclosure.test.tsx`.** Built by UPDATELOGV6.md stage 6 and proved with a planted probe. One file is exempt from the string-location rule, `src/ui/components/Badge.tsx`, and the exemption is structural rather than a convenience: `content.ts` imports `Badge` in order to build every badge in the game, so the four badge words cannot come from `content.ts` without a circular import, and they are DESIGN.md's vocabulary rather than authored copy. The allowlist has one entry and any addition to it should be argued in a log.
+
+**Two things the probe taught, recorded because they are the reason the guard is worth anything.** The first version of the prose detector was a character allowlist and the probe `<h2>Resources so far!</h2>` walked straight through it, because an exclamation mark was not in the list. A guard that only catches politely punctuated violations reads as coverage and is worse than none. And the first version of the -ise rule was a suffix pattern, which flagged "Pool sizes are tuned", because English spells "size" with a z and no suffix rule separates it from "oxidize". Both were found by running the guard rather than by reading it.
 
 ---
 
