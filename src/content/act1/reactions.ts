@@ -44,7 +44,7 @@ import { PoolRegistry } from '../../sim/pools';
 import { createPrng } from '../../sim/prng';
 import { createSimulation, type SimulationState } from '../../sim/state';
 import { act1PoolDefinitions, type Act1PoolId } from './pools';
-import { ACT1_HILL_N, ACT1_KM, ACT1_VMAX } from './tuning';
+import { ACT1_HILL_N, ACT1_KM, ACT1_MAINTAIN_HILL_N, ACT1_VMAX } from './tuning';
 
 export type Act1ReactionId = 'uptake' | 'prep' | 'payoff' | 'ferment' | 'maintain';
 
@@ -245,9 +245,24 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
      *
      * The stoichiometry is nonetheless not invented: ATP hydrolyses to ADP and
      * inorganic phosphate, which is why phosphate stays conserved across it.
-     * What is invented is that the cell does this at a Michaelis-Menten rate in
-     * ATP, which is a modeling convenience standing in for the entire rest of
+     * What is invented is that the cell does this at one saturating rate in ATP,
+     * which is a modeling convenience standing in for the entire rest of
      * cellular metabolism. Its Vmax is in tuning.ts with everything else.
+     *
+     * THE SECOND HILL FORM IN ACT 1, AND THE ONLY ONE THAT IS NOT AN
+     * ATTRIBUTION. `prep` above carries PFK-1's cooperativity on the phase's
+     * behalf, which is a claim about a real enzyme. This one is not a claim
+     * about anything. It is a repair, and the whole argument for it is in the
+     * ACT1_MAINTAIN_HILL_N comment in tuning.ts. The short version: `prep` is
+     * second order in ATP at low ATP and Michaelis-Menten consumption is first
+     * order, so consumption beat production below some level whatever the
+     * constants were, and act 1 had a state it could not come back from. Third
+     * order consumption loses to second order production instead, and the cell
+     * climbs back out.
+     *
+     * Read that comment before changing the form here. Dropping back to
+     * Michaelis-Menten reintroduces NOW.md blocking item 1, and
+     * `__tests__/bootstrap.test.ts` is the thing that will tell you so.
      */
     {
       id: 'maintain',
@@ -256,7 +271,7 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
         { poolIndex: at('adp'), coefficient: 1 },
         { poolIndex: at('pi'), coefficient: 1 },
       ],
-      kinetics: michaelisMenten(v('maintain'), k('maintain')),
+      kinetics: hill(v('maintain'), k('maintain'), ACT1_MAINTAIN_HILL_N),
       enabled: on('maintain'),
     },
   ];

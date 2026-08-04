@@ -261,7 +261,153 @@ State plainly whether NOW.md blocking item 1 is closed or still open.
 
 ## Stage 2 Report
 
-_Pending._
+**NOW.md blocking item 1 is closed.** It was open from V2 stage 5, deferred by V3 stage 6, deferred again by V4, and it is repaired here rather than moved a third time. The repair is one kinetic form and one derived constant, and the test that keeps it repaired is worth more than either.
+
+### Step 1. It is not the threshold NOW.md described, and it is worse
+
+**There is no environment size at which a healthy cell survives.** The sweep ran ferment-on cells for 30 game-minutes at every environment from 10 to 2000 and every single one ended dead. "Below roughly 400" was never the boundary. What is constant is a different number:
+
+    env start   ATP produced   glucose stranded
+    2000              7321.7             169.57
+    1000              3321.7             169.57
+    700               2121.7             169.57
+    500               1321.7             169.57
+    400                921.7             169.57
+    300                521.7             169.57
+    200                121.7             169.57
+    100                  7.4              98.16
+
+**Exactly 169.57 glucose, at every environment size large enough to have it.** That is the signature and it is a much sharper statement than a threshold: a collapsing cell keeps importing glucose it cannot use, uptake equilibrates against a dead pathway, and 169.57 units of carbon end up inside a corpse. Production comes out at exactly `4 * (env - 169.57)` at every size. The environment size never decided whether the cell died, only how much it got through first.
+
+**The shape of the approach is a squeeze, then a cliff, then a free fall.** At env 500, with ATP and prep flux sampled every 20 game-seconds:
+
+    t        glucose_env   glucose      atp        prep flux   atp/s
+    20s            425.1      2.66      3.474e+0       3.686    14.366
+    60s            292.3      2.29      2.702e+0       2.962    12.601
+    100s           189.4      1.90      1.949e+0       2.208     9.588
+    120s           149.0     20.53      1.454e-10      0.000     4.379
+    140s           115.7     53.89      9.245e-34      0.000     0.000
+    180s            67.2    102.37      3.735e-80      0.000     0.000
+    400s             2.3    167.31     3.953e-323      0.000     0.000
+
+Nothing about the first hundred seconds looks like a cliff is coming. ATP falls by 44 percent over 80 seconds, smoothly. Then between 100s and 120s it falls by ten orders of magnitude and the preparatory phase stops outright. After that it is pure first-order decay with no production at all, about 23 orders of magnitude every 20 seconds, until it hits denormal and stays there. **The tell at the cliff is intracellular glucose jumping from 1.90 to 20.53 in the same twenty seconds**, which is uptake still running into a pathway that no longer consumes.
+
+**The root cause, and it is an ordering fact rather than a tuning one.** `prep` is Hill n = 2 in ATP, so near zero its flux behaves as `(Vmax / K²) · atp²`. Maintenance was Michaelis-Menten, so near zero it behaves as `(Vmax / Km) · atp`. **Consumption falling linearly while production falls quadratically means consumption wins below some ATP level for every possible choice of constants.** The quadratic term is also what makes the collapse a cliff instead of a decay: less ATP gives quadratically less entry, which gives less ATP.
+
+**And the unrecoverable state itself, measured directly for the first time.** Run env 500 to exhaustion, then put 80000 glucose back in front of the cell:
+
+    variant                          atp at refeed   produced in the next 10 min
+    baseline                            3.953e-323                          0.00
+
+A full environment, a living cell's worth of enzymes, and nothing happens ever again. A cold start from ATP 0 at the full shipped environment is the same story from the other end: 4769 glucose imported over ten game-minutes and **0.0 ATP produced**.
+
+### Step 2. Both candidates implemented, measured, and one of them cannot work
+
+Both were built behind a variant flag and measured before either was chosen. The flag is gone; only the winner is committed.
+
+**(a) Maintenance backs off as ATP falls. The one-number version does not work at any value.** `ACT1_KM.maintain` swept from 5 to 500, ferment on:
+
+    maintain Km   default env atp/s   env 500 stranded   what happens
+    5                       0.000            2859.83     the cell dies at the DEFAULT environment
+    10                      0.000            2854.65     same
+    20 baseline            31.795             169.57     the trap
+    50                     31.795              19.95     better, still strands
+    100                     0.333            2617.39     ADP starvation
+    500                     0.013            2799.16     ADP starvation
+
+Both ends fail and they fail differently, which is the useful part. Too low and maintenance drains a healthy cell. **Too high and glycolysis stalls on the adenylate ceiling instead of on NAD+**, which is precisely the failure `ACT1_VMAX.maintain`'s comment predicted in V2 and which nobody had ever measured. That comment is now vindicated with a number. Km 50 is the best of them and still strands 19.95 glucose. **No value repairs it, and the reason it cannot is the order mismatch above, so this was never going to be the one-number answer the stage hoped for.**
+
+**(a2) Maintenance backs off cooperatively. This works.** Moving `maintain` from Michaelis-Menten to the Hill form makes consumption third order at low ATP against the preparatory phase's second order, so production wins as ATP falls instead of losing. Three parameterisations, all at env 500 over 30 game-minutes, against a theoretical maximum of 2000 ATP:
+
+    variant                produced   stranded   wall     ceiling    atp/s   gross/glc   atp pool
+    baseline                 1321.7     169.57   3.00s    60.0000   31.795      4.0000      9.323
+    maintain Hill K20 n2     2000.0       0.00   3.00s    60.0000   31.795      4.0000     13.655
+    maintain Hill K20 n3     2000.0       0.00   3.00s    60.0000   31.795      4.0000     15.507
+    maintain Hill K12 n3     2000.0       0.00   3.00s    60.0000   31.795      4.0000      9.304
+
+**Exactly 2000.0 produced and 0.00 stranded is the whole theoretical yield of the environment, extracted.** All three do it. K12 n3 wins on the last column: 9.304 against the baseline's 9.323 is a fifth of a percent, and it is that close because **12 is derived rather than picked**. Requiring the new curve to pass through the old one at act 1's measured steady-state ATP gives `K³ = a³(Km/a) = 810.4 × 2.145 = 1738.5`, so `K = 12.02`. n = 3 is the smallest integer that strictly dominates the preparatory phase's 2, in the same spirit as `ACT1_HILL_N` being the smallest integer that is sigmoidal at all.
+
+**(b) A floor under the preparatory phase. This also works, and it loses on cost.** Implemented as a lower `ACT1_KM.prep`, which is what a floor under the phase's ATP dependence amounts to under one Km per reaction:
+
+    prep Km   env 500 produced   stranded   wall at   glucose pool
+    4 base              1321.7     169.57     3.00s           5.60
+    2                   1867.8      33.06     2.70s           2.80
+    1                   1968.6       7.85     2.55s           1.40
+    0.5                 1992.2       1.94     2.45s           0.70
+    0.1                 1999.7       0.08     2.40s           0.40
+
+At 0.1 it is very nearly as good a repair as (a2). It loses on two things it damages on the way. **The intracellular glucose pool falls from 5.60 to 0.40**, and NOW.md is explicit that glucose visibly piling up inside a cell that has stopped is what makes the NAD+ wall read as something other than starvation. And the wall arrives 20 percent earlier, at 2.40s instead of 3.00s, which is a teaching beat moving for a robustness reason. Step 2 says a fix that moves the wall is not a fix. This one moves it.
+
+**Winner: (a2), `maintain` on Hill with K 12 and n 3.** (a) as a single number is impossible rather than merely worse, and (b) trades a teaching beat for the repair.
+
+### The cost of the winner, measured rather than asserted
+
+Unchanged, all measured after the change:
+
+    NAD+ wall arrival           3.00s to 2.95s, within the sampling interval
+    walled cumulative ceiling   exactly 60.0000, so the U4 bound survives untouched
+    gross ATP per glucose       4.000000000 stalled and fermenting, to nine decimals
+    net ATP per glucose         2.000000000, same
+    walled versus starved       unchanged, arrows still distinguish them
+    conservation                all five quantities, worst drift improved from
+                                2.351e-13 to 1.113e-13 over the same 60 long runs
+    steady state at default     atp/s 31.795, every applied flux identical,
+                                ATP pool 9.323 to 9.305, glucose pool 5.60
+
+**One real cost, at the top of the capacity ladder, and it is reported rather than buried.** The Hill curve rises faster above the crossover as well as falling faster below it, so a cell running an elevated ATP pool spends more. At uptake Vmax 12:
+
+                          before    after
+    ATP pool                16.6   10.808
+    prep applied flux     11.342   10.554
+    30000 cumulative ATP  11m03s   11m52s     about 7 percent slower
+    glucose pool at 5m      5.60   417.89     climbing about 82 a minute
+
+Nothing at the shipped default moves. What this widens is uptake outrunning the preparatory phase at the top rung, which was already happening at half the rate and is now unmissable. **That is a finding handed to stage 3 rather than a defect**: NOW.md already names preparatory-phase capacity as act 1's next unlock, and this is the measurement that says why.
+
+**Two existing assertions changed and neither claim did.** `stallRecovery.test.ts` asserted `atp < 1e-9` at the moment ferment is bought, as a proxy for "the preparatory phase cannot be what restarts the pathway". A repaired cell holds 6.683e-4 instead of denormal, so the proxy broke while the claim did not, and the claim is asserted directly now: prep's applied flux is below 1e-6 and the stranded g3p is what the payoff phase runs on. `nadWall.test.ts` asserted both uncorrected ATP-per-glucose figures come out below 4. The fermenting window now reads 4.004421 because it cashes in g3p stranded before it began, and the stall now strands 10.0238 rather than 6.8. **Both corrected figures are still exactly 4.000000000 and 2.000000000**, which is the claim; the raw figures now assert the sign of each window's g3p delta, which is what was actually being said.
+
+### Step 3. Disclosed, not claimed as biology
+
+Row **C14** in docs/ECONOMY.md, plus a structural departure that no single row could carry. The honest sentence is the one the stage asked for: **real cells do die this way and the game refuses to let the player.** A cell too ATP-poor to pay glycolysis's entry cost genuinely does not restart, and that trap is not nonsense.
+
+docs/SCIENCE.md is **not** edited and not cited for this. It says nothing about a maintenance reaction, because `maintain` is a modeling convenience standing in for the rest of cellular metabolism rather than a glycolytic step, so C14's real behaviour column names the real death and nothing else. There is a real regulatory phenomenon this resembles, cells reducing ATP-consuming work as energy charge falls, and it is deliberately **not** written into the row, because claiming it would need a docs/SCIENCE.md entry and hard rule 2 makes that not this log's edit to make.
+
+What the game keeps is the honest half of the death. A cell with no food still produces exactly 0.00 ATP, holds a residual charge between 0.13 and 0.18 out of an adenylate total of 40, and waits. Running the environment dry is still the end of the run.
+
+### Step 4. ACT1_GLUCOSE_ENV_INITIAL stays at 80000, for a different reason
+
+Measured on pacing after the repair, time until the cell runs out of food:
+
+    env      buys nothing   buys everything
+    80000         179.0m            126.7m
+    10000          31.0m             21.0m
+
+docs/PROGRESSION.md gives act 1 45 to 90 minutes. **The environment should outlast the act rather than define it**, because an act that ends because the larder is empty ends with a cell that has nothing to do. 80000 clears 90 minutes at both playstyles with 41 percent headroom at the fastest. 10000 runs dry at 21.0 and 31.0 minutes, **inside** the act at both, so it is wrong on pacing and not merely wrong on safety, and it does not come back.
+
+So the number does not move and its justification is replaced. It was a shield; the shield is no longer load-bearing and it turns out to be the right order of magnitude anyway. Stage 4 may narrow it once the act's own length is measured end to end, which is the measurement this stage does not have.
+
+### Step 5. The assertion, which outlives the fix
+
+`src/content/act1/__tests__/bootstrap.test.ts`, six assertions:
+
+1. **The mechanism.** `maintain` is Hill and its n is strictly greater than `prep`'s. This is the one that matters: outcome tests would pass under a tuning that avoided the trap by accident, and this one fails the moment someone drops maintenance back to Michaelis-Menten.
+2. Every glucose in a finite environment is extracted, at five sizes, producing exactly `4 × env` with under 0.01 stranded.
+3. **Blocking item 1 as one assertion.** Empty the environment, refeed it, and the pathway comes back.
+4. Restart from an ATP of 0.05, below anything a run can reach, at six environment sizes down to a single glucose. The bar scales with the food, because at an environment of 1 the entire theoretical yield is 4 ATP.
+5. A cell with no food still does nothing at all, and holds a residual charge. Immortality was not bought.
+6. **ATP of exactly zero is still absorbing, asserted on purpose.** `prep` is the only route to g3p and cannot run without ATP, so climbing out of exactly zero would mean making ATP from nothing. Recovery time from a near-zero ATP scales as 1/atp, measured: 4.2s from 1, 10.8s from 0.1, 1m12s from 0.01, 11m13s from 0.001, 111m13s from 0.0001, over four game-hours from 1e-6. **The repair works by making the collapse not happen, not by making these levels survivable**, and a later log trying to make assertion 6 pass is solving the wrong problem.
+
+### The hash, and one cause
+
+    act 1 canonical   657594cb -> 49ea08d3
+
+**One cause: `maintain` from Michaelis-Menten to Hill n 3, with `ACT1_KM.maintain` from 20 to 12.** Those are one change and not two. K is derived from the form and there is no version of this repair that makes only one of them, so counting them separately would be counting an edit twice. No coefficient, pool, ordering, Vmax or starting amount moved. The reason is written into the assertion in `determinism.test.ts`.
+
+### Verify
+
+`npm run typecheck` and `npm run lint` silent. `npm test` 275 passed across 25 files, up from 269 across 24: six new in `bootstrap.test.ts`. `npm run build` 251.30 kB and 78.82 kB gzipped, up 10 bytes and 30 bytes from V4. `npm run sim:act1` clean, yield 4.000000000 gross and 2.000000000 net, ATP pool 9.305282, conservation drift at worst 2.001e-15 across the five quantities, no scaling-cap hits. `npm run sim:drain` re-run and its framing corrected in the same stage, because a harness that still described crossing 400 as a trap would have been the exact comment drift stage 1 spent its time finding.
+
+**Blocking item 1 is closed, with one thing said plainly rather than left implied.** The state act 1 could not come back from is gone: the collapse does not happen, an emptied environment is recoverable, and every glucose in a finite environment is now converted rather than stranded. ATP of exactly zero with no stranded g3p remains an absorbing state and always will be, because it is stoichiometry rather than tuning. A run cannot reach it.
 
 ---
 

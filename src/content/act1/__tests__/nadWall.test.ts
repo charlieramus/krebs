@@ -164,9 +164,22 @@ describe('the NAD+ wall', () => {
     // The uncorrected figures, which differ, and the reason they differ is
     // stranded g3p rather than any change in yield. Asserted so the gap stays
     // visible instead of being quietly absorbed by the correction above.
+    //
+    // THE CLAIM IS THE g3p DELTA, NOT THE DIRECTION OF THE ERROR, and
+    // UPDATELOGV5.md stage 2 is what taught that distinction. This used to
+    // assert both raw figures came out below 4. The stalling window builds g3p
+    // it never cashes in, so it reads low; the fermenting window starts with
+    // g3p already stranded and cashes it in, so whether it reads low or high
+    // depends only on how much the stall stranded. The bootstrap repair changed
+    // that quantity and flipped the sign, without moving either corrected figure
+    // by a single digit. Asserting the sign of each delta says what is actually
+    // being claimed and does not have to be revisited every time a stall
+    // strands a different amount.
+    expect(stalledG3pDelta).toBeGreaterThan(0);
     expect(stalledRaw).toBeLessThan(4);
+    expect(fermentG3pDelta).toBeLessThan(0);
+    expect(fermentingRaw).toBeGreaterThan(4);
     expect(fermentingRaw).toBeGreaterThan(stalledRaw);
-    expect(fermentingRaw).toBeLessThan(4);
 
     // Throughput, on the other hand, moved by a lot. This is the half of the
     // story the player does get.

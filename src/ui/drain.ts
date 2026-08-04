@@ -1,18 +1,22 @@
 /**
  * How long the environment lasts. `npm run sim:drain`.
  *
- * UPDATELOGV3.md stage 1 step 6 asks for a measurement and explicitly not a fix.
- * NOW.md blocking item 1 records that act 1 has an unrecoverable state below
- * roughly 400 environmental glucose: baseline maintenance drains ATP faster than
- * the pathway can bootstrap, the preparatory phase can no longer pay its 2 ATP
- * entry cost, and nothing can restart it because `prep` needs ATP and `payoff`
- * needs the g3p only `prep` makes. UPDATELOGV3.md's arithmetic says a fermenting
- * cell crosses that threshold at roughly 21 minutes, against a
- * docs/PROGRESSION.md target act duration of 45 to 90 minutes.
+ * WHAT THIS USED TO MEASURE, AND WHAT IT MEASURES NOW. V3 built this to find
+ * when a fermenting cell crosses into NOW.md blocking item 1, the ATP bootstrap
+ * trap: below roughly 400 environmental glucose, baseline maintenance drained
+ * ATP faster than the pathway could bootstrap and nothing could restart it.
+ * UPDATELOGV5.md stage 2 repaired that trap, so crossing 400 is no longer a
+ * cliff. A cell now runs its environment down to nothing, extracts the full 4
+ * ATP gross from every glucose in it, and sits there with a small ATP charge and
+ * no food, ready to run again if food returns.
  *
- * That arithmetic is not trusted here. This measures it, headlessly, through the
- * same src/ui/runtime.ts bridge the browser uses, so the figure stage 6 decides
- * on is the figure the interface will actually produce.
+ * So the threshold below is kept and its meaning is different. It is now a
+ * food-supply marker rather than a death marker: the point at which uptake is
+ * running well below saturation and the act is close to out of substrate. What
+ * happens after it is an empty larder, not an unrecoverable state.
+ *
+ * This measures headlessly through the same src/ui/runtime.ts bridge the browser
+ * uses, so the figure is the one the interface will actually produce.
  *
  * This is an entry point rather than a library: importing it runs it. Same
  * posture as src/content/act1/harness.ts and for the same reason.
@@ -26,7 +30,10 @@ import { UPTAKE_VMAX_STEPS } from './tuning';
 import { createAct1Runtime } from './runtime';
 import { poolIndex } from './runtime';
 
-/** The threshold NOW.M blocking item 1 names. Below this the bootstrap trap bites. */
+/**
+ * The threshold NOW.md blocking item 1 used to name. Kept as a food-supply
+ * marker after UPDATELOGV5.md stage 2 repaired the trap it used to mark.
+ */
 const TRAP_THRESHOLD = 400;
 
 /**
@@ -108,7 +115,7 @@ setShortfallLogging(false);
 console.log('');
 console.log('  krebs environment drain, measured through src/ui/runtime.ts');
 console.log(`  ferment enabled, glucose_env starting at ${ACT1_GLUCOSE_ENV_INITIAL}, ${maxMinutes} game-minutes each`);
-console.log(`  threshold ${TRAP_THRESHOLD}, the ATP bootstrap trap from NOW.md blocking item 1`);
+console.log(`  threshold ${TRAP_THRESHOLD}, a food-supply marker. The trap it used to mark was repaired in V5 stage 2`);
 console.log('');
 console.log(
   `  ${padRight('uptake Vmax', 13)}${pad('crosses 400', 18)}${pad('env at end', 14)}` +
@@ -128,5 +135,5 @@ for (const uptakeVmax of UPTAKE_STEPS) {
 }
 
 console.log('');
-console.log('  Measured, not fixed. UPDATELOGV3.md stage 6 decides what to do about it.');
+console.log('  Repaired in UPDATELOGV5.md stage 2. Running dry is now an empty larder, not a death.');
 console.log('');

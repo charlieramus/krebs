@@ -101,7 +101,9 @@ export const REACTIONS: Readonly<Record<Act1ReactionId, Entry>> = {
     text: 'Maintenance',
     // The stoichiometry is real: ATP hydrolyses to ADP and inorganic phosphate.
     // What is invented is that the whole rest of cellular metabolism is one
-    // Michaelis-Menten reaction in ATP.
+    // saturating reaction in ATP, and since UPDATELOGV5.md stage 2, that its
+    // response is cooperative. The badge below says the invented part out loud
+    // and does not name a curve, which is why it did not have to change.
     badge: tuned(
       'ATP hydrolysis to ADP and phosphate is real. Standing in for the entire rest of cellular metabolism with one reaction is not',
     ),
