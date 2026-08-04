@@ -27,9 +27,16 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
-import { Blob } from '../components/Blob';
+import { Blob, redoxExtent, redoxLevelY } from '../components/Blob';
 import { act1PoolDefinitions, ACT1_POOL_IDS, type Act1PoolId } from '../../content/act1/pools';
 import { carbonOf, phosphateOf } from '../poolCards';
+
+/**
+ * Twenty-one points across the redox axis, including both ends. Enough to catch
+ * a mapping that is monotonic in the middle and clipped at the ends, which is
+ * the specific way a level channel fails to be a level.
+ */
+const FRACTIONS: readonly number[] = Array.from({ length: 21 }, (_, i) => i / 20);
 
 function render(id: Act1PoolId): string {
   return renderToStaticMarkup(
@@ -157,6 +164,109 @@ describe('illustration rule 3: redox is saturation, not hue', () => {
         .replace(/<title>[^<]*<\/title>/, '<title/>');
     expect(oxidized).not.toBe(reduced);
     expect(normalise(oxidized)).toBe(normalise(reduced));
+  });
+
+  it('carries a level as well, and the level is the whole of the reduced fraction', () => {
+    // UPDATELOGV7.md stage 2. The claim is not "there are two states", it is
+    // that a CONTINUOUS quantity is carried, so this walks the range rather
+    // than checking two hand-picked points. A channel that only distinguishes
+    // empty from full would pass a two-point test and would not be a channel.
+    const extent = redoxExtent(54, 67);
+
+    const ys = FRACTIONS.map((f) => redoxLevelY(extent, f));
+
+    // Strictly monotonic, and in the right direction: more reduced is higher up
+    // the shape, which is smaller in SVG coordinates.
+    for (let i = 1; i < ys.length; i += 1) {
+      expect(ys[i] as number).toBeLessThan(ys[i - 1] as number);
+    }
+
+    // The ends land exactly on the shape rather than nearly on it, which is what
+    // makes a fully oxidized carrier pixel-identical to the flat blob that
+    // shipped before this channel existed.
+    expect(redoxLevelY(extent, 0)).toBe(extent.bottom);
+    expect(redoxLevelY(extent, 1)).toBe(extent.top);
+
+    // Linear in the fraction, so the level is a proportion and not a curve
+    // somebody chose. Half reduced is half way up.
+    expect(redoxLevelY(extent, 0.5)).toBeCloseTo((extent.top + extent.bottom) / 2, 10);
+
+    // Clamped, because a pool amount that has drifted a denormal past its total
+    // must not put the level outside the shape.
+    expect(redoxLevelY(extent, -1)).toBe(extent.bottom);
+    expect(redoxLevelY(extent, 2)).toBe(extent.top);
+    expect(redoxLevelY(extent, Number.NaN)).toBe(extent.bottom);
+  });
+
+  it('takes the level extent from the geometry it drew, not from a bounding box', () => {
+    // The same discipline as the side count above: read the rendered path and
+    // check the numbers the component published about itself agree with it. A
+    // level derived from a guess at the shape's height would drift the moment
+    // the wobble constants moved, and it would drift silently.
+    const markup = renderToStaticMarkup(
+      createElement(Blob, {
+        carbon: 0,
+        phosphate: 0,
+        fill: '#A9BFB8',
+        reducedFill: '#23BFA0',
+        seed: 67,
+        size: 54,
+        label: 'NAD+ / NADH',
+      }),
+    );
+
+    const top = Number(/data-top="([\d.-]+)"/.exec(markup)?.[1]);
+    const bottom = Number(/data-bottom="([\d.-]+)"/.exec(markup)?.[1]);
+    expect(Number.isFinite(top)).toBe(true);
+    expect(bottom).toBeGreaterThan(top);
+
+    // Every y in the drawn carrier path lies inside the published extent, to
+    // the rounding the path data itself carries.
+    const d = /data-role="carrier" d="([^"]+)"/.exec(markup)?.[1] as string;
+    const ys = (d.match(/[\d.-]+ [\d.-]+/g) ?? []).map((pair) => Number(pair.split(' ')[1]));
+    expect(ys.length).toBeGreaterThan(0);
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(top - 0.01);
+    expect(Math.max(...ys)).toBeLessThanOrEqual(bottom + 0.01);
+    // And the extent is tight rather than generous: the path really does reach
+    // both ends of it, so a level at 1 is at the crown and not floating above.
+    expect(Math.min(...ys)).toBeCloseTo(top, 1);
+    expect(Math.max(...ys)).toBeCloseTo(bottom, 1);
+  });
+
+  it('adds the level without touching the silhouette', () => {
+    // The constraint UPDATELOGV7.md's Decisions section puts on this stage: the
+    // redox pair keeps its silhouette, because one shape in two states is what
+    // makes the carrier read as one thing rather than as two molecules. A fix
+    // that changed the shape would be a redesign of the system's most important
+    // colour decision, and that is not this log's to make.
+    const geometry = (markup: string): string =>
+      (/data-role="carrier" d="([^"]+)"/.exec(markup)?.[1] as string) ?? '';
+
+    const withoutLevel = renderToStaticMarkup(
+      createElement(Blob, { carbon: 0, phosphate: 0, fill: '#A9BFB8', seed: 67, size: 54, label: 'x' }),
+    );
+    const withLevel = renderToStaticMarkup(
+      createElement(Blob, {
+        carbon: 0,
+        phosphate: 0,
+        fill: '#A9BFB8',
+        reducedFill: '#23BFA0',
+        seed: 67,
+        size: 54,
+        label: 'x',
+      }),
+    );
+
+    expect(geometry(withLevel)).toBe(geometry(withoutLevel));
+    expect(geometry(withLevel).length).toBeGreaterThan(0);
+    // The level is there, and it is drawn in ink rather than in a third colour,
+    // which is the only reason it survives the deficiency that killed the first
+    // channel.
+    expect(withLevel).toContain('data-role="redox-level"');
+    expect(withLevel).toContain('data-role="redox-clip"');
+    expect(/data-role="redox-level"[^>]*stroke="var\(--color-ink\)"/.test(withLevel)).toBe(true);
+    // And a blob with no redox state does not get one.
+    expect(withoutLevel).not.toContain('data-role="redox-level"');
   });
 
   it('gives the reduced carrier electron dots and the oxidized one none', () => {

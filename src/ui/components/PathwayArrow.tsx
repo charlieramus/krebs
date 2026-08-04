@@ -24,8 +24,21 @@
  * the truth is "stopped", and stopped is the walled state. Below
  * ZERO_FLUX_THRESHOLD the arrow changes treatment outright rather than merely
  * decelerating: the dashes go, the stroke thins to a hairline, the colour drops
- * to `ink3` and the arrowhead hollows out. Two different silhouettes, not two
+ * to `ink2` and the arrowhead hollows out. Two different silhouettes, not two
  * speeds of the same one.
+ *
+ * THE DIM IS `ink2` RATHER THAN `ink3` AS OF UPDATELOGV7.md STAGE 2, and the
+ * reason is a measurement rather than a preference. `ink3` on the cream pathway
+ * card is 2.83:1, under the 3:1 WCAG 2.2 floor for non-text that carries
+ * meaning. The stopped state is carried on four channels, stroke width, dash,
+ * arrowhead fill and colour, and it was being carried on all four AT 2.83:1,
+ * because every one of them is drawn in that colour. A channel count does not
+ * help when the ink they share is the thing that is too faint. `ink2` is 6.34:1
+ * on cream, clears the floor with room, and is still an obvious step down from
+ * `ink`, so a stopped arrow still looks stopped and now also looks like it is
+ * there. This file's own note that the track is "always present, so a stopped
+ * arrow is still an arrow rather than a gap" was not true on a low-contrast
+ * display until this change.
  *
  * ---------------------------------------------------------------------------
  * PHASE IS INTEGRATED, AND INTERPOLATED
@@ -54,6 +67,41 @@ import { DASH_LENGTH, DASH_PIXELS_PER_FLUX_UNIT, ZERO_FLUX_THRESHOLD } from '../
 
 const TRACK_HEIGHT = 26;
 const MID = TRACK_HEIGHT / 2;
+
+/**
+ * The two treatments, named rather than inlined as three pairs of ternaries.
+ *
+ * WHY THIS IS A CONSTANT AND NOT A CONDITIONAL. Everything an arrow says about
+ * itself is written to the DOM from a per-frame callback, so none of it reaches
+ * the static markup a test can render. UPDATELOGV7.md stage 2 tried to assert
+ * the stopped colour by rendering the component and reading the output, and the
+ * assertion passed with the wrong colour in place, because the stopped colour is
+ * never in the output until a frame has run. A guard that cannot fail is worse
+ * than no guard, so the treatments moved here where they can be read directly.
+ *
+ * Both are declared in full rather than as a base plus overrides, so "what does
+ * a stopped arrow look like" is answerable by reading one object.
+ */
+export const ARROW_TREATMENT = {
+  flowing: {
+    stroke: 'var(--color-substrate)',
+    width: '6',
+    dash: `${DASH_LENGTH} ${DASH_LENGTH}`,
+    headFill: 'var(--color-substrate)',
+    headStroke: 'var(--color-ink)',
+    trackStroke: 'var(--color-ink)',
+  },
+  stopped: {
+    // `ink2`, not `ink3`. See the header note: `ink3` on cream is 2.83:1, and
+    // all four of this state's channels are drawn in this one colour.
+    stroke: 'var(--color-ink2)',
+    width: '2',
+    dash: 'none',
+    headFill: 'var(--color-white)',
+    headStroke: 'var(--color-ink2)',
+    trackStroke: 'var(--color-ink2)',
+  },
+} as const;
 
 export interface PathwayArrowProps {
   reaction: Act1ReactionId;
@@ -104,9 +152,10 @@ export function PathwayArrow({ reaction, reducedMotion }: PathwayArrowProps) {
     const state = moving ? 'flowing' : 'stopped';
     if (element.dataset.flow !== state) {
       element.dataset.flow = state;
-      element.setAttribute('stroke', moving ? 'var(--color-substrate)' : 'var(--color-ink3)');
-      element.setAttribute('stroke-width', moving ? '6' : '2');
-      element.setAttribute('stroke-dasharray', moving ? `${DASH_LENGTH} ${DASH_LENGTH}` : 'none');
+      const treatment = ARROW_TREATMENT[state];
+      element.setAttribute('stroke', treatment.stroke);
+      element.setAttribute('stroke-width', treatment.width);
+      element.setAttribute('stroke-dasharray', treatment.dash);
     }
   });
 
@@ -115,8 +164,8 @@ export function PathwayArrow({ reaction, reducedMotion }: PathwayArrowProps) {
     const state = moving ? 'flowing' : 'stopped';
     if (element.dataset.flow === state) return;
     element.dataset.flow = state;
-    element.setAttribute('fill', moving ? 'var(--color-substrate)' : 'var(--color-white)');
-    element.setAttribute('stroke', moving ? 'var(--color-ink)' : 'var(--color-ink3)');
+    element.setAttribute('fill', ARROW_TREATMENT[state].headFill);
+    element.setAttribute('stroke', ARROW_TREATMENT[state].headStroke);
   });
 
   /**
@@ -133,7 +182,7 @@ export function PathwayArrow({ reaction, reducedMotion }: PathwayArrowProps) {
     const state = moving ? 'flowing' : 'stopped';
     if (element.dataset.flow === state) return;
     element.dataset.flow = state;
-    element.setAttribute('stroke', moving ? 'var(--color-ink)' : 'var(--color-ink3)');
+    element.setAttribute('stroke', ARROW_TREATMENT[state].trackStroke);
   });
 
   return (

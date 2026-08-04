@@ -551,16 +551,23 @@ export const PANEL_AFFORDANCE: Entry = {
  * Composed here rather than in the component, so no .tsx formats a number.
  */
 /**
- * The carrier's readout, which is the one blob whose encoding is colour rather
- * than geometry.
+ * The carrier's readout, which is the one blob whose encoding is not geometry.
  *
  * DESIGN.md calls `reduced` and `oxidized` at the same silhouette "the single
  * most important colour decision in the system", and item 11 of
  * UPDATELOGV6.md's thirteen-item table records that nothing on the screen had
  * ever said so. This says it, on the shape that is doing it.
+ *
+ * REWRITTEN IN UPDATELOGV7.md STAGE 2, FOR TWO REASONS. The carrier now carries
+ * a level as well as a colour, and a readout that names one of two channels
+ * describes a picture the game no longer draws. And the direction was wrong.
+ * NOW.md and DESIGN.md both record that DESIGN.md's "colour leaving" sentence
+ * is backwards, because `oxidized` is the desaturated end, so as NAD+ drains
+ * the colour ARRIVES. The old text said "full colour means NADH", which is true
+ * and says nothing about which way the beat runs. This says which way.
  */
 export const CARRIER_READOUT: Entry = {
-  text: 'NAD+ and NADH. One shape, and the colour is which one it is. Full colour means NADH, carrying electrons.',
+  text: 'NAD+ and NADH. One shape, and the filled part is NADH. The level rises and the colour arrives as NAD+ is spent.',
   badge: sourced(`${PART2}, the NAD+ constraint`),
 };
 

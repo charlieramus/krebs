@@ -31,7 +31,7 @@ import { useLiveNode, useRuntime, useSnapshotEffect } from '../RuntimeContext';
 import { poolIndex, type Act1Snapshot } from '../runtime';
 import type { Act1PoolId } from '../../content/act1/pools';
 import { Badge } from './Badge';
-import { Blob } from './Blob';
+import { Blob, setRedoxLevel } from './Blob';
 import { Card } from './Card';
 import { CoachMark, COACH_MARK_TRIGGER, InfoAffordance, useCoachMark } from './CoachMark';
 import { Figure } from './Figure';
@@ -91,27 +91,50 @@ function Stock({ poolId }: { poolId: Act1PoolId }) {
 
 /**
  * DESIGN.md illustration rule 3, and the single most important colour decision
- * in the system: redox is saturation, not hue.
+ * in the system. Since UPDATELOGV7.md stage 2 it is carried on two channels.
  *
- * One silhouette, one fill, moving along the axis between `oxidized` and
- * `reduced` as the pool is reduced. The two electron dots NADH carries fade in
- * along the same axis, because rule 3 gives NADH dots and NAD+ none, and a
- * fixed pair of dots on a pool that is only half reduced would be a lie about
- * the count.
+ * ---------------------------------------------------------------------------
+ * COLOUR, AND A LEVEL
+ * ---------------------------------------------------------------------------
  *
- * The mix is the NADH fraction of the nicotinamide total, which is a conserved
+ * One silhouette, filled `oxidized`, with the reduced fraction of it overlaid
+ * in `reduced` and the boundary drawn as a hard ink rule. The rule's HEIGHT is
+ * the reading and it does not depend on hue, which is what makes the wall
+ * legible to a player who cannot separate the two tokens. Stage 1 measured that
+ * player into existence: 3.21 dE between the two states act 1 moves between,
+ * under protanopia, against a just-noticeable difference of 2.3.
+ *
+ * Colour is unchanged at both ends of the axis and that is the point of doing
+ * it this way rather than by replacing the fill with a pattern. Fully oxidized
+ * is the flat `oxidized` blob that shipped in V3 and fully reduced is the flat
+ * `reduced` one. What went is the interpolated mix in between, and it went
+ * because a level is the truer statement: the pool holds real NAD+ and real
+ * NADH in a proportion, not one substance of intermediate colour.
+ *
+ * The fraction is NADH over the nicotinamide total, which is a conserved
  * quantity, so the denominator cannot drift.
+ *
+ * ---------------------------------------------------------------------------
+ * THE ELECTRON DOTS ARE LEFT ALONE, DELIBERATELY
+ * ---------------------------------------------------------------------------
+ *
+ * They are rule 3's other half and they remain what they were: two dots whose
+ * opacity is the reduced fraction. They were the obvious candidate for this
+ * channel and they lost, for a reason recorded in the stage 2 report. A count
+ * cannot carry a continuous quantity here without lying, because NADH carries
+ * two electrons as a hydride and there is no carrier holding one, so quantising
+ * to zero, one and two would put a species on the screen that does not exist.
  */
 function NicotinamideBlob({ seed }: { seed: number }) {
   const nad = poolIndex('nad');
   const nadh = poolIndex('nadh');
 
-  const pathRef = useLiveNode<SVGPathElement>((element, snapshot) => {
+  const levelRef = useLiveNode<SVGGElement>((element, snapshot) => {
     const oxidized = snapshot.amounts[nad] as number;
     const reduced = snapshot.amounts[nadh] as number;
     const total = oxidized + reduced;
-    const fraction = total > 0 ? reduced / total : 0;
-    element.setAttribute('fill', mixRedox(fraction));
+    // The geometry belongs to Blob.tsx. This passes a fraction and nothing else.
+    setRedoxLevel(element, total > 0 ? reduced / total : 0);
   });
 
   const electronsRef = useLiveNode<SVGGElement>((element, snapshot) => {
@@ -135,38 +158,25 @@ function NicotinamideBlob({ seed }: { seed: number }) {
     <Blob
       carbon={carbonOf('nad')}
       phosphate={phosphateOf('nad')}
-      fill={mixRedox(0)}
+      // The two ends of the axis, straight off the tokens. No interpolation
+      // anywhere now, so nothing here has to reach past var() into channel
+      // values the way the old mix did, and index.css stays the definition of
+      // record for both colours rather than only for their endpoints.
+      fill="var(--color-oxidized)"
+      reducedFill="var(--color-reduced)"
       seed={seed}
       electrons={2}
       size={54}
-      // One silhouette, two states, and the readout is what says the colour is
-      // the state rather than a decoration. Item 11 of UPDATELOGV6.md's
-      // thirteen-item table, which DESIGN.md calls its most important colour
-      // decision and which nothing on the screen had ever stated.
+      // One silhouette, two states, and the readout is what says the level and
+      // the colour are the state rather than a decoration. Item 11 of
+      // UPDATELOGV6.md's thirteen-item table, which DESIGN.md calls its most
+      // important colour decision and which nothing on the screen had ever
+      // stated.
       label={CARRIER_READOUT.text}
-      pathRef={pathRef}
+      levelRef={levelRef}
       electronsRef={electronsRef}
     />
   );
-}
-
-/**
- * The redox axis, as a flat colour at any instant.
- *
- * DESIGN.md forbids gradients, and this is not one: it is a single flat fill
- * whose value is a function of simulation state, recomputed per frame. Hardcoded
- * channel values rather than var() because there is no way to interpolate
- * between two CSS custom properties without a colour-mix the test would have to
- * learn to read. The two endpoints are DESIGN.md's `oxidized` and `reduced`, and
- * the token block remains their definition of record.
- */
-function mixRedox(fraction: number): string {
-  const from = [0xa9, 0xbf, 0xb8]; // --color-oxidized #A9BFB8
-  const to = [0x23, 0xbf, 0xa0]; // --color-reduced  #23BFA0
-  const f = Math.min(1, Math.max(0, fraction));
-  const channel = (i: number): number =>
-    Math.round((from[i] as number) + ((to[i] as number) - (from[i] as number)) * f);
-  return `rgb(${channel(0)} ${channel(1)} ${channel(2)})`;
 }
 
 export function PoolCard({ spec }: { spec: PoolCardSpec }) {

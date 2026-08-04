@@ -433,7 +433,98 @@ still does what it did.
 
 ## Stage 2 Report
 
-_Pending._
+**The channel is a LEVEL.** The carrier's silhouette is filled `oxidized`, the reduced fraction of it is overlaid in `reduced`, and the boundary between them is a hard ink rule whose height is the reading. Position is the channel and ink is the contrast, and neither depends on hue.
+
+    channel                       normal   deut   prot   trit   greyscale
+    the ink level rule, against
+    the oxidized side of it         9.11   8.98   9.20   9.13        9.15
+    the ink level rule, against
+    the reduced side of it          7.60   5.70   7.54   8.26        6.47
+    the colour it backs up          1.20   1.58   1.22   1.11        1.41
+
+The worst case for the new channel is 5.70:1 against a 3:1 floor. The best case for the old one is 1.58:1. That is the whole argument.
+
+### Why a level, and why the other two lost
+
+**(b) the electron dots lost on chemistry, which was not the reason expected.** The stage calls it the strongest starting point and the reasoning is good: a countable dot is the device that already works for phosphate, and DESIGN.md rule 3 already assigns two dots to NADH and none to NAD+. It loses because **the quantity is continuous and a count of two gives three values, and the middle one does not exist.** NADH carries its two electrons as a hydride. There is no carrier holding one. Quantising a 56 percent reduced pool to a single dot would put a species on the screen that is not a species, on the one card whose entire job is to teach what the carrier is. This project does not do that.
+
+**Stage 1 also found the dots are already the wrong shape for the job**, which is corroboration rather than the reason. They fade by `opacity` rather than changing count, and they are `--color-ink` sitting on a 3.25px `--color-ink` outline, so at the rendered size of 54px they read as a notch in the edge rather than as two particles.
+
+**(a) texture lost on legibility and on vocabulary.** Hatching or stipple inside a 54px blob already carrying a 3.25px outline, two electron dots and, on other blobs, a chain of phosphate dots, is noise. It is also a device this system does not have anywhere else, and DESIGN.md's illustration language is short on purpose.
+
+**(c) won, and it turned out to have an argument nobody made for it in the candidate list.** The level is not merely a second channel, it is a **truer** encoding than the one it replaces. A pool at 56 percent reduced does not contain a substance of intermediate colour. It contains real NAD+ and real NADH in that proportion, held in two separate pool amounts in the simulation. The mix said the carrier is somewhat reduced. The level says 56 percent of the carriers are reduced, which is what the model holds. **The accessibility fix and the correctness fix are the same edit.**
+
+### What was kept exactly as it was
+
+**The silhouette is byte-identical.** `illustration.test.ts` asserts it: the carrier path rendered with the level and without it is the same string. This log's Decisions section makes that the constraint and it is a test rather than a claim.
+
+**Both ends of the axis are pixel-identical to what V3 shipped.** At a reduced fraction of 0 the blob is flat `oxidized` and at 1 it is flat `reduced`, because the level travels between the exact `top` and `bottom` that `carrierPath` draws rather than between a bounding-box guess. That needed one non-obvious thing: `redoxLevelY` is written as `top * f + bottom * (1 - f)` rather than as `bottom - (bottom - top) * f`. The two are the same line and the second lands three ulps short of `top` at f = 1. The rounding would have hidden it and the claim would have been "nearly identical", so the form changed instead of the test.
+
+**Colour still does everything it did.** Nothing was removed. What went is the interpolated mix in the middle, and `mixRedox` went with it, which also removed the one place in the interface that reached past `var()` into hardcoded channel values. `index.css` is now the definition of record for both ends of the axis rather than for the endpoints of a function that duplicated them.
+
+### The level is derived, not authored
+
+Same rule as the geometry and the same shape of test. `redoxExtent(size, seed)` computes the extent from the same wobble `carrierPath` draws from, `redoxLevelY(extent, fraction)` is the only mapping and both the render and the per-frame update go through it, and `PoolCard` passes a fraction and nothing else. Which y a fraction lands on is a fact about how `Blob.tsx` draws a carrier and it never leaves that file.
+
+**Four assertions, over the range rather than at two points**, which is what the stage asks for and what separates a channel that carries a quantity from one that carries two states:
+
+- strictly monotonic across 21 fractions from 0 to 1, and in the right direction
+- exact at both ends, `redoxLevelY(extent, 0) === extent.bottom` and `(extent, 1) === extent.top`
+- linear, so half reduced is half way up rather than somewhere on a curve somebody chose
+- clamped, so a pool amount that has drifted a denormal past its total cannot put the level outside the shape
+
+Plus one that reads the geometry rather than the claim, in the file's existing idiom: every y in the rendered carrier path lies inside the published extent, and the extent is tight rather than generous, so a level at 1 really is at the crown.
+
+**Measured in the browser, the level sweeps rather than snapping.** Sampled every 120ms through the NAD+ wall on a fresh run: reduced fraction 0, 13, 62, 138, 231, 334, 445, 537, 656, 778, 878, 983, 1000 thousandths, with the rule travelling y 48.55 to 5.17. The wall arrives as a rising level, over about three seconds, on the same clock as the colour.
+
+### Step 5, the re-run, and the honest answer per image
+
+Recaptured at the same three moments, with the fractions read off the card at capture: running at 0.103, the stall at 1.000, just after fermentation at 0.565. Same Machado matrices, plus a greyscale pass because this log's Context names a projector and a classroom.
+
+    deficiency      running 0.103   the stall 1.000   after ferment 0.565
+    normal              YES               YES                 YES
+    deuteranopia        YES               YES                 YES
+    protanopia          YES               YES                 YES
+    tritanopia          YES               YES                 YES
+    greyscale           YES               YES                 YES
+
+At 0.103 the rule sits low in the blob with a small `reduced` region under it and is legible at true rendering size, which was checked at 1:1 rather than only at magnification. At 0.565 it is a clear chord across the middle in every row. At 1.000 the blob is full and the rule has reached the crown.
+
+**And the channel has a blind spot, which is stated here rather than left to be discovered.** A level gauge carries no signal at its own ends: at a reduced fraction of exactly 0 and exactly 1 the rule coincides with the outline and is invisible in both cases, so those two states are not told apart by the level. They are told apart by **the electron dots**, and this was checked directly rather than assumed. A starved cell holds the carrier at exactly 0 forever, which gives a stable state to photograph against the walled 1, and under deuteranopia, protanopia and greyscale the two ink dots are present at 1 and absent at 0. Two countable marks against none, in the colour with the highest contrast in the system.
+
+So the two channels are complementary rather than redundant: **the level is load-bearing everywhere except the ends, and the dot count is load-bearing at the ends.** That is a better outcome than the level alone and it was not designed, the dots were already there doing DESIGN.md rule 3's job. The caveat stage 1 raised still stands and is not withdrawn: at 54px those dots are about 5px across and sit on the outline, so they are corroboration rather than a channel anybody should rely on alone. The state a player has to read, the wall, is the one the level marks most clearly.
+
+### Step 4, the rest of the table
+
+**A stopped reaction needed a fix and it was not the fix the stage anticipated.** The stage suggests making the reduced-motion numeric rate permanent. That is the wrong repair here. A stopped arrow already carries four channels, stroke width 2 against 6, no dash against dashed, a hollow arrowhead against a filled one, and colour. The defect stage 1 measured is that **all four were being drawn in `ink3`, which is 2.83:1 on the cream pathway card**, so counting channels does not help when the ink they share is too faint to see. The stopped treatment moved to `ink2`, 6.34:1 on cream, which clears the floor and is still an obvious step down from `ink`. This file's own note that the track is "always present, so a stopped arrow is still an arrow rather than a gap" was not true on a low-contrast display until this change.
+
+The numeric rate stays motion-conditional. Making it permanent would put five numbers on the one surface DESIGN.md keeps illustrative, to say a thing the arrow already says on three non-colour channels, and docs/CONTENT_STYLE.md Part 6 rules that out directly.
+
+**The net rate sign is real and now it is tested.** `formatFigure` renders `+7.95`, `-7.95` and a space-padded ` 0.00`, so direction is a character rather than a colour. It was exported and had never been tested by anything. Four assertions now hold it, including that a denormal never prints `-0.00` and that all three forms are the same width so a rate crossing zero does not jog sideways.
+
+### The guard that could not fail, caught by its own probe
+
+**The first version of the stopped-arrow assertion passed with the wrong colour in place.** It rendered `PathwayArrow` and searched the markup for `--color-ink3`, and `ink3` restored to the component did not fail it, because **every colour an arrow uses is written from a per-frame callback and none of it is in the static markup a `renderToStaticMarkup` test can see.** The probe is the only reason that was found.
+
+The fix was to change the component rather than to weaken the assertion. The two treatments are now one exported `ARROW_TREATMENT` constant, declared in full rather than as a base plus overrides, and the six ternaries that used to spell them out inline read from it. Re-probed: `ink3` restored fails with `expected 'var(--color-ink3)' not to contain '--color-ink3'`, and the probe was removed. A third assertion guards the guard, checking the constant actually reaches the DOM, because a named treatment nothing renders from would pass every other assertion in the block.
+
+### Verify
+
+    npm test        338 passed across 31 files, up from V6's 329
+    npm run typecheck   clean
+    npm run lint        clean
+    npm run build       clean, 264.86 kB, 82.50 kB gzipped
+    npm run dev         played, and photographed at all three moments
+
+Bundle up 1.42 kB raw and 0.60 kB gzipped against V6's 263.44 and 81.90, which is two clip paths, a rule and a mapping function. Six tests added: four on the level, two on the arrow treatments, three on the sign, less one that was replaced.
+
+**No tuned number moved and no simulation code was touched.** The three tuning files are untouched, `docs/SCIENCE.md` is untouched, and `src/sim/` and `src/content/` have no changes in this stage. Stage 5 confirms the canonical hash formally.
+
+### Two things deferred by design
+
+**`DESIGN.md` does not yet describe any of this.** The level, the ink rule and the `ink2` stopped arrow are all visual decisions and this log puts every DESIGN.md edit in stage 5, on the same pattern stage 3 uses for the focus indicator. Until then DESIGN.md's illustration rule 3 says the carrier is saturation alone, and the build no longer agrees with it. **That is a known disagreement with a stage attached, not a drift.**
+
+**`CARRIER_READOUT` was rewritten and it fixed a second thing on the way.** It said "One shape, and the colour is which one it is. Full colour means NADH, carrying electrons", which now describes one of two channels. It reads "NAD+ and NADH. One shape, and the filled part is NADH. The level rises and the colour arrives as NAD+ is spent." **The direction is the fix that matters.** NOW.md and DESIGN.md have both carried an open item since V3 saying DESIGN.md's "colour leaving" sentence is backwards, because `oxidized` is the desaturated end so colour arrives as NAD+ drains. The old readout said "full colour means NADH", which is true and says nothing about which way the beat runs. This says which way, and it is the first player-facing text in the game to. Stage 4 owns making these labels state the current reading rather than the encoding, and stage 5 owns the DESIGN.md sentence.
 
 ---
 
