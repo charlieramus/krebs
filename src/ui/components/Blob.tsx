@@ -275,6 +275,23 @@ export interface BlobProps {
    * draws the shape and does not get to decide what the shape means.
    */
   label: string;
+  /**
+   * The accessible name, when it differs from the hover readout.
+   * UPDATELOGV7.md stage 4.
+   *
+   * WHY THE TWO CAN DIFFER, AND WHY ONLY HERE. `label` explains the ENCODING,
+   * which is what a sighted pointer user needs when they ask a shape what it
+   * means. A screen reader user needs the READING: not that colour and level
+   * say which carrier this is, but which carrier it currently is. For every
+   * other blob those are the same sentence, because the encoding is geometry
+   * and the geometry is the state, so only the carrier passes this.
+   *
+   * `aria-label` wins over `<title>` for assistive technology, so passing this
+   * replaces the name and leaves the tooltip alone.
+   */
+  stateLabel?: string;
+  /** Handle on the SVG, so a caller can drive `stateLabel` from the snapshot. */
+  rootRef?: Ref<SVGSVGElement>;
   className?: string;
   /**
    * Handle on the silhouette, so a caller can drive its fill from the snapshot
@@ -310,6 +327,8 @@ export function Blob({
   seed = 1,
   electrons = 0,
   label,
+  stateLabel,
+  rootRef,
   className = '',
   pathRef,
   electronsRef,
@@ -332,12 +351,13 @@ export function Blob({
 
   return (
     <svg
+      ref={rootRef}
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
       className={className}
       role="img"
-      aria-label={label}
+      aria-label={stateLabel ?? label}
     >
       {/* The hover readout. `aria-label` already names it for assistive
           technology and wins over `<title>` there, so this is purely the

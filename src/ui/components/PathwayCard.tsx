@@ -26,7 +26,7 @@
 import { Blob } from './Blob';
 import { Card } from './Card';
 import { PathwayArrow } from './PathwayArrow';
-import { MOLECULES } from '../content';
+import { LANDMARKS, MOLECULES } from '../content';
 import { carbonOf, phosphateOf } from '../poolCards';
 import { usePrefersReducedMotion } from '../usePrefersReducedMotion';
 import type { Act1PoolId } from '../../content/act1/pools';
@@ -123,24 +123,45 @@ export function PathwayCard() {
   const reducedMotion = usePrefersReducedMotion();
 
   return (
-    <Card surface="cream" className="flex min-w-0 flex-col gap-6 p-4">
-      <Row
-        groups={[['glucose_env'], ['glucose'], ['g3p']]}
-        reactions={['uptake', 'prep']}
-        reducedMotion={reducedMotion}
-      />
-      <Row
-        groups={[['g3p'], ['pyruvate'], ['lactate']]}
-        reactions={['payoff', 'ferment']}
-        reducedMotion={reducedMotion}
-      />
+    <Card surface="cream" className="flex min-w-0 flex-col p-4">
       {/*
-        The maintenance row. Not a glycolytic step, and on the card anyway,
-        because without it ATP looks like a number that only goes up. A cell
-        hydrolyses ATP continuously to do the work of being alive, and this is
-        the arrow that says so.
+        A LANDMARK AND A HEADING, added by UPDATELOGV7.md stage 4. Stage 1 read
+        the accessibility tree and found the pathway with neither: a user
+        navigating by structure went from the "Pools" rail straight to the
+        "Unlocks" shelf, and the centre of the screen, the thing the game is
+        about, was reachable only by reading linearly through it.
+
+        The heading is `sr-only` rather than drawn. The card already says what
+        it is by being the pathway, and docs/CONTENT_STYLE.md Part 6 is explicit
+        that a concept carried by the picture must not also be carried by a line
+        of prose. This is the pointer structure needs, not a title the screen
+        was missing.
       */}
-      <Row groups={[['atp'], ['adp', 'pi']]} reactions={['maintain']} reducedMotion={reducedMotion} />
+      <section aria-label={LANDMARKS.pathway.text} className="flex min-w-0 flex-col gap-6">
+        <h2 className="sr-only">{LANDMARKS.pathway.text}</h2>
+
+        <Row
+          groups={[['glucose_env'], ['glucose'], ['g3p']]}
+          reactions={['uptake', 'prep']}
+          reducedMotion={reducedMotion}
+        />
+        <Row
+          groups={[['g3p'], ['pyruvate'], ['lactate']]}
+          reactions={['payoff', 'ferment']}
+          reducedMotion={reducedMotion}
+        />
+        {/*
+          The maintenance row. Not a glycolytic step, and on the card anyway,
+          because without it ATP looks like a number that only goes up. A cell
+          hydrolyses ATP continuously to do the work of being alive, and this is
+          the arrow that says so.
+        */}
+        <Row
+          groups={[['atp'], ['adp', 'pi']]}
+          reactions={['maintain']}
+          reducedMotion={reducedMotion}
+        />
+      </section>
     </Card>
   );
 }

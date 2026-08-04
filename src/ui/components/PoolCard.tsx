@@ -36,7 +36,14 @@ import { Card } from './Card';
 import { CoachMark, COACH_MARK_TRIGGER, InfoAffordance, useCoachMark } from './CoachMark';
 import { Figure } from './Figure';
 import { useOpenTeachingPanel } from './TeachingPanel';
-import { blobReadout, CARRIER_READOUT, MOLECULES, POOL_FIGURES } from '../content';
+import {
+  blobReadout,
+  carrierState,
+  CARRIER_READOUT,
+  FIGURE_LABELS,
+  MOLECULES,
+  POOL_FIGURES,
+} from '../content';
 import { carbonOf, phosphateOf, type PoolCardSpec } from '../poolCards';
 import { FERMENT_ATP_THRESHOLD } from '../tuning';
 
@@ -57,6 +64,15 @@ function SignedRate({ read }: { read: (snapshot: Act1Snapshot) => number }) {
 
   return (
     <span ref={ref} className="inline-flex">
+      {/*
+        Which of the two numbers on this card is the rate. DESIGN.md says so by
+        making it large, and type size is not a channel speech has: stage 1 read
+        the tree and found a card announcing as "Glucose, SOURCED, +7.95, /s,
+        GLUCOSE, 944.72", two figures with nothing distinguishing them. The
+        stock below already carries a visible label, so this is the only one
+        that was unnamed.
+      */}
+      <span className="sr-only">{FIGURE_LABELS.netRate.text}</span>
       <Figure
         read={read}
         decimals={2}
@@ -137,6 +153,28 @@ function NicotinamideBlob({ seed }: { seed: number }) {
     setRedoxLevel(element, total > 0 ? reduced / total : 0);
   });
 
+  /**
+   * THE ACCESSIBLE NAME IS THE READING, NOT THE LEGEND. UPDATELOGV7.md stage 4.
+   *
+   * Stage 1 read the tree and found this blob announcing as "NAD+ and NADH. One
+   * shape, and the colour is which one it is." On the one card in the game where
+   * the picture is the entire signal, the name explained the encoding and
+   * withheld the state. A screen reader user was told the colour means something
+   * and never told what the colour currently was.
+   *
+   * Banded rather than numeric, and `content.ts` says why. Quantised to the band
+   * rather than to the fraction, so the attribute is written when the READING
+   * changes, four or five times across a whole act, rather than whenever the
+   * twelfth decimal place moves.
+   */
+  const nameRef = useLiveNode<SVGSVGElement>((element, snapshot) => {
+    const oxidized = snapshot.amounts[nad] as number;
+    const reduced = snapshot.amounts[nadh] as number;
+    const total = oxidized + reduced;
+    const next = carrierState(total > 0 ? reduced / total : 0).text;
+    if (element.getAttribute('aria-label') !== next) element.setAttribute('aria-label', next);
+  });
+
   const electronsRef = useLiveNode<SVGGElement>((element, snapshot) => {
     const oxidized = snapshot.amounts[nad] as number;
     const reduced = snapshot.amounts[nadh] as number;
@@ -173,6 +211,12 @@ function NicotinamideBlob({ seed }: { seed: number }) {
       // important colour decision and which nothing on the screen had ever
       // stated.
       label={CARRIER_READOUT.text}
+      // The hover readout stays the encoding and the accessible name becomes
+      // the reading. See Blob's `stateLabel`. Seeded at fully oxidized, which is
+      // what a fresh act 1 starts at, so the name is right on the first paint
+      // rather than for one frame saying nothing.
+      stateLabel={carrierState(0).text}
+      rootRef={nameRef}
       levelRef={levelRef}
       electronsRef={electronsRef}
     />

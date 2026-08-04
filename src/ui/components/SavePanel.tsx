@@ -131,7 +131,12 @@ export function SavePanel() {
   }
 
   return (
-    <Card surface="cream" className="flex min-w-0 flex-col gap-2 p-4">
+    // A LANDMARK, added by UPDATELOGV7.md stage 4. The h2 was already here and
+    // was already correct; what was missing was a region for it to name, so
+    // stage 1 found the save panel unreachable by landmark navigation while the
+    // unlock shelf beside it was not.
+    <Card surface="cream" className="flex min-w-0 flex-col p-4">
+    <section aria-label={SAVE.heading.text} className="flex min-w-0 flex-col gap-2">
       <span className="flex items-center gap-2">
         <h2 className="font-display font-semibold text-card-title uppercase tracking-label text-ink2">
           {SAVE.heading.text}
@@ -235,6 +240,7 @@ export function SavePanel() {
 
       {importProblem === 'failed' ? <Line entry={SAVE.importFailed} /> : null}
       {importProblem === 'future' ? <Line entry={SAVE.importFuture} /> : null}
+    </section>
     </Card>
   );
 }

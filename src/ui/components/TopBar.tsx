@@ -20,7 +20,7 @@
 import { Figure } from './Figure';
 import { Badge, type BadgeSpec } from './Badge';
 import { Button } from './Button';
-import { ABOUT, READOUTS, WORDMARK } from '../content';
+import { ABOUT, LANDMARKS, READOUTS, WORDMARK } from '../content';
 import { poolIndex, type Act1Snapshot } from '../runtime';
 
 const ATP = poolIndex('atp');
@@ -102,7 +102,7 @@ export function TopBar({ onOpenAbout }: { onOpenAbout: () => void }) {
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-end gap-8">
+      <div className="flex flex-wrap items-end gap-8" role="group" aria-label={LANDMARKS.readouts.text}>
         <Headline
           label={READOUTS.atpRate.text}
           badge={READOUTS.atpRate.badge}

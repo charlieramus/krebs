@@ -240,20 +240,39 @@ export function PathwayArrow({ reaction, reducedMotion }: PathwayArrowProps) {
         </svg>
       </span>
 
-      {/* DESIGN.md's accessibility obligation. Reduced motion does not simply
-          turn the animation off, it replaces the channel: the rate the dashes
-          were carrying is stated as a number instead. Through Figure, with the
-          reaction's own badge, like every other number in the game. */}
-      {reducedMotion ? (
-        <Figure
-          read={(snapshot) => snapshot.appliedFlux[index] as number}
-          decimals={2}
-          unit="/s"
-          size="micro"
-          badge={entry.badge}
-          badgeDisplay="attached"
-        />
-      ) : null}
+      {/*
+        DESIGN.md's accessibility obligation. Reduced motion does not simply
+        turn the animation off, it replaces the channel: the rate the dashes
+        were carrying is stated as a number instead. Through Figure, with the
+        reaction's own badge, like every other number in the game.
+
+        ---------------------------------------------------------------------
+        RATES ON DEMAND, AND IT IS THIS NUMBER RATHER THAN A SECOND ONE
+        ---------------------------------------------------------------------
+
+        UPDATELOGV7.md stage 4 asks for a screen reader user to be able to ask
+        what is happening right now, and warns that a parallel textual readout
+        will drift from the visible one. So there is no parallel readout. The
+        figure is now rendered in BOTH motion modes and is merely hidden from
+        sight when the dashes are carrying the same fact, which is what
+        `sr-only` means and is the reason it is the right tool here rather than
+        a duplicate string in content.ts.
+
+        It is not in a live region and nothing announces it. It is read when the
+        user navigates to it, which is the whole of "on demand", and it is why a
+        number that changes twenty times a second can sit in the accessibility
+        tree without the page ever talking. The two SVGs above are
+        `aria-hidden`, so this is the only thing on an arrow that speech sees.
+      */}
+      <Figure
+        read={(snapshot) => snapshot.appliedFlux[index] as number}
+        decimals={2}
+        unit="/s"
+        size="micro"
+        badge={entry.badge}
+        badgeDisplay="attached"
+        className={reducedMotion ? '' : 'sr-only'}
+      />
     </span>
   );
 }

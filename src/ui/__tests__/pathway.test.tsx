@@ -52,12 +52,32 @@ describe('reduced motion replaces the channel rather than removing it', () => {
     expect(markup).toContain('tabular-nums');
   });
 
-  it.each(ACT1_REACTION_IDS)('%s shows no numeric rate when motion is allowed', (reaction) => {
-    // Not pedantry. If the number were always shown, the animation would be
-    // redundant decoration rather than the channel DESIGN.md says it is, and
-    // the reduced path would be untested by construction because it would look
-    // identical.
-    expect(render(reaction, false)).not.toContain('>/s<');
+  it.each(ACT1_REACTION_IDS)('%s hides that rate from SIGHT when motion is allowed', (reaction) => {
+    // The claim moved in UPDATELOGV7.md stage 4 and the assertion moved with
+    // it, deliberately rather than by loosening.
+    //
+    // It used to be that the number is not rendered at all when motion is on,
+    // on the argument that otherwise the animation would be redundant
+    // decoration rather than the channel DESIGN.md says it is. That argument is
+    // about what a SIGHTED player sees, and it still holds: the number is not
+    // visible, so the dashes are still doing the work.
+    //
+    // What changed is that stage 4 needs the same rate readable by a screen
+    // reader in both modes, and building a second one to say the same thing is
+    // how two readouts drift apart. So the figure is always in the DOM and is
+    // `sr-only` when the dashes are carrying it. Rendered, not visible, not
+    // announced, because it is in no live region.
+    const markup = render(reaction, false);
+    expect(markup).toContain('>/s<');
+    expect(markup).toMatch(/class="[^"]*\bsr-only\b[^"]*"[^>]*>[^<]*<span class="tabular-nums">/);
+  });
+
+  it.each(ACT1_REACTION_IDS)('%s shows that rate when motion is reduced', (reaction) => {
+    // The other half, and the one that keeps the assertion above from being
+    // satisfied by hiding the number in both modes.
+    const markup = render(reaction, true);
+    expect(markup).toContain('>/s<');
+    expect(markup).not.toContain('sr-only');
   });
 
   it('draws a flowing dash line only when motion is allowed', () => {

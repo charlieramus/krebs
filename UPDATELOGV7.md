@@ -762,7 +762,130 @@ decision from step 4, and confirm nothing announces per tick.
 
 ## Stage 4 Report
 
-_Pending._
+**The rule held and the number is five.** Two minutes of real play, from a cold start through the NAD+ wall and out the other side, produced five announcements and nothing else. Between them the region was silent for a hundred consecutive seconds while the cell ran at steady state, which is the whole test: a simulation writing forty numbers to the DOM sixty times a second said nothing at all.
+
+    "Lactate dehydrogenase can now be expressed."
+    "The pathway has stopped. NAD+ has run out."
+    "Lactate dehydrogenase is running."
+    "The pathway is running again."
+    "Uptake capacity can now be expressed."
+
+Recorded with a `MutationObserver` on the live region on the real page, not inferred. The affordability landing before the wall rather than after it is not a bug and is not luck: `src/ui/tuning.ts` records the measurement that 55 cumulative ATP is reached 0.35s before the pathway dies, so **the answer arrives just before the problem, and act 1's opening beat now reads correctly in speech.**
+
+### 1. The rule, and where the line actually is
+
+Announce events, expose rates on demand, never narrate the tick. The line is the one the architecture already draws: NOW.md calls it three clocks, and the third of them, the discrete events React re-renders on, is exactly the set of things worth saying out loud. It was already computed and nothing was listening to it.
+
+**Sixteen announcements in a full act 1**, derived rather than counted: one stall, one recovery, and an affordable plus a bought for each of the seven purchases. `ACT1_ANNOUNCEMENT_COUNT` computes it from the two ladder arrays, so adding a rung in a later log moves it without anybody remembering to. For scale, act 1 runs 62 game-minutes to its last purchase at 20Hz, so **narrating the tick would be roughly 74000 utterances against 16**, and a test pins the ratio at two orders of magnitude or better rather than leaving it as an argument in a comment.
+
+### 2. One region, polite, and empty until something happens
+
+`role="status"`, `aria-live="polite"`, `aria-atomic="true"`, `sr-only`, one on the page.
+
+**Polite rather than assertive, deliberately.** Assertive cuts across whatever the user is reading and is for something going wrong. Nothing in act 1 is going wrong: the NAD+ wall is the game working, and it is the teaching beat.
+
+**Atomic**, so an event is read as a sentence rather than as a diff against the previous one.
+
+**One event per frame, even when two land together.** A purchase can make the next rung affordable on the same tick, and a region that swaps its whole contents twice before the reader gets to it is read once and the first event is lost. The second key stays unsaid and is picked up on the next frame.
+
+**The subscription runs at frame rate and that is fine.** It samples per frame and compares a set of stable keys before it sets, so what reaches React state is one string per event: the tree re-renders sixteen times over an hour rather than sixty times a second. Same shape as the unlock shelf and the save panel, and the comparison is the only thing keeping it true.
+
+**Nothing in this file contains a number**, and that is a constraint rather than a style. An `aria-label` cannot carry a badge, so a figure in one would be a quantitative claim in player-facing text with no provenance attached anywhere, which is what CLAUDE.md hard rule 1 and the badge contract exist to prevent. Every number stays where a badge can reach it and speech gets the event. A test asserts it.
+
+### 3. Rates on demand, and there is only one of them
+
+The stage warns that a parallel textual readout will drift from the visible one. **So there is no parallel readout.**
+
+DESIGN.md already requires a static arrow plus an explicit numeric rate when motion is off, and that figure already goes through `Figure` with the reaction's own badge. It is now rendered in **both** motion modes and is merely `sr-only` when the dashes are carrying the same fact. One component, one number, one badge, visible or not.
+
+That keeps V3's argument intact rather than overturning it. The old assertion was that the number is absent when motion is on, so the animation is a real channel rather than redundant decoration. That argument is about what a sighted player sees and it still holds: the number is not visible. What changed is that the same fact is now in the accessibility tree in both modes. The test moved with the claim, deliberately and in the open, and a second assertion now pins the reduced path as visible so the first cannot be satisfied by hiding the number in both.
+
+**It is in no live region and nothing announces it.** It is read when the user navigates to it, which is the whole of "on demand", and it is why a number changing twenty times a second can sit in the tree without the page ever talking. Both SVGs on an arrow are `aria-hidden`, so this is the only thing on an arrow speech can see. Confirmed in the tree: `"UPTAKE"`, `"7.95"`, `"/s"`.
+
+### 4. The illustration says what state it is in
+
+**Before, on the one card in the game where the picture is the entire signal:**
+
+    [image] "NAD+ and NADH. One shape, and the colour is which one it is."
+
+A screen reader user was told the colour means something and never told what the colour currently was. That is the legend, not the reading.
+
+**After:**
+
+    [image] "NAD+ and NADH. Mostly NAD+."
+
+**The hover readout and the accessible name now differ, and only here.** `<title>` keeps the encoding, because a sighted pointer user asking a shape what it means needs the encoding. `aria-label` becomes the reading. For every other blob those are the same sentence, because the encoding is geometry and the geometry is the state, so "Glucose. 6 sides, 6 carbons" is left exactly as V6 wrote it.
+
+**Bands rather than a percentage, for two reasons that agree.** The picture carries a level and a level is read at a glance as roughly how full, not as a figure, so a number would describe something the shape does not say. And a number in an `aria-label` has nowhere to put a badge. The exact amounts are already two badged figures on the same card, so a user who wants them has them.
+
+**The bands were wrong once and reading the tree on a running cell is what caught it.** The first thresholds, 0.25 and 0.6, described a carrier at 21.37 NAD+ to 8.63 NADH as "About half NADH". That is 28.8 percent reduced, it is not what the level looks like, and it contradicted the two stock figures sitting underneath it. Symmetric thresholds at 0.35 and 0.65 now, and the same state reads "Mostly NAD+".
+
+**Quantised to the band, not to the fraction**, so the attribute is written when the reading changes, four or five times across a whole act, rather than whenever the twelfth decimal place moves.
+
+**The net rate was the other unnamed thing.** DESIGN.md decides which of two numbers on a pool card is the rate by making it large, and type size is not a channel speech has. Stage 1 found a card announcing as `"Glucose", "SOURCED", "+7.95", "/s", "GLUCOSE", "944.72"`: two figures with nothing distinguishing them. An `sr-only` label from `content.ts` now precedes it, so it reads `"net rate", "-7.95", "/s"`. The stock already carried a visible label and needed nothing.
+
+### 5. Landmarks and headings
+
+**Before, three landmarks and three headings, with the middle of the screen in neither:**
+
+    [main]
+      [sectionheader]              the top bar, NOT a banner
+      [navigation] "Pools"
+      ...the pathway, bare...
+      [region] "Unlocks"           h2
+      ...the save panel, an h2 and no region...
+
+**After:**
+
+    [banner]
+      [heading] "krebs" level=1
+      [group] "Rates"
+    [main]
+      [navigation] "Pools"
+      [region] "Pathway"           h2
+      [region] "Unlocks"           h2
+      [region] "Save"              h2
+    [status] "Events" live=polite atomic=true
+
+**The top bar had to move in the DOM to become a banner.** A `<header>` that descends from `<main>` does not get the `banner` role, which is why stage 1 found it as a plain `sectionheader` and the three headline readouts unreachable by landmark navigation. `<header>` is now a sibling of `<main>` and the page background moved to the wrapper, which is the only thing `<main>` was carrying it for.
+
+**The pathway got a landmark and a heading and had neither.** It is the centre of the screen and the thing the game is about, and navigating by structure went from the pools rail straight to the unlock shelf. The heading is `sr-only` rather than drawn: the card already says what it is by being the pathway, and docs/CONTENT_STYLE.md Part 6 is explicit that a concept carried by the picture must not also be carried by a line of prose.
+
+Heading structure is h1 then three h2s, no skipped levels, asserted. Eighteen images, all named, asserted.
+
+### 6. The comparison this stage was supposed to deliver, and the honest version of it
+
+**Step 6 asks for a real screen reader run end to end, compared against stage 1's. It was not done, and the reason is the same one stage 1 gave.** NVDA is not installed on this machine and neither is JAWS. Narrator is present, as on every Windows install, and exposes no interface for capturing what it said, so an agent driving it would be reporting its own reading of the page and calling it a reading of the page.
+
+**What was compared instead is Chrome's computed accessibility tree, before and after, on the real page.** That tree is what Chrome hands to the platform accessibility API, so it is what a screen reader consumes, and every defect stage 1 named is visible in it as fixed:
+
+    landmarks               3   ->  8, including a banner and a status region
+    headings                3   ->  4, no skipped levels
+    live regions            0   ->  1, polite and atomic
+    figures named           0   ->  the net rate on all eight pool cards
+    the carrier's name      the encoding  ->  the reading
+    pathway navigable       no  ->  region plus heading
+    rate readable by AT     only under reduced motion  ->  both modes
+
+**What that cannot tell you is how it sounds, how long it takes, or whether it is bearable**, and none of the claims above are of that kind. **The deliverable of this stage, as written, is a before and after of what a full act 1 sounds like, and this log cannot produce it.** It is the second thing in this project blocked on a person rather than a feature, and it should be recorded next to the first. Stage 5 puts it in NOW.md.
+
+### 7. Verify
+
+    npm test        372 passed across 33 files, up from stage 3's 352
+    npm run typecheck   clean
+    npm run lint        clean
+    npm run build       clean, 269.01 kB, 83.74 kB gzipped
+    npm run dev         played, with the live region watched and recorded
+
+Twenty tests added, fifteen of them new in `screenReader.test.tsx` and the rest moved or split in `pathway.test.tsx`. Probed both ways: putting `aria-live` on a per-frame pool card node fails the one-region assertion, and making the region assertive fails two. Both probes removed.
+
+Bundle up 2.38 kB raw and 0.63 kB gzipped against stage 3.
+
+**No tuned number moved and the simulation was not touched.** Nothing under `src/sim/`, `src/content/` or any of the three tuning files changed.
+
+### One thing that went wrong and is worth recording
+
+**`npx prettier --write` was run on `SavePanel.tsx` and rewrote every string in the file to double quotes.** The project has no prettier config, so the defaults fought the codebase's single quotes and would have landed a 60-line reformat inside an accessibility stage. Reverted with `git checkout` and the change reapplied by hand. **This project formats by hand and by ESLint and does not have a formatter**, which is a fact worth knowing before reaching for one again.
 
 ---
 
