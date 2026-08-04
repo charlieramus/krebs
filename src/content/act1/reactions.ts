@@ -14,7 +14,7 @@
  *   maintain   atp                           ->  adp + pi
  *
  * Net per glucose across uptake, prep and two turns of payoff: 2 ATP net, 4
- * gross, 2 NADH, 2 pyruvate. docs/SCIENCE.md Part 2 lines 89 to 96. The
+ * gross, 2 NADH, 2 pyruvate. docs/SCIENCE.md Part 2, "Glycolysis". The
  * stoichiometry test computes those four numbers from the table above rather
  * than asserting them from memory.
  *
@@ -204,16 +204,16 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
 
     /**
      * Lactate fermentation. One step, lactate dehydrogenase reducing pyruvate
-     * to lactate and oxidising NADH back to NAD+. docs/SCIENCE.md Part 2 line
-     * 116.
+     * to lactate and oxidising NADH back to NAD+. docs/SCIENCE.md Part 2,
+     * "Fermentation".
      *
      * SHIPS DISABLED, AND THAT IS THE DESIGN. The wall has to be reachable. A
      * player who starts with this reaction running never meets the NAD+
-     * constraint, and docs/PROGRESSION.md line 40 makes the constraint the
+     * constraint, and docs/PROGRESSION.md act 1, "The teaching beat" makes the constraint the
      * teaching beat of the entire act.
      *
      * WHAT THIS REACTION IS NOT. It produces no ATP. Look at the products:
-     * lactate and NAD+, and nothing else. docs/SCIENCE.md Part 2 line 114 says
+     * lactate and NAD+, and nothing else. docs/SCIENCE.md Part 2, "Fermentation" says
      * framing fermentation as an energy pathway is a common misconception and
      * the game should correct it directly, so the stoichiometry has to be able
      * to carry that correction on its own. It does. There is no ATP term here

@@ -827,7 +827,86 @@ full list of causes that moved it in this log.
 
 ## Stage 5 Report
 
-_Pending._
+### Step 1. The coherence pass found three numbers that had been hiding for three logs
+
+**`ACT1_INITIAL` in `src/content/act1/pools.ts` held three tuned numbers as literals**: atp 20, adp 20 and pi 40. That file's own header said they owed a row in docs/ECONOMY.md. They were written in V2 stage 3 and every count of the debt since has omitted them, including stage 1 of this log, which counted the three tuning files and not the rule. They are `ACT1_ATP_INITIAL`, `ACT1_ADP_INITIAL` and `ACT1_PI_INITIAL` now, at unchanged values, which is why the hash did not move with them. Rows C15, C16 and C17.
+
+**The count is therefore 37 and not 34.** 17 in `src/content/act1/tuning.ts`, 19 in `src/ui/tuning.ts`, 1 in `src/save/tuning.ts`. 25 DEPARTURE and 12 UNSOURCED.
+
+**Nothing else escaped.** A scan of every numeric literal in `src/content/`, `src/ui/` and `src/save/` outside the tuning files and the tests returns loop counters, zero initialisers, the conserved weight table, which is sourced stoichiometry rather than tuning, and two harness defaults: `glucose_env: 500` for the starved scenario in `act1/harness.ts` and a 1200 tick CLI default. Those are development parameters, in the same category as `?glucose=500`, and they are not values the game runs at.
+
+**Two other things stage 1 found and deferred are fixed here.**
+
+The `TUNING_BADGES.uptakeVmax` string that said "a finite ladder of four steps" against an array of three was fixed in stage 3.
+
+**Five stale docs/SCIENCE.md citations, all 42 lines out and all landing in the wrong Part**, now name section headings instead: "Part 2, Glycolysis", "Part 2, The NAD+ constraint", "Part 2, Fermentation". **The fragility proved itself inside this stage**: editing docs/PROGRESSION.md's act 1 unlock list moved the teaching-beat paragraph from line 40 to line 46 and broke two more citations on the spot, in `reactions.ts` and `nadWall.test.ts`. Both now name the paragraph. Line numbers into a document that is still being written are a citation that decays, and that is now a settled rule in NOW.md.
+
+One more, found on the way: `nadWall.test.ts` asserted `glucose_env > 0.9 * 10000` while the environment has been 80000 since V3 stage 6, so it had been passing with eight times the margin it was written to check. It reads the constant now.
+
+### Step 1, the guard. `src/ui/__tests__/divergenceTable.test.ts`
+
+Three assertions, modelled on the DESIGN.md colour test from V3 stage 2.
+
+1. **Every tuned scalar has a row.** It counts scalars rather than names, which is the part that matters: a name check passes while somebody adds a fourth rung to a ladder that already has a row. A number is one, a record is its key count, an array is its length. A glycolytic rung counts as one because its three Vmax values cannot be moved independently, and docs/ECONOMY.md's decisions log records why.
+2. **No row names a constant that no longer exists.** A row left behind by a deleted constant describes an economy the game does not have, which is worse than a missing row because it reads as true.
+3. **The document's own stated per-file count and total agree with what it contains.** Stage 1 exists because NOW.md said twenty-two while listing twenty-three things.
+
+**Proved it fires.** A probe constant with no row, appended to `src/save/tuning.ts`:
+
+    export const PROBE_WITH_NO_ROW = 7;
+
+Two of the three assertions failed, verbatim:
+
+    AssertionError: expected [ Array(1) ] to deeply equal []
+    +   "src/save/tuning.ts PROBE_WITH_NO_ROW: 1 tuned value(s), 0 row(s) in docs/ECONOMY.md"
+
+    AssertionError: stated count for src/save/tuning.ts: expected '1' to be '2'
+
+Probe removed, suite green. It also fired for real earlier in this stage, on the three constants moved out of `pools.ts`, which is how their rows came to be written.
+
+### Step 2. Hard rule 2 held, with the evidence
+
+    git diff --stat d2a0aa1..HEAD -- docs/SCIENCE.md      (empty)
+    git diff --stat -- docs/SCIENCE.md                    (empty)
+
+**docs/SCIENCE.md is untouched across all five stages of this log**, committed and working tree alike. The full file list touched by V5 is `NOW.md`, `UPDATELOGV5.md`, `docs/ECONOMY.md`, `docs/PROGRESSION.md` and thirteen files under `src/`.
+
+This is the first log where the rule was live, because it is the first log that changed tuned numbers on purpose. Three places tested it. **Stage 2 had a genuine biological argument available and did not use it**: cooperative shutdown of ATP-consuming work as energy charge falls is real, and docs/SCIENCE.md says nothing about it, so row C14 cites nothing and says the departure is the game refusing a death a real cell can die. **Stage 3 had a sourced fact and cited it where it belonged**: two trioses per glucose is in Part 2 already, so the unlock badge points at it and nothing was added. **Stage 5 corrected five pointers into the document without touching a word of it.**
+
+### Step 3. Full verify
+
+    npm run typecheck    silent
+    npm run lint         silent
+    npm test             285 passed, 27 files      V4: 269 across 24
+    npm run build        253.48 kB, 79.41 kB gz    V4: 251.29 kB, 78.79 kB gz
+    npm run sim:act1     4.000000000 gross, 2.000000000 net, drift 2.001e-15
+    npm run sim:drain    clean, reframed in stage 2
+
+**16 tests added and 2.19 kB of bundle.** Six in `bootstrap.test.ts`, six in `glycolysisLadder.test.ts`, three in `divergenceTable.test.ts`, one in `persistence.test.ts`. Act 1 conservation drift improved from 2.351e-13 to 1.113e-13 over the same 60 long runs, as a side effect of the bootstrap repair rather than as a goal.
+
+### Step 4. NOW.md updated, 109 lines changed
+
+Status rewritten around the act being inside its target duration. Build state gains a V5 row marked done and a V6 row for offline progress, moving the horizon by exactly one and leaving act 2 off it, with a paragraph on what closing blocking item 1 licenses and what it does not.
+
+**Blocking: item 1 closed, item 2 narrowed and kept in Blocking.** Both entries also record that they described their own problem inaccurately: item 1's "below roughly 400 environmental glucose" was not a boundary at all, and item 2's "roughly ten minutes of nothing" understated an 84m47s dead tail by an order of magnitude. Item 2 is not downgraded to "open, not blocking", because this log was supposed to fix it and got most of the way rather than all of it.
+
+"Open, not blocking" gains a "What the economy does" section as a sibling to the kernel, content, interface and save sections, covering where the table is, what the DEPARTURE and UNSOURCED split means, and the guard. The twenty-two count entry changes shape into a standing rule with a test behind it. Four entries were rewritten because V5 measured them and found them wrong or overstated, and four new ones added, including the empty last 28 minutes of the act and the `?ferment=on` reload oddity.
+
+A "Settled 2026-08-03, by V5" section records eight decisions. "Next, in order" now puts docs/CONTENT_STYLE.md first and offline progress second, and discharges the ordering note that stood for two logs.
+
+### Step 5. docs/PROGRESSION.md updated, 16 lines changed
+
+Act 1's unlock order goes from seven items to nine: uptake capacity and glycolytic capacity are named, and the four existing later items keep their wording and shift down. Two paragraphs added, one saying the two ladders are sequential and one saying **item 4 raising both phases in a single purchase is a constraint rather than a simplification**, because selling them separately ships a configuration that kills the player's cell. No numbers: the ratio and the rungs stay in docs/ECONOMY.md and the doc says so.
+
+### The hash, and every cause that moved it in this log
+
+    e9b720a8   V1 through V3 stage 5
+    657594cb   V3 stage 6, ACT1_GLUCOSE_ENV_INITIAL 10000 to 80000
+    49ea08d3   V5 stage 2, the ATP bootstrap repair
+
+**One cause in this log, in stage 2**: `maintain` from Michaelis-Menten to Hill with `ACT1_MAINTAIN_HILL_N` of 3, with `ACT1_KM.maintain` from 20 to 12 in the same edit because the K is derived from the form and there is no version of the repair that makes only one of them.
+
+**Stages 3, 4 and 5 moved no shipped default and the hash is unchanged since stage 2.** Stage 3 added a ladder a player has to buy. Stage 4 moved six purchase thresholds. Stage 5 relocated three starting amounts at identical values. None of those is part of `createAct1()`'s default state, and a stage that added unlock content and moved the canonical hash would mean it had changed the starting state by accident.
 
 ---
 

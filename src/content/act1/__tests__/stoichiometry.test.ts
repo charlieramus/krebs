@@ -107,7 +107,7 @@ describe('act 1 stoichiometry', () => {
 
   it('yields the sourced ledger for one glucose, computed from the reaction table', () => {
     /**
-     * docs/SCIENCE.md Part 2 lines 89 to 96:
+     * docs/SCIENCE.md Part 2, "Glycolysis":
      *
      *   "Payoff phase, steps 6 to 10. Each three-carbon fragment yields 2 ATP
      *    and 1 NADH. Two fragments per glucose, so 4 ATP and 2 NADH gross."
@@ -176,7 +176,7 @@ describe('act 1 stoichiometry', () => {
     const state = createAct1();
     const ferment = byId(state.reactions, 'ferment');
 
-    // docs/SCIENCE.md Part 2 line 114. Asserted on the table rather than on a
+    // docs/SCIENCE.md Part 2, "Fermentation". Asserted on the table rather than on a
     // simulation run, so no tuning value can change the answer.
     expect(coefficientOf(pools, ferment, 'products', 'atp')).toBe(0);
     expect(coefficientOf(pools, ferment, 'substrates', 'atp')).toBe(0);

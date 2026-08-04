@@ -169,7 +169,7 @@ export const ACT1_MAINTAIN_HILL_N = 3;
  *
  * SOURCED: that the pool is small and fixed, and that glycolysis halts within
  * seconds if NADH is not reoxidised regardless of glucose availability.
- * docs/SCIENCE.md Part 2 line 108.
+ * docs/SCIENCE.md Part 2, "The NAD+ constraint".
  *
  * NOT SOURCED: how small. That number is ours and it lives here with the rates
  * rather than in pools.ts, because it is a tuned quantity wearing a pool's
@@ -227,3 +227,41 @@ export const ACT1_NICOTINAMIDE_TOTAL = 30;
  * of number docs/ECONOMY.md exists to own. Stage 7 recommends writing it.
  */
 export const ACT1_GLUCOSE_ENV_INITIAL = 80000;
+
+/* ===========================================================================
+   STARTING AMOUNTS THAT ARE TUNED RATHER THAN STRUCTURAL.
+
+   MOVED HERE FROM pools.ts BY UPDATELOGV5.md STAGE 5, at the same values.
+   `ACT1_INITIAL` said in its own header that these owed a row in
+   docs/ECONOMY.md, and they had sat outside the three tuning files for three
+   logs while every count of the debt quietly omitted them. The rule this log
+   settled is that a tuned number lives in exactly one of the three tuning files
+   and nowhere else, and a test enforces it now, so they live here.
+
+   The zeros in `ACT1_INITIAL` did not move and are not tuned. A pathway that
+   starts with no intermediates in it is structural: the cell has not run yet.
+   =========================================================================== */
+
+/**
+ * ATP at t=0, out of an adenylate total of 40.
+ *
+ * Half the pool, so the cell starts with somewhere to put the phosphate it is
+ * about to move and something to spend on the preparatory phase's 2 ATP entry
+ * cost. Neither half can be zero: no ATP and the pathway cannot start at all,
+ * which is NOW.md blocking item 1 seen from t=0, and no ADP and the payoff phase
+ * has no acceptor.
+ */
+export const ACT1_ATP_INITIAL = 20;
+
+/** ADP at t=0. With ACT1_ATP_INITIAL this fixes the adenylate total at 40. */
+export const ACT1_ADP_INITIAL = 20;
+
+/**
+ * Free phosphate at t=0.
+ *
+ * Sized so the payoff phase is never short of it. Phosphate is conserved across
+ * the whole pathway and `maintain` returns one unit per turn, so this is a
+ * buffer rather than a supply, and 40 is comfortably above the working level of
+ * roughly 48 the pathway settles at once ATP and ADP have redistributed.
+ */
+export const ACT1_PI_INITIAL = 40;

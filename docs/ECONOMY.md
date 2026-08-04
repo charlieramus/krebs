@@ -10,11 +10,11 @@ This is the record required by docs/PILLARS.md rule 5: where the game departs fr
 
 Every tuned number in the project has a row below. A tuned number is a number nobody sourced, that the game needs anyway, and that a balance pass may move. They live in exactly three files and nowhere else:
 
-    src/content/act1/tuning.ts    14
+    src/content/act1/tuning.ts    17
     src/ui/tuning.ts              19
     src/save/tuning.ts             1
                                   --
-                                  34
+                                  37
 
 ## What this document is not
 
@@ -33,7 +33,7 @@ It is not a design document. It says what the numbers are and why they are what 
 
 The distinction matters and it is the reason the table has a column that is sometimes empty. Rule 5 says departures get recorded. It does not say invent a departure for a number that never departed from anything, and a plausible sentence in the real behaviour column of an UNSOURCED row would be the exact failure this table exists to prevent.
 
-Of the 34 rows, **22 are DEPARTURE and 12 are UNSOURCED**.
+Of the 37 rows, **25 are DEPARTURE and 12 are UNSOURCED**.
 
 ## How to read a row
 
@@ -51,7 +51,7 @@ The table is split by file. The file is the unit the debt was tracked in, and re
 
 ## src/content/act1/tuning.ts
 
-Fourteen numbers, all DEPARTURE. Every one of them is a rate, a pool size or a kinetic exponent, which is to say every one of them stands where a real quantity could have stood.
+Seventeen numbers, all DEPARTURE. Every one of them is a rate, a pool size, a starting amount or a kinetic exponent, which is to say every one of them stands where a real quantity could have stood.
 
 Two facts from docs/SCIENCE.md Part 1 apply to all thirteen and are not repeated in every row. First, literature Km and Vmax values are deliberately not used, because they vary by an order of magnitude across organism, tissue, pH, temperature and assay method, and presenting one as authoritative would be less honest than using none. Second, game time does not map to any real timescale, so no absolute rate below has a real counterpart to be compared against. **What is being claimed by these numbers is their ordering, not their magnitude.**
 
@@ -71,6 +71,12 @@ Two facts from docs/SCIENCE.md Part 1 apply to all thirteen and are not repeated
 | C12 | 30, was 10 | `ACT1_NICOTINAMIDE_TOTAL` | **Sourced: the pool is small and fixed, and glycolysis halts within seconds if NADH is not reoxidised regardless of glucose availability.** docs/SCIENCE.md Part 2, The NAD+ constraint. Not sourced: how small | 30 units, all NAD+ at t=0, so the wall is approached rather than started at | At 10 the pathway stalled at roughly 1.7 game-seconds: the payoff phase peaked and died in the same breath, so there was no interval in which a player could see a working cell to lose. At 30 it reaches full flux, holds, then decays, which is a stall rather than a failure to launch. **It also fixes the walled cumulative ATP ceiling at exactly 60**, since each NAD+ yields its 2 ATP once and never again, and that ceiling is the hard upper bound on U4 | V2 stage 3 at 10, raised to 30 in V2 stage 4 |
 | C13 | 80000, was 10000 | `ACT1_GLUCOSE_ENV_INITIAL` | Not covered by docs/SCIENCE.md. A prokaryote of this period sits in a resupplied medium rather than a finite jar, so a closed unreplenished pool is a departure from the informal picture rather than from a sourced number. Replenishment was rejected on mechanism: a reaction with no substrates manufactures carbon from nothing and breaks conservation on its first tick | 80000, finite, never replenished | **It was raised to hide a defect, the defect is repaired, and it is kept for a different reason that was measured rather than assumed.** The environment should outlast the act rather than define it, and docs/PROGRESSION.md gives act 1 45 to 90 minutes. Measured 2026-08-03 after the repair, the food lasts 126.7 minutes for a player who buys everything and 179.0 minutes for one who buys nothing, so 80000 clears the 90 minute end at every playstyle. The old 10000 runs dry at 21.0 and 31.0 minutes, inside the act at both, so it is wrong on pacing and not only on safety | V2 stage 3 at 10000, raised to 80000 in V3 stage 6, kept on pacing grounds in V5 stage 2 |
 | C14 | 3 | `ACT1_MAINTAIN_HILL_N` | Nothing. docs/SCIENCE.md says nothing about a maintenance reaction, because `maintain` is not a glycolytic step. **A real cell can be too ATP-poor to start glycolysis and really does die that way** | Maintenance is Hill of order 3 in ATP rather than Michaelis-Menten, so consumption falls off faster at low ATP than the preparatory phase's production does | **The game refuses to let the player reach a state a real cell can reach, and this row is that refusal.** `prep` is order 2 in ATP and Michaelis-Menten consumption is order 1, so below some ATP consumption beat production for every choice of constants and act 1 had a state it could not come back from. 3 is the smallest integer that strictly dominates 2. It does not make an ATP of exactly zero recoverable and nothing can, because `prep` is the only route to g3p and making ATP from no ATP would break conservation. It works by making the collapse not happen | V5 stage 2 |
+
+| C15 | 20 | `ACT1_ATP_INITIAL` | Cells hold a real adenylate pool at a real ATP to ADP ratio, and both vary with energy state. Nothing about either is in docs/SCIENCE.md | 20 units of ATP at t=0, half of a fixed adenylate total of 40 | Neither half can be zero. No ATP and the pathway cannot pay the preparatory phase's entry cost, which is NOW.md blocking item 1 seen from t=0; no ADP and the payoff phase has no acceptor. Half and half is the choice that commits to neither | V2 stage 3 in `pools.ts`, moved into the tuning file in V5 stage 5 |
+| C16 | 20 | `ACT1_ADP_INITIAL` | As C15 | 20 units of ADP at t=0 | With C15 this is what fixes the adenylate total at 40, and that total being fixed and closed is the reason ATP is a flux and not a score | V2 stage 3 in `pools.ts`, moved in V5 stage 5 |
+| C17 | 40 | `ACT1_PI_INITIAL` | Cells hold a real free phosphate concentration. Not in docs/SCIENCE.md | 40 units of free phosphate at t=0 | A buffer rather than a supply: phosphate is conserved across the whole pathway and `maintain` returns one unit per turn, so the pool only has to be large enough that the payoff phase is never short of it. Settles around 48 | V2 stage 3 in `pools.ts`, moved in V5 stage 5 |
+
+**C15, C16 and C17 lived outside the three tuning files for three logs.** They were literals in `src/content/act1/pools.ts`, in a file whose own header said they owed a row here, and every count of the debt omitted them. V5 stage 5 moved them at unchanged values, which is why the canonical hash did not move with them.
 
 C13 moved the act 1 canonical hash from `e9b720a8` to `657594cb`. Starting amounts are hashed state, so a change to that row is always a hash move and always needs its assertion updated in the same stage. C10 and C14 moved it again, from `657594cb` to `49ea08d3`, as one change: kinetic form and the K derived from it, which cannot be made separately.
 

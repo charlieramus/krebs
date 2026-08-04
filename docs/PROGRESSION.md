@@ -31,11 +31,17 @@ Core loop: glucose in, glycolysis, 2 ATP net out.
 Unlock order:
 1. Glucose uptake
 2. Glycolysis, unlocked as a single pathway initially, then decomposed into the preparatory and payoff phases
-3. Individual glycolytic enzymes as efficiency upgrades
-4. NAD+ pool visibility
-5. Lactate fermentation
-6. Ethanol fermentation as an alternate branch
-7. Glycogen storage, a buffer against substrate scarcity
+3. Uptake capacity, a finite ladder of transport steps
+4. Glycolytic capacity, a finite ladder raising both phases of glycolysis together
+5. Individual glycolytic enzymes as efficiency upgrades
+6. NAD+ pool visibility
+7. Lactate fermentation
+8. Ethanol fermentation as an alternate branch
+9. Glycogen storage, a buffer against substrate scarcity
+
+Items 3 and 4 are the two capacity ladders. They are sequential rather than side by side, because both raise uptake and the second always raises it further.
+
+**Item 4 raises both phases in one purchase and that is not a simplification, it is a constraint.** The preparatory phase spends ATP and the payoff phase makes it back, two trioses at a time, so a cell whose investment phase is raised without the phase that pays it back spends itself into a state it cannot restart from. Selling them separately would mean shipping a purchasable configuration that kills the player's cell. The ratio at which that happens was measured by UPDATELOGV5.md stage 3 and the numbers are in docs/ECONOMY.md, not here.
 
 The teaching beat: NAD+ is the wall. Glycolysis consumes NAD+ and the cell has a finite pool, so without a way to regenerate it the whole pathway stalls regardless of how much glucose is available. Fermentation produces no additional ATP. Its entire function is recycling NAD+ so glycolysis can keep running. Most players arrive expecting fermentation to be an energy upgrade and it is not.
 
