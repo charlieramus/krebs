@@ -9,12 +9,19 @@
  * number: a first-fit value chosen so the thing behaves, never played, never
  * balanced, and not derived from anything.
  *
- * THE DEBT. Every value below owes a row in the divergence table in
- * docs/ECONOMY.md once that document exists. It does not exist yet. V3 stage 7
- * recommended writing it and V4 adds this file to what it owes, taking the
- * count from twenty provisional numbers across two files to twenty-one across
- * three. UPDATELOGV4.md stage 6 restates the recommendation rather than acting
- * on it.
+ * THE DEBT, DISCHARGED. Every value below owes a row in the divergence table in
+ * docs/ECONOMY.md. That document exists as of UPDATELOGV5.md stage 1 and the
+ * value below is row S1.
+ *
+ * THE COUNT THIS HEADER USED TO GIVE WAS WRONG. It said V4 took the count from
+ * twenty provisional numbers across two files to twenty-one across three. The
+ * real figure is twenty-four across three, counted from the files in
+ * UPDATELOGV5.md stage 1: thirteen in src/content/act1/tuning.ts, ten in
+ * src/ui/tuning.ts and this one. Both this header and NOW.md undercounted, and
+ * both undercounted the same thing, which is the uptake capacity ladder. A
+ * ladder of three rungs is three numbers a balance pass can move independently,
+ * not one, and the file it lives in already counts a record of five Vmax values
+ * as five.
  *
  * Introduced by UPDATELOGV4.md, stage 5.
  */

@@ -1,0 +1,135 @@
+# Economy
+
+Last updated: 2026-08-03
+
+Tuned game numbers and the divergence table.
+
+## What this document is
+
+This is the record required by docs/PILLARS.md rule 5: where the game departs from reality for playability, the departure gets recorded here. It is also the place CLAUDE.md hard rule 2 sends balance numbers, so that docs/SCIENCE.md never has to carry one.
+
+Every tuned number in the project has a row below. A tuned number is a number nobody sourced, that the game needs anyway, and that a balance pass may move. They live in exactly three files and nowhere else:
+
+    src/content/act1/tuning.ts    13
+    src/ui/tuning.ts              10
+    src/save/tuning.ts             1
+                                  --
+                                  24
+
+## What this document is not
+
+It is not a design document. It says what the numbers are and why they are what they are, and it does not argue for the act they sit in. docs/PROGRESSION.md owns the content spine and this document does not restate it.
+
+**No number in this document may be cited as biology.** That is the entire reason it is a separate file from docs/SCIENCE.md. A number here has one of two statuses and neither of them is sourced:
+
+    DEPARTURE   a number standing where a real quantity could have stood, that
+                does not match it. ACT1_NICOTINAMIDE_TOTAL is one. That the
+                nicotinamide pool is small and fixed is sourced. How small is
+                ours.
+
+    UNSOURCED   a number with no real counterpart at all. DASH_LENGTH is one. A
+                dash and gap length in pixels is not a departure from anything,
+                because nothing was ever claimed.
+
+The distinction matters and it is the reason the table has a column that is sometimes empty. Rule 5 says departures get recorded. It does not say invent a departure for a number that never departed from anything, and a plausible sentence in the real behaviour column of an UNSOURCED row would be the exact failure this table exists to prevent.
+
+Of the 24 rows, **16 are DEPARTURE and 8 are UNSOURCED**.
+
+## How to read a row
+
+    | Id | Value | Where | The real behaviour | What the game does instead | Why | Introduced |
+
+`Id` is stable and permanent. Later logs cite rows by id. A row that is removed retires its id rather than freeing it for reuse.
+
+`Where` names the exported constant, which is the machine-readable half of the row. `The real behaviour` is cited to docs/SCIENCE.md where the science says anything at all and is left empty where it says nothing.
+
+The table is split by file. The file is the unit the debt was tracked in, and repeating a path down a column thirteen times is noise rather than information.
+
+---
+
+# The divergence table
+
+## src/content/act1/tuning.ts
+
+Thirteen numbers, all DEPARTURE. Every one of them is a rate or a pool size, which is to say every one of them stands where a real quantity could have stood.
+
+Two facts from docs/SCIENCE.md Part 1 apply to all thirteen and are not repeated in every row. First, literature Km and Vmax values are deliberately not used, because they vary by an order of magnitude across organism, tissue, pH, temperature and assay method, and presenting one as authoritative would be less honest than using none. Second, game time does not map to any real timescale, so no absolute rate below has a real counterpart to be compared against. **What is being claimed by these numbers is their ordering, not their magnitude.**
+
+| Id | Value | Where | The real behaviour | What the game does instead | Why | Introduced |
+| --- | --- | --- | --- | --- | --- | --- |
+| C1 | 8 | `ACT1_VMAX.uptake` | Bacterial glucose import runs through specific transporters at specific costs. docs/SCIENCE.md Part 1, "Glucose uptake is modeled as untyped transport" | 8 pool units per game-second, no transporter named, no energetic cost charged | Deliberately the slowest step, so the pathway is substrate-limited from the top and every downstream step sits at whatever saturation matches its supply. This is what lets a real constraint show up as a constraint rather than be masked by an arbitrary ceiling elsewhere | V2 stage 3 |
+| C2 | 12 | `ACT1_VMAX.prep` | Preparatory phase steps 1 to 5, five enzymes with five rates. docs/SCIENCE.md Part 2, Glycolysis | One rate for the whole phase | Sets the knee of the uptake capacity ladder. Uptake above 12 delivers glucose the preparatory phase cannot consume, which is why U7 is the last rung | V2 stage 3 |
+| C3 | 26 | `ACT1_VMAX.payoff` | Payoff phase steps 6 to 10. docs/SCIENCE.md Part 2, Glycolysis | One rate for the whole phase | Above twice `prep` because the preparatory phase hands it two trioses per glucose, so two payoff turns run per prep turn. Realized payoff flux never exceeds 22.684 at the top of the ladder, measured 2026-08-03, so the headroom is real rather than nominal | V2 stage 3 |
+| C4 | 26 | `ACT1_VMAX.ferment` | Lactate dehydrogenase, one step. docs/SCIENCE.md Part 2, Fermentation | Matches `payoff` | Fermentation must never be the bottleneck itself, or the act teaches that lactate dehydrogenase is slow instead of that it buys throughput and no yield | V2 stage 3 |
+| C5 | 50 | `ACT1_VMAX.maintain` | ATP hydrolysis to ADP and phosphate is real stoichiometry. That a cell does it at a Michaelis-Menten rate in ATP is not: this one reaction stands in for the entire rest of cellular metabolism | 50, running at 32 to 45 percent of Vmax at steady state, measured 2026-08-03 | Sized so it can consume the whole net ATP production of the pathway. If it could not, ATP piles up against the fixed adenylate total, ADP runs out, and glycolysis stalls on the adenylate ceiling instead of on NAD+, which puts the wrong wall in front of the player | V2 stage 3 |
+| C6 | 500 | `ACT1_KM.uptake` | An enzyme has a separate Km per substrate, commonly differing by orders of magnitude. docs/SCIENCE.md Part 1, "One Km per reaction, shared across all of its substrates" | One Km per reaction, applied to whichever substrate is limiting | Large only because the pool it draws on is large. It keeps uptake near saturation while the environment is far above 500, which is what makes drain roughly linear at Vmax and makes C13 a calculable number rather than a guess | V2 stage 3 |
+| C7 | 4 | `ACT1_KM.prep` | As C6. This one is the Hill K rather than a Michaelis-Menten Km, which is the same quantity playing the same role | 4 | Low against the intracellular glucose the uptake step delivers, so the preparatory phase is not itself the first thing a player meets | V2 stage 3 |
+| C8 | 2 | `ACT1_KM.payoff` | As C6 | 2 | Has to sit well below `ACT1_NICOTINAMIDE_TOTAL`, because NAD+ is one of the four substrates of this reaction and a Km near the whole pool size would mean the payoff phase never approaches Vmax even with the carrier fully oxidised. C12 and this number cannot be read in isolation from each other | V2 stage 3 |
+| C9 | 2 | `ACT1_KM.ferment` | As C6 | 2 | Mirrors C8, for the same reason and against the same pool | V2 stage 3 |
+| C10 | 20 | `ACT1_KM.maintain` | As C6, over a reaction that is a modeling convenience to begin with. See C5 | 20 | **This is the number that decides how fast maintenance backs off as ATP falls, and it is the number NOW.md blocking item 1 points at.** Stage 2 of UPDATELOGV5.md measures whether it is in the wrong place | V2 stage 3 |
+| C11 | 2 | `ACT1_HILL_N` | PFK-1 shows cooperative sigmoidal kinetics and is the committed step of the pathway. docs/SCIENCE.md Part 2, Regulation. **No Hill coefficient is stated anywhere in docs/SCIENCE.md** | n = 2, carried by the whole preparatory phase rather than by PFK-1 alone | 2 is the smallest value that produces a sigmoid at all and nothing has measured what act 1 wants. Integer because docs/SIMULATION.md Part 5 bans Math.pow. The attachment is a second departure, disclosed in `reactions.ts`: correct about which enzyme is cooperative, wrong about what the cooperativity is attached to, and it moves onto PFK-1 alone when the phase is decomposed into ten enzymes | V2 stage 3 |
+| C12 | 30, was 10 | `ACT1_NICOTINAMIDE_TOTAL` | **Sourced: the pool is small and fixed, and glycolysis halts within seconds if NADH is not reoxidised regardless of glucose availability.** docs/SCIENCE.md Part 2, The NAD+ constraint. Not sourced: how small | 30 units, all NAD+ at t=0, so the wall is approached rather than started at | At 10 the pathway stalled at roughly 1.7 game-seconds: the payoff phase peaked and died in the same breath, so there was no interval in which a player could see a working cell to lose. At 30 it reaches full flux, holds, then decays, which is a stall rather than a failure to launch. **It also fixes the walled cumulative ATP ceiling at exactly 60**, since each NAD+ yields its 2 ATP once and never again, and that ceiling is the hard upper bound on U4 | V2 stage 3 at 10, raised to 30 in V2 stage 4 |
+| C13 | 80000, was 10000 | `ACT1_GLUCOSE_ENV_INITIAL` | Not covered by docs/SCIENCE.md. A prokaryote of this period sits in a resupplied medium rather than a finite jar, so a closed unreplenished pool is a departure from the informal picture rather than from a sourced number. Replenishment was rejected on mechanism: a reaction with no substrates manufactures carbon from nothing and breaks conservation on its first tick | 80000, finite, never replenished | **This number's stated purpose is to hide a defect and its row has to say so.** Act 1 has an unrecoverable state below roughly 400 environmental glucose, NOW.md blocking item 1. 80000 puts the crossing at 114m14s at the top of the capacity ladder, outside act 1's 45 to 90 minute target, so a player never reaches it. It is a deferral and not a fix, it says so in its own source comment, and stage 2 of UPDATELOGV5.md repairs the defect rather than moving it a third time | V2 stage 3 at 10000, raised to 80000 in V3 stage 6 |
+
+C13 moved the act 1 canonical hash from `e9b720a8` to `657594cb`. Starting amounts are hashed state, so a change to this row is always a hash move and always needs its assertion updated in the same stage.
+
+## src/ui/tuning.ts
+
+Ten numbers. Three are DEPARTURE and seven are UNSOURCED, and the split falls exactly where you would expect: the capacity ladder holds Vmax values, which are the same kind of number as C1 to C5, and everything else in the file is a perception threshold or a purchase gate.
+
+| Id | Value | Where | The real behaviour | What the game does instead | Why | Introduced |
+| --- | --- | --- | --- | --- | --- | --- |
+| U1 | 0.25 | `ZERO_FLUX_THRESHOLD` | | Below 0.25 applied flux an arrow drops to the inert treatment outright rather than slowing further | At U2's 6 pixels per flux unit, 0.25 moves a dash at 1.5 pixels per second, under the rate at which movement is perceptible against a static background. An arrow that asymptotically slows reads as "working, but slowly" when the truth is "stopped", and stopped is exactly the walled state, so act 1's whole teaching beat depends on it. Measured 2026-08-03, realized act 1 flux runs 7.949 to 22.684 across the ladder, so this fires only at 1 to 3 percent of working rate | V3 stage 5 |
+| U2 | 6 | `DASH_PIXELS_PER_FLUX_UNIT` | | Pixels of dash travel per unit of applied flux per game-second | Sets how fast the pathway looks. At uptake's steady-state flux of 7.949, measured 2026-08-03, a dash moves 47.7 pixels per second and clears one 16 pixel period every third of a second: brisk enough to read as flowing, slow enough to track with the eye. Chosen by watching it, which is the only way to choose it | V3 stage 5 |
+| U3 | 8 | `DASH_LENGTH` | | Dash and gap length in pixels. One period is twice this | Nothing chose it beyond it looking right against U2. The honest row is a short one | V3 stage 5 |
+| U4 | 55 | `FERMENT_ATP_THRESHOLD` | | Lactate dehydrogenase becomes buyable at 55 cumulative gross ATP | **Bounded above by a hard measurement rather than chosen freely.** With ferment disabled, cumulative gross ATP converges to exactly 60.000000 and stops there forever, re-confirmed 2026-08-03, because each of C12's 30 NAD+ yields its 2 ATP once. Any threshold at or above 60 is unbuyable and leaves the player at a wall whose solution they can never afford. 55 puts the unlock in reach just as the pathway dies | V3 stage 6 |
+| U5 | 8 | `UPTAKE_VMAX_STEPS[0]` | As C1 | The shipped default rung. Not purchasable, and never applied as a Vmax by the game | It exists so rung indices line up with `UPTAKE_ATP_THRESHOLDS`, where index 0 buys step 1. It mirrors C1 and must keep equalling it, and nothing enforces that today. See "Known hazards" below | V3 stage 6 |
+| U6 | 10 | `UPTAKE_VMAX_STEPS[1]` | As C1 | First purchasable rung | The only freely chosen rung in the ladder. It sits between a default fixed by C1 and a ceiling fixed by measurement, so it is the one number here that is spacing rather than a constraint | V3 stage 6 |
+| U7 | 12 | `UPTAKE_VMAX_STEPS[2]` | As C1 | Last rung. There is no fourth and adding one means editing this array | **The ladder stops at 12 because measurement says it must**, and this replaced a planned 8, 12, 18, 26. Re-measured 2026-08-03 at the current environment size, time to 30000 cumulative ATP is 15m44.6s at Vmax 8, 12m36.1s at 10, 11m03.0s at 12, 11m02.9s at 14, 11m02.8s at 18 and 11m02.6s at 26. Everything above 12 sells the player four tenths of a second, because C2 runs at 12 and uptake above that delivers glucose the preparatory phase cannot consume | V3 stage 6 |
+| U8 | 1500 | `UPTAKE_ATP_THRESHOLDS[0]` | | Cumulative gross ATP before the first capacity step is buyable | Measured 2026-08-03 at the shipped default Vmax, 1500 arrives at 0m48.1s | V3 stage 6 |
+| U9 | 12000 | `UPTAKE_ATP_THRESHOLDS[1]` | | Cumulative gross ATP before the second capacity step is buyable | Measured 2026-08-03 at the shipped default Vmax, 12000 arrives at 6m18.3s. Both thresholds were spaced against V3's play session rather than against docs/PROGRESSION.md's 45 to 90 minutes, on the argument that V3 shipped two unlocks and pacing a two-unlock slice to a full act would put both purchases in the first two minutes and leave eighty-eight with nothing in them. **Stage 4 of UPDATELOGV5.md re-derives both against a measured act length**, which is the first time that argument can be checked | V3 stage 6 |
+| U10 | 60000 | `OFFLINE_REPORT_THRESHOLD_MS` | | Real milliseconds away below which the return line is not shown at all | Found by reloading the real page. A refresh takes a second or two, which is a positive offline delta, so the panel rendered "Away for 0 min" every single time. The number was true and the sentence was noise, and a save panel that announces a nothing-event on every reload teaches the player to stop reading the one panel that has to be believed when it says something went wrong. One minute because the readout's own resolution is minutes | V4 stage 5 |
+
+## src/save/tuning.ts
+
+| Id | Value | Where | The real behaviour | What the game does instead | Why | Introduced |
+| --- | --- | --- | --- | --- | --- | --- |
+| S1 | 30000 | `AUTOSAVE_INTERVAL_MS` | | Milliseconds between autosaves | A judgement about tolerable loss reasoned from the pacing measurement rather than a measurement in itself. The worst case for a write interrupted at any step is the work since the last successful one, so the interval is the unit of loss. Purchases save immediately and independently of this timer, because losing a purchase is the loss a player notices, which makes 30 seconds really the granularity of losing progress **toward** the next purchase | V4 stage 5 |
+
+---
+
+# Structural departures
+
+Some departures are not attached to any number, so they cannot have a row. They are recorded once here rather than smeared across rows that would then have to invent a comparison.
+
+**Unlocks are thresholds against a lifetime counter.** U4, U8 and U9 gate on cumulative gross ATP produced since the run began. Real cells express enzymes in response to regulatory signals, not in response to lifetime output, and no cell has a lifetime ATP counter. The numbers themselves depart from nothing, which is why they are UNSOURCED, but **the mechanism they belong to is a departure** and this is where it is written down. The reason it is not a purchase is separate and is not a departure at all: the adenylate pool is fixed, closed and conserved, so subtracting ATP from it breaks conservation on the tick it happens, and a cell genuinely does not save up ATP but produces it at a rate.
+
+**The environment is a finite unreplenished pool.** See C13. It is called out here as well because it shapes every rate in the content file: uptake stays near saturation only while the environment is far above C6, and every measurement in this document assumes that.
+
+**Game time does not map to any real timescale.** docs/SCIENCE.md Part 1 says so directly. It means the absolute value of every rate in this document is uninterpretable in real terms and only the ratios carry a claim.
+
+Three further simplifications are already disclosed in docs/SCIENCE.md Part 1 and are not repeated here: multi-substrate reactions take the minimum of their saturation terms, one Km per reaction is shared across all of its substrates, and glucose uptake is untyped transport with no cost charged. They belong there because they are modeling methodology rather than balance.
+
+---
+
+# Known hazards
+
+Found by cross-checking this table against the code on 2026-08-03. Neither is fixed by the stage that found them, because the stage that found them changed no code.
+
+**U5 must equal C1 and nothing enforces it.** `UPTAKE_VMAX_STEPS[0]` is 8 and `ACT1_VMAX.uptake` is 8. The game never applies the first rung as a Vmax: a fresh run takes C1, and `src/ui/runtime.ts` only calls `setReactionVmax` on restore when the saved step is above 0. So a divergence between them would not change play at all. It would change measurement, which is worse in a quiet way: `npm run sim:drain` and `unlockPacing.report.test.ts` both iterate the ladder and would report the default rung under a Vmax the game never runs at, and every number in this document that says "at the shipped default Vmax" comes from one of those two harnesses. A one line assertion closes it.
+
+**Five docs/SCIENCE.md line citations in source comments are stale by 42 lines.** `src/content/act1/tuning.ts`, `src/content/act1/pools.ts` and `src/content/act1/reactions.ts` cite "Part 2 line 108" for the NAD+ constraint, which is now line 150, "Part 2 lines 89 to 96" for the glycolysis ledger, which is now lines 133 to 138, and "Part 2 line 114" and "line 116" for fermentation, which are now 156 and 158. All of them land inside Part 1 as the document stands. docs/SCIENCE.md Part 1 gained three "deliberately wrong and why" entries on 2026-07-29 after those comments were written, and every citation still names the correct Part and the correct claim, so nothing is unsourced. The pointers are simply wrong, which matters because CLAUDE.md hard rule 1's traceability is what they exist to serve. Citing a section heading rather than a line number is the durable fix.
+
+---
+
+# Decisions
+
+**2026-08-03. The count is 24 and not 22.** UPDATELOGV5.md's Context section says twenty-two and enumerates the ladder as one number while enumerating the two uptake thresholds as two. Counted from the files with one rule applied consistently, the unit being the scalar value a balance pass can move on its own, `ACT1_VMAX` is 5 and `ACT1_KM` is 5 and therefore `UPTAKE_VMAX_STEPS` is 3 and `UPTAKE_ATP_THRESHOLDS` is 2. That gives 13, 10 and 1. NOW.md and `src/save/tuning.ts` were corrected to 24 in the same stage.
+
+**2026-08-03. A ladder gets one row per rung.** Three reasons and the third is the one that decides it. The counting unit is the scalar, set by `ACT1_VMAX` being 5 rows rather than 1. A rung is moved independently by a balance pass, and V3 stage 6 replacing 8, 12, 18, 26 with 8, 10, 12 is not one edit. And the three rungs do not share a justification: U5 is a mirror of a content constant and is not purchasable, U7 is fixed by a measurement, and U6 is the only freely chosen one. A single row could not carry three different reasons honestly.
+
+**2026-08-03. The real behaviour column is left empty rather than filled.** Eight rows have nothing in it. docs/PILLARS.md rule 5 requires departures to be recorded and does not require a departure to be invented for a number that never departed from anything. An empty cell in an UNSOURCED row is the content of that row, not a gap in it.
+
+**2026-08-03. Vmax and Km rows are DEPARTURE and not UNSOURCED.** Both readings were available. Real enzymes have Vmax and Km values, so a real counterpart exists even though docs/SCIENCE.md Part 1 deliberately refuses to name one, and classifying these as UNSOURCED would tell a reader there is nothing there to depart from, which is false. DEPARTURE with a real behaviour cell that says "real values exist, vary by an order of magnitude across sources, and are deliberately not used" is the reading that leaves the reader better informed.
+
+**2026-08-03. The table is split by file rather than presented as one block.** The file is the unit the debt was tracked in across V2, V3 and V4, and a `Where` column repeating the same path thirteen times carries no information.
