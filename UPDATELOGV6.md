@@ -682,7 +682,98 @@ the bare fraction from step 5.
 
 ## Stage 5 Report
 
-_Pending._
+**UNRUN, for the same reason stage 2 was. Zero readers, and this log ships unvalidated.**
+
+Step 1 says that if stage 2 was unrun for want of readers, say so again here and report this stage as an uncompared measurement rather than an improvement. **It is worse than uncompared. There is nothing on either side of the comparison.**
+
+**Step 5, the headline, reported as the bare fact step 5 asks for rather than as a characterisation.**
+
+    Readers who answered "faster, not more" to the third question:  0
+    Readers asked:                                                  0
+
+**There is no fraction, because there is no denominator.** 0 of 3 would be a finding and this is not one. The closest thing this project has yet had to a measurement of whether it teaches is still nothing, and V6 has not changed that. **What V6 changed is what there is to measure**, which is a different claim and a smaller one, and NOW.md should say it in those words.
+
+**The three questions, side by side with stage 2's, as step 2 requires.**
+
+    Question                                    Stage 2      Stage 5
+    -----------------------------------------------------------------------
+    What is this game about?                    no answer    no answer
+    Why did it stop?                            no answer    no answer
+    More energy, faster energy, both, neither?  no answer    no answer
+
+No reader was asked either time. Nothing was simulated, role-played or substituted, for the reasons stage 2 gave at length.
+
+### What can honestly be said instead, and what it is not
+
+The thirteen-item table below records **whether the build now says the thing at all**. That is a fact about the code, established by reading it, and it is the same kind of claim the log's own "What a cold reader currently has to work out unaided" table made before any of this was built. **It is not a comprehension measurement and must never be reported as one.** A screen that says something and a reader who understands it are different facts, and the entire point of stages 2 and 5 was to get the second one.
+
+    #   What the screen never said        Now          Where, and on what surface
+    ------------------------------------------------------------------------------
+    1   that they are running a cell      SAID         first run, about panel
+    2   what ATP is for                   SAID         first run, ATP coach mark
+    3   what the goal is                  SAID         first run, and it says the
+                                                       true thing: no score, and
+                                                       the game is about what stops
+    4   flux is the big number            NOT SAID     deliberately. Stage 3 step 4
+                                                       changed nothing without a
+                                                       reader. Unmoved
+    5   what "net rate" means             NOT SAID     nothing was added. See below
+    6   what NAD+ does                    SAID         NAD+ coach mark, unchanged
+                                                       since V3, plus the carrier
+                                                       readout
+    7   why the pathway stopped           SAID         NAD+ coach mark, and now the
+                                                       teaching panel says it again
+                                                       from the other direction
+    8   what "preparatory phase" is       SAID         carbon coach mark, panel
+    9   what g3p is                       SAID         blob readout plus the carbon
+                                                       mark. Indirect: it says what
+                                                       it is made of and where it
+                                                       came from, not its role
+    10  shape means carbon count          SAID         carbon coach mark, and every
+                                                       blob readout
+    11  colour means redox state          SAID         carrier readout. HOVER ONLY.
+                                                       See the caveat below
+    12  what a badge means                SAID         about panel
+    13  what buying uptake does           SAID         panel, and the slot detail
+
+**Eleven of thirteen are now stated somewhere. Two are not, and they are different cases.**
+
+Item 4 is unstated on purpose and stage 3 explained why: changing DESIGN.md's biggest deliberate departure on the author's speculation, in a log built to remove the author's speculation, would have been the failure this log exists to prevent. **It is unmoved rather than unaddressed.**
+
+**Item 5 is a genuine miss and nothing in this log noticed it until now.** "Net rate" appears on eight pool cards. It is the most repeated phrase in the interface, it is jargon, and its only explanation remains the label, which says "net rate". Three coach marks and a panel were added and not one of them mentions it. **It is a text problem, it is cheap, and it is not fixed here** because stage 5 is a measurement stage and adding a coach mark in it would be building in the stage whose job is to find out whether the building worked.
+
+**The item 11 caveat, restated because a SAID with a condition on it is not a SAID.** The carrier readout is a `<title>`, so it is a hover tooltip. A player on a touch screen cannot reach it and a keyboard player cannot reach it. The `aria-label` covers screen readers and the coach mark covers the argument for item 10, but colour-equals-redox is the one claim that exists on the hover channel alone for a sighted touch player. That is an accessibility gap and it belongs to the next log.
+
+### Step 3, the COACH_MARK_TRIGGER decision
+
+**It stays `'auto'`, it was not decided by a reader, and the NOW.md entry stays open.**
+
+Stage 5 exists to take this decision away from the person who built it, because NOW.md calls that person the least reliable possible reader. **With no readers, re-deciding it would hand the choice straight back to the reader the stage was designed to exclude, and then close the entry as though it had been settled.** That would be worse than leaving it, because a closed entry stops anybody looking at it again.
+
+**Step 3's real question can be answered, though, and the answer is no.** It asks whether stage 3 or 4 added something that explains the stall without the coach mark, which would make `'manual'` viable where it was not, and says to name which it is. Checked against the build:
+
+- The first run frames the stall as the subject of the game and does not explain it.
+- The teaching panel does explain it, in the fermentation paragraph: NADH goes back to NAD+, "which is the only thing that was stopping the pathway."
+- The carrier readout says the colour is the redox state, which is the wall arriving, but not that it is a wall.
+
+So under `'manual'` there is now a second route to an explanation where there was one. **But NOW.md's objection was never that there was only one route. It was that the player has to find a 16px info affordance, and the new route is also a 16px info affordance.** The argument for `'auto'` is slightly weaker and it is not overturned. **That is a change in the argument rather than a change of taste, and the change is not large enough to move the setting.**
+
+### Step 4, what is still not understood
+
+**Everything.** Not one comprehension claim in this project has been checked by anybody who was not its author, and V6 was the log that was supposed to change that. Named specifically, and typed as step 4 asks:
+
+- **Whether any of the thirteen land. Unknown, and it is not a text, interface or economy problem. It is a measurement problem** and it is the only one on this list that no amount of building can close.
+- **Whether "faster, not more" is the answer a player gives. Unknown.** This is success condition 2 in miniature and it is the single most valuable unmeasured thing in the project.
+- **Whether the panel is reachable in practice. Unknown, and it is an interface problem.** The most important explanation in the act sits behind two 16px affordances and a coach mark action. Whether it should open itself at the moment fermentation is bought, which is the moment the two headline numbers visibly diverge, is exactly the kind of question stage 5 was meant to answer.
+- **Whether "net rate" reads. It is a text problem, it is item 5, and it is unfixed.**
+- **Whether moving the disclosure off the act screen cost anything. It is an interface problem.** Stage 3 met docs/SCIENCE.md Part 1 more literally than V3 did and made the text one click away instead of always visible. That is compliance, and whether it reads as burial is a reader's call.
+- **Whether the first run is read or clicked through. It is an interface problem.** It has one button and no gate, which is correct by docs/PILLARS.md rule 2 and also the easiest thing in the world to skip.
+
+**Nothing on that list was handed back to docs/ECONOMY.md, and that is a result rather than an omission.** Step 4 says economy problems go back rather than being fixed here. No comprehension problem found in this log has an economic cause: every one of them is about what the screen says or whether anybody read it. The economy V5 settled was not implicated once in six stages.
+
+### Verify
+
+`npm run typecheck` and `npm run lint` silent. `npm test` **319 passed across 30 files**, unchanged from stage 4. `npm run build` **262.79 kB, 81.78 kB gzipped**, unchanged from stage 4 to the byte, which is the expected result of a stage that changed no code and, in this case, could not.
 
 ---
 
