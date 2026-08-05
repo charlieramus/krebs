@@ -129,6 +129,69 @@ export function recordAct1Tick(
   meter.nadhProduced += moved(state, probes.nadhFromPayoff);
 }
 
+/* ===========================================================================
+   THE OFFLINE PATH. UPDATELOGV8.md stage 3.
+
+   The meter lives outside the simulation, so a jump that advanced the pools and
+   not this would silently refund the player's progress toward every unlock. It
+   is the easy one to forget precisely because it is not simulation state.
+
+   Both halves read the same `moved` above, so the per-tick path and the jump
+   path cannot measure different pathways. A coefficient change moves both or
+   neither.
+   =========================================================================== */
+
+/** One tick's worth of every counter, captured at a steady state. */
+export interface Act1MeterRates {
+  atpProduced: number;
+  atpSpent: number;
+  atpMaintained: number;
+  glucoseConsumed: number;
+  glucoseTakenUp: number;
+  lactateProduced: number;
+  nadhProduced: number;
+}
+
+export function createAct1MeterRates(): Act1MeterRates {
+  return createAct1Meter();
+}
+
+/**
+ * Read the per-tick rate of every counter off the tick that just ran.
+ *
+ * Call immediately after a `tick`, for the same reason `recordAct1Tick` has to
+ * be: `state.fluxes` and `state.scales` are scratch and the next tick
+ * overwrites them.
+ */
+export function captureAct1MeterRates(
+  state: SimulationState,
+  probes: Act1MeterProbes,
+  rates: Act1MeterRates,
+): void {
+  rates.atpProduced = moved(state, probes.atpFromPayoff);
+  rates.atpSpent = moved(state, probes.atpIntoPrep);
+  rates.atpMaintained = moved(state, probes.atpIntoMaintain);
+  rates.glucoseConsumed = moved(state, probes.glucoseIntoPrep);
+  rates.glucoseTakenUp = moved(state, probes.glucoseFromUptake);
+  rates.lactateProduced = moved(state, probes.lactateFromFerment);
+  rates.nadhProduced = moved(state, probes.nadhFromPayoff);
+}
+
+/** Advance every counter by `ticks` at the captured rates. Part 3 step 4. */
+export function advanceAct1Meter(
+  meter: Act1Meter,
+  rates: Act1MeterRates,
+  ticks: number,
+): void {
+  meter.atpProduced += rates.atpProduced * ticks;
+  meter.atpSpent += rates.atpSpent * ticks;
+  meter.atpMaintained += rates.atpMaintained * ticks;
+  meter.glucoseConsumed += rates.glucoseConsumed * ticks;
+  meter.glucoseTakenUp += rates.glucoseTakenUp * ticks;
+  meter.lactateProduced += rates.lactateProduced * ticks;
+  meter.nadhProduced += rates.nadhProduced * ticks;
+}
+
 /**
  * Gross ATP per glucose committed to glycolysis. The sourced figure is 4.
  *

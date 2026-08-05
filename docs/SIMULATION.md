@@ -119,7 +119,13 @@ The algorithm exploits that.
 
 3. Identify the next event. An event is any discrete change that invalidates the current steady state. Candidates are a finite substrate pool depleting, a storage pool filling to capacity, an environmental schedule boundary such as an oxygen concentration step in act 2, and an unlock threshold crossing. For each, compute time-to-event in closed form from the steady-state rates, which are constant, so this is division.
 
-4. Jump forward to the earliest event, or to the end of the offline window if that comes first. Apply accumulated output as rate multiplied by duration.
+   Two corrections from measurement, both added 2026-08-05 by UPDATELOGV8.md stage 3.
+
+   A substrate pool consumed by a saturating reaction does not deplete. Below the Km, Michaelis-Menten is first order, so the pool decays exponentially with a fixed time constant of Km over Vmax and is always the same distance from empty. There is no time-to-event and division does not produce one. A pool holding less than OFFLINE_DEPLETED_FRACTION of the most it has held during the resolution is therefore treated as empty and retired. That is the only place in the project where matter is discarded and the bound is four orders below the conservation tolerance.
+
+   And the event that actually invalidates a steady state is a substrate changing enough to move the rate it drives, in either direction, rather than only one reaching zero. A jump covers MAX_JUMP_DEPLETION_FRACTION of the distance to that horizon and then re-settles. Without it a starved cell's jump was measured 998 percent out on cumulative ATP.
+
+4. Jump forward to the earliest event, or to the end of the offline window if that comes first. Apply accumulated output as rate multiplied by duration. No pool may cross zero: a negative amount makes Michaelis-Menten return a negative flux, which runs a reaction backwards and manufactures matter.
 
 5. If an event was reached, apply it and return to step 1.
 
@@ -203,7 +209,12 @@ A determinism test that runs a fixed seed and input script twice and compares a 
     MAX_OFFLINE_HOURS     24
     SAFE_VALUE_CEILING    1e15
 
+    MAX_JUMP_DEPLETION_FRACTION   0.25
+    OFFLINE_DEPLETED_FRACTION     1e-12
+
 Every value here is a decision, not a default. Changing one requires updating this doc with the reason.
+
+The last two were added on 2026-08-05 by UPDATELOGV8.md stage 3, which measured both. Neither existed when Part 3 was written because neither is needed by the algorithm as specified; both are needed by the algorithm as it behaves against a finite substrate pool consumed by a saturating reaction, which is what act 1 is and what every later act will be. See the two corrections under Part 3 step 3. 0.25 is the smallest jump fraction that still resolves a 24-hour window inside EVENT_BUDGET, using 49 of 64 events, and error falls monotonically as the fraction falls, so it is the most accurate value the budget allows.
 
 STEADY_EPSILON and STEADY_WINDOW were marked "tune during prototype" from 2026-07-28 to 2026-08-05 and shipped as placeholders of 1e-6 and 20. Both were measured against act 1 by UPDATELOGV8.md stage 1 and both moved. The placeholder epsilon was outside the usable band, which is 3e-6 to 1e-4, and the placeholder window was an order of magnitude below its measured floor of 142. The full derivation, both failure modes and the margin between them are in src/sim/constants.ts and in that stage's report. The band is narrow enough that a balance pass touching maintenance kinetics or the environment size has to re-run the measurement.
 

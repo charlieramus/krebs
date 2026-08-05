@@ -446,7 +446,100 @@ meter and the pools together.
 
 ## Stage 3 Report
 
-_Pending._
+**Act 1 has exactly one trajectory-changing event and it turned out not to need a content-specific enumerator at all.** A twenty-four hour absence now resolves in 49 events and 58800 real ticks from a fresh cell, 45 and 54000 at the top rung, and 7 and 8400 from the wall, all inside an `EVENT_BUDGET` of 64.
+
+**And Part 3 step 3 is wrong about act 1 in two ways, both found by measurement rather than by reading.** A substrate consumed by a saturating reaction does not deplete, so there is no time-to-event to divide for. And the thing that invalidates a steady state is a substrate moving, in either direction, rather than one reaching zero. Both cost a specification edit and one of them cost a shipped bug this stage found in its own work.
+
+### Step 1. The honest count is one, and the enumerator is structural
+
+    substrate depleting    REAL. glucose_env is finite and unreplenished.
+    storage at capacity    Does not exist. Glycogen is deferred.
+    schedule boundary      Does not exist. Nothing is scheduled until act 2.
+    unlock crossing        Not a simulation event.
+
+**An unlock threshold crossed while away changes no rate.** V3 made unlocks thresholds against a cumulative counter rather than purchases against a pool, and the player is not there to buy anything, so a crossing does not interrupt a jump. Worth reporting on return and that is a different job, done above `src/sim/jump.ts`.
+
+**What was not expected is that one event needed no act 1 knowledge.** A pool can only change a rate if some enabled reaction consumes it, and that is readable from the reaction table. `substrateMask` computes it once per resolution. So there is no `src/content/act1/events.ts` and there should not be: the generic rule and act 1's only event are the same rule. **The seam is left obvious rather than pre-solved**: act 2's oxygen schedule is a boundary in wall-clock rather than in a pool level and act 4's substrate switching may make the count grow with the window, and `jump.ts` says both in a paragraph rather than growing a plugin point for them now.
+
+**The one pool that constrains nothing is `lactate`**, because no reaction consumes it. A terminal product accumulating for eight hours is extrapolated exactly rather than merely tolerably, and it needs no special case.
+
+### Step 2. It is a division, and for one pool the division has no answer
+
+`nextHorizon` is `amount / |rate|` and `nextZeroCrossing` is `amount / -rate`. No iteration, no search, no banned Math call.
+
+**`glucose_env` never depletes, and this is the finding the stage prompt asked for.** `uptake` is Michaelis-Menten, so below its Km of 500 the flux is first order and the pool decays exponentially with a time constant of Km over Vmax: 1250 ticks at the shipped default, 526 at the top rung. **A fixed time constant means the pool is always the same distance from empty**, so time-to-event stops being a division and starts being an asymptote.
+
+Measured, before the repair: the fractional rule chased the environment down in 312-tick steps, spent 64 events and 76800 real ticks, and resolved **3.9 game-hours of a 24-hour window**. That is precisely the capped-replay failure Part 3 rejects by name and says the reference game shipped.
+
+**The repair is `OFFLINE_DEPLETED_FRACTION` and it is the only place in this project where matter is discarded.** A pool holding less than 1e-12 of the most it has held during the resolution is retired to zero and its rate with it. Stated plainly rather than buried: that is not conservation. It is bounded at 1.7e-13 relative against act 1's conserved carbon, which is below the tick's own observed drift of 1.113e-13 and four orders below the 1e-9 the conservation test asserts, and `OfflineOutcome.discarded` reports the total so nobody has to take the bound on trust. Measured across a 24-hour resolution: **7.47e-17 fresh, 2.94e-16 walled, 4.35e-10 at the top rung.**
+
+**Why 1e-12 rather than the conservation tolerance of 1e-9, and why per pool.** Both were wrong first and both were caught by the conservation assertion. At 1e-9 the discard reaches the tolerance itself once several pools retire. And with one floor for the whole system, sized against an 80000-unit environment, retiring `atp` costs 2e-9 of a 40-unit adenylate total, which the test caught at 2.19e-9. The floor is per pool and relative to that pool's own peak during the resolution. **Not its starting amount**, because `pyruvate` starts a resolution at zero, would get a floor of zero and could never be retired, which is the second version of this bug.
+
+### Step 3. The jump, and the one it got wrong
+
+`applyJump` advances pool amounts and the tick count by the same duration at the same rates.
+
+**The meter moves through `OfflineObserver`, and `src/content/act1/offline.ts` exists as its own file for one reason.** A jump that advanced the pools and forgot the meter leaves every pool correct and silently refunds the player's progress toward every unlock. `captureAct1MeterRates` and `advanceAct1Meter` in `meter.ts` read the same private `moved` the per-tick path reads, so the two cannot measure different pathways, and `offline.test.ts` asserts all seven counters against replay separately from the pools.
+
+**The PRNG is not touched, and it is said out loud.** Act 1 consumes no random numbers, which V4's fixture had to work around, so there is nothing to advance. `jump.test.ts` asserts `prng.state` unchanged across a jump. **It stops being true in act 2**, and the first stochastic reaction makes "how far does the PRNG advance across a jump" a real question with no arithmetic answer. That paragraph is in `jump.ts` where whoever writes it will find it rather than find an absence.
+
+**A jump covers a quarter of the distance and then re-settles, and the reason is that Part 3's central assumption does not hold here.** Part 3 assumes rates are piecewise constant between discrete events. `uptake` drifts downward continuously as the environment drains, so jumping the whole way to the linear depletion time is out by 7.5 percent on cumulative ATP, measured. `MAX_JUMP_DEPLETION_FRACTION` bounds the drift and the re-settle re-derives every rate from real ticks. The environment is chased down geometrically and the event count stays bounded, which is the property Part 3 exists to protect.
+
+**The value is 0.25 and it was swept.** One-hour cumulative ATP error against full replay, fresh cell and top rung, with the 24-hour event count:
+
+    fraction   1h error, fresh   1h error, rung 4   24h events   fits budget
+      0.5              1.44e-3            3.21e-3        29 / 27   yes
+      0.25             8.17e-4            1.49e-3        49 / 45   yes
+      0.125            4.45e-4            6.62e-4        64 / 64   NO
+      0.0625           2.12e-4            4.85e-4        64 / 64   NO
+
+Error falls monotonically as the fraction falls and the event count rises to meet the budget, so **0.25 is the most accurate value that still resolves a full twenty-four hours**, at 49 of 64 events. The margin is 23 percent of the budget and it is reported rather than assumed comfortable.
+
+### The bug this stage shipped and then found, because it is the most useful thing in the report
+
+**A four-hour absence ended with `glucose_env` at NaN and 236953 lactate against a carbon ceiling of 160000.**
+
+The horizon deliberately skips pools already retired, because a spent pool cannot move a rate. That is right for accuracy and catastrophic on its own: a spent pool is still draining, so a jump long enough to be worth making takes it negative, and **a negative pool makes Michaelis-Menten return a negative flux, which runs a reaction backwards and manufactures matter.**
+
+Two things fell out of it. The non-negativity bound is now separate from the accuracy bound, covers every pool rather than only the ones that can influence a rate, and ignores the retired floor entirely. And retiring a pool zeroes its rate as well as its amount, because a retired pool holding a negative rate puts the next zero crossing at zero ticks and stalls the whole resolution on a pool that is already empty. **Both are tested and both assertions name what they are for**, because neither is obvious from reading the code that has them.
+
+### Step 4 and 5. Steps 5 and 6, and what the tests assert
+
+Step 5 is the loop returning to step 1 after each jump, which is also what keeps intermediate-pool error from accumulating: every settle re-derives the intermediates from real ticks, so an error one jump introduces is corrected by the next rather than carried. Only the cumulative quantities carry error across steps and those are the ones that extrapolate accurately.
+
+Step 6 is `EVENT_BUDGET` at 64. **Exhausting it is not the same as failing to settle and the two are separate fields**, `budgetExhausted` and `resolved`. `ticksResolved + ticksRemaining` is asserted to equal the window, so time left over is never silent.
+
+**A second thing this stage did not expect: the settle has to spend its whole budget rather than stopping when it settles.** The steady test is on curvature, so a pool relaxing with a long time constant passes it while its rate is still meaningfully non-zero. At the top rung, stopping at first detection leaves `nad` with a residual of -2.028e-3 per tick, which extrapolates to an empty NAD+ pool in 8971 ticks. NAD+ is not draining, it is filling, and the residual is a transient. Spending the remaining 740 ticks takes that residual to **-9.701e-6**, two orders better, and the binding event stops being a numerical artifact and becomes `glucose_env` at 83544 ticks. **The cost was already promised**: Part 3 step 1 budgets `SETTLE_MAX_TICKS` of full-fidelity replay per event and this spends exactly that.
+
+Tests, 17 in `src/sim/__tests__/jump.test.ts` and 9 in `src/content/act1/__tests__/offline.test.ts`:
+
+- a jump over a window with no events agrees with full replay to better than 5e-3, pool by pool
+- the meter agrees with replay on all seven counters, asserted separately from the pools, and gross ATP per glucose comes back as 3.998679 rather than the replay path's exact 4
+- no pool is ever negative, across three configurations and three window lengths up to twenty-four hours
+- conservation of all five quantities across the offline path, better than 1e-9, on every one of those nine cases
+- the budget is respected, exhausting it is reported, and failing to settle is reported separately
+- the whole thing is deterministic: same state in, same event sequence, same pools to the bit
+
+**One test exists because act 1 refuses to produce the case.** Part 3 says a well-tuned configuration should always settle, and act 1 always does, so the fallback signal had to be exercised against the synthetic pathway, whose `A` pool drains until the system stops being steady. `resolveOffline` reports `resolved: false` with `budgetExhausted: false`, which is the distinction stage 5's fallback turns on.
+
+### The diff
+
+    src/sim/jump.ts                          new, the whole algorithm
+    src/sim/constants.ts                     two constants added, with derivations
+    src/content/act1/meter.ts                capture and advance, using the same `moved`
+    src/content/act1/offline.ts              new, eleven lines of wiring
+    src/sim/__tests__/jump.test.ts           new, 17
+    src/content/act1/__tests__/offline.test.ts  new, 9
+    docs/SIMULATION.md Part 3 step 3 and 4   the two corrections
+    docs/SIMULATION.md Part 6                the two new constants and why
+
+**No tuned number moved and the act 1 canonical hash is untouched.** The offline path is additive and nothing on the live tick path changed.
+
+### Verify
+
+`npm test` **469 passed across 38 files**, up from 443 across 36. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean at **268.94 kB, 83.73 kB gzipped**, still byte-identical to V7 because nothing in the interface imports any of this yet. `npm run sim:act1` unchanged, 4.000000000 gross and 2.000000000 net, worst conservation drift 2.001e-15.
+
+**Four measurement probes were written and deleted**, as in stage 1. Every number above is reproducible from the shipped constants and the tests.
 
 ---
 

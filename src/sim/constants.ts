@@ -116,6 +116,66 @@ export const STEADY_WINDOW = 250;
 /** Maximum events processed in one offline resolution before falling back. docs/SIMULATION.md Part 3 step 6. */
 export const EVENT_BUDGET = 64;
 
+/**
+ * How much of the distance to the next event one jump may cover.
+ * ADDED BY UPDATELOGV8.md stage 3, with a Part 3 and Part 6 entry.
+ *
+ * WHY IT IS NEEDED AT ALL. Part 3 assumes rates are piecewise constant between
+ * discrete events, and act 1 is not, because `uptake` is Michaelis-Menten in a
+ * finite unreplenished environment. The rate drifts downward continuously as
+ * the pool drains rather than holding until it empties, so jumping the whole
+ * way to the linear depletion time extrapolates a rate the system stopped
+ * running long before it got there. Measured: 7.5 percent out on cumulative
+ * ATP. Any act with a finite substrate pool has this and act 1 is only the
+ * first to meet it.
+ *
+ * WHAT IT BUYS. A jump covers this fraction, then the state re-settles at the
+ * new substrate level, which re-derives every rate from full-fidelity replay.
+ * The environment is chased down geometrically, so the event count stays
+ * bounded rather than growing with the window, which is the property Part 3
+ * exists to protect.
+ *
+ * THE VALUE. Measured end to end against full replay in stage 3. Cumulative ATP
+ * error and event count both matter and they pull opposite ways: a larger
+ * fraction is fewer, longer, less accurate jumps.
+ */
+export const MAX_JUMP_DEPLETION_FRACTION = 0.25;
+
+/**
+ * When a draining pool stops counting as an event source.
+ * ADDED BY UPDATELOGV8.md stage 3, with a Part 3 and Part 6 entry.
+ *
+ * A pool consumed by a saturating reaction does not deplete. Below the Km it
+ * decays exponentially with a fixed time constant, so there is always a next
+ * depletion event, always the same distance away, and the enumeration never
+ * terminates. Act 1 measured it: `glucose_env` under Michaelis-Menten uptake
+ * has a time constant of Km over Vmax, which is 526 ticks at the top rung, and
+ * the event list fills its whole budget chasing a pool that is already at
+ * 1e-300 and still officially draining.
+ *
+ * So a pool holding less than this fraction of the largest pool in the system
+ * is empty, and is made empty. Relative to the largest pool rather than to each
+ * pool's own starting amount, because a pool that begins a resolution at zero
+ * would otherwise get a floor of zero and never be retirable, and `pyruvate` is
+ * exactly that pool in act 1.
+ *
+ * WHY 1e-12 AND NOT THE CONSERVATION TOLERANCE OF 1e-9. Retiring a pool
+ * discards what it held, which is the only place in this project where matter
+ * is not conserved exactly, so the floor has to sit far enough below the
+ * tolerance that the discard cannot be mistaken for drift. At 1e-12 the worst
+ * case in act 1 is 8e-8 units per pool against a conserved carbon total of
+ * 480000, which is 1.7e-13 relative: below the tick's own observed drift of
+ * 1.113e-13 and four orders below the 1e-9 the conservation test asserts. At
+ * 1e-9 the same arithmetic lands at 1.7e-10 per pool and ten pools would reach
+ * the tolerance itself, which is the wrong side of a line to be on.
+ *
+ * It costs almost nothing in events, because the chase is geometric: a pool in
+ * its exponential tail loses a factor of its time constant per event, so three
+ * or four events take `glucose_env` from its Km to below this floor whether the
+ * floor is 1e-9 or 1e-12.
+ */
+export const OFFLINE_DEPLETED_FRACTION = 1e-12;
+
 /** Offline credit cap, in hours. docs/SIMULATION.md Part 3, clock tampering. Also bounds the coarse-replay fallback. */
 export const MAX_OFFLINE_HOURS = 24;
 
