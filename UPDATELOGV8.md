@@ -305,7 +305,77 @@ and confirm the detector allocates nothing per tick.
 
 ## Stage 2 Report
 
-_Pending._
+**`src/sim/steady.ts` exists, act 1 settles from every configuration it reaches, and the worst case is the stall rather than any healthy cell.** The walled cell settles at 1015 ticks against a budget of 1200, which is 84.6 percent of it. Everything a solved act 1 reaches settles between 386 and 495, which is 32 to 41 percent. **Nothing falls back.**
+
+### Step 1 and 2. The detector, and what it is allowed to be
+
+`src/sim/steady.ts`, in the kernel. Four exports and one interface:
+
+    createSteadyDetector(poolCount)          sizes both buffers, once
+    resetSteadyDetector(detector, state)     re-arm, for Part 3 step 5
+    observeSteady(detector, state)            call after each tick, returns settled
+    replayUntilSteady(state, d, max, onTick)  Part 3 step 1, bounded
+
+**It knows nothing about act 1.** It reads a `Float64Array` of amounts and reports a number. The act 1 configurations are exercised in `src/content/act1/__tests__/steady.test.ts`, where the content lives, and the kernel properties are in `src/sim/__tests__/steady.test.ts` against the synthetic pathway. That split is the same one `src/content/README.md` draws.
+
+**A run counter rather than a ring buffer, and it is the same window.** The spec asks for STEADY_WINDOW consecutive ticks. A counter holds exactly that fact in one number; a ring buffer would store 250 readings nothing asks for and would have to be sized against a constant that just moved from 20 to 250. Same semantics, one word of state, no buffer to size wrong.
+
+**The no-perturbation guard, and it was probed rather than read.** `hashState` is asserted identical across 2000 ticks with a detector attached and without one, alongside tick count and PRNG state. Probed twice. A `+= 0` write changes nothing and the test correctly stays green, which is worth knowing because it means the guard is testing state rather than syntax. **A write of `1e-12` to one pool takes the hash from `b90f9b25` to `03e9c406` and the test fails.** V7's settled rule was to probe every guard by breaking the thing it guards, and this one breaks.
+
+**The allocation rule is a guard rather than a comment.** `steady.test.ts` reads its own source, extracts each hot-path function body by brace matching, and fails on `new `, an array literal, `.push(`, `.map(`, `.filter(`, `.slice(`, `Array.from` or a spread. `replayUntilSteady` is allowed exactly one object literal, for the result it returns once per settle rather than once per tick, and the file is asserted to contain exactly two `new Float64Array`, both inside the constructor.
+
+**Source inspection rather than heap measurement, disclosed rather than glossed.** A heap measurement inside a test runner is a flake waiting to happen and it would not say which line allocated. What this catches is somebody writing `const readings = []` inside the loop, which is the thing that actually goes wrong. **Probed**: adding exactly that to `observeSteady` fails with `observeSteady contains "[]": an array literal is an allocation`.
+
+### Step 3. Bounded replay, and the bound is not a safety valve
+
+`replayUntilSteady` runs real ticks until the detector says settled or the budget is spent. Asserted at 40 ticks against a configuration that needs several hundred: it stops at 40, reports `settled: false`, and `state.tickCount` is 40, so it stopped rather than overran.
+
+The comment in the file says the bound is the property that makes the approach affordable rather than a safety valve, and says raising it to make something pass trades the one guarantee the algorithm offers. That is the stage's own wording and it is written where somebody about to raise it will read it.
+
+`onTick` mirrors `TickObserver` in `loop.ts` and exists for the same reason V3 stage 1 added that one: per-tick scratch arrays are readable only per tick, so a caller that needs the meter advanced during replay has to be handed each tick as it happens. Stage 3 is that caller.
+
+### Step 4. The tests, as properties
+
+**A genuine steady state is detected, from every configuration stage 1 measured.** Twelve configurations, each its own test: walled, fresh fermenting, both uptake rungs, all four glycolytic rungs, the fermentation purchase, and the environment at 20000, 5000 and 1000 on the top rung. All twelve settle inside the budget.
+
+**A system in transient is not detected.** The two ticks after fermentation is bought are asserted false individually, which is the visible recovery V3 measured. The real content of the test is the assertion after them: settling must not happen before tick 400. **Probed by putting `STEADY_WINDOW` back to the placeholder 20, which fires at tick 279 and fails**, which is stage 1's measured 278 reproduced through the shipped detector rather than through a probe script. That is the strongest single result in this stage: the constant is load-bearing and there is now a test that says so.
+
+**A stalled pathway IS steady, and the test says what "steady" does not mean.** The walled configuration settles. At the settle point the payoff flux is below 1e-6, so no ATP is being produced, which is the true answer an offline absence spent at the wall should produce. **And the same test asserts uptake is still above 1 and intracellular glucose is above 100**, because the stall is not a frozen state: the cell is still eating and the food is still piling up unusable, which is the entire visual of the beat. A detector that only fired on frozen systems would have passed a weaker version of this test and been wrong about act 1's most important state.
+
+**A frozen system is steady, separately.** Every reaction disabled, every curvature exactly zero, settles at `STEADY_WINDOW + 1` observations, which is the floor. That is the case that exercises the zero-over-zero branch: a pool of zero that is not moving reads zero rather than dividing.
+
+**Consecutive rather than cumulative.** Settle, then write directly to a pool, then assert the run counter is knocked to zero and a full window has to be rebuilt. A cumulative count would have ignored the shove and stayed settled.
+
+**Deterministic.** Same seed, same detection tick, same worst pool and the same worst reading to the bit, asserted across all twelve act 1 configurations and separately on the synthetic pathway.
+
+### Step 5. The settle tick per configuration, and how much of the budget it uses
+
+Printed by the test itself rather than transcribed, so it cannot drift from what the code does:
+
+    walled, fresh                               1015     84.6%
+    fermentation bought after 200 walled ticks    821     68.4%
+    glycolytic rung 2                             495     41.3%
+    glycolytic rung 1                             492     41.0%
+    uptake rung 2                                 466     38.8%
+    uptake rung 1                                 462     38.5%
+    glycolytic rung 4                             460     38.3%
+    glycolytic rung 3                             459     38.3%
+    fermenting, fresh                             386     32.2%
+    environment at 20000, top rung                251     20.9%
+    environment at 5000, top rung                 251     20.9%
+    environment at 1000, top rung                 251     20.9%
+
+These reproduce stage 1's confirmation run to within one tick, and the offset is an indexing convention rather than a discrepancy: the probe counted from after its priming tick and the detector counts from the reset.
+
+**The three environment rows are all exactly 251, which is `STEADY_WINDOW + 1`.** A cell that was already settled when replay began settles again as fast as the window allows, and it does so at an environment of 1000 as readily as at 20000. Stage 1 found that criteria A and B both stop settling as the environment drains and criterion C does not, and this is that result seen from inside the shipped code.
+
+**The first data point on Part 3's first open question, and it points somewhere unexpected.** Act 1 uses at most 85 percent of the budget, which is comfortable, and **the case that eats it is a stall rather than a busy configuration**. A stall is a slow decay toward zero rather than a fast approach to equilibrium, so it settles slowly for the same reason it looks like nothing is happening. That is asserted rather than only printed: the test fails if the worst configuration stops being the walled one, because stage 1's entire epsilon derivation rests on which configuration sits against the budget. **Act 4 will have more pools and at least one more timescale and this says nothing about it**, except that the thing to measure first is act 4's worst stall rather than its busiest state. Recorded for stage 6 to put in the open questions.
+
+### Verify
+
+`npm test` **443 passed across 36 files**, up from 415 across 34. 28 added: 12 kernel, 16 act 1. `npm run typecheck` clean. `npm run lint` clean, and the determinism guard already covered `src/sim/**` so `steady.ts` needed no scope change. `npm run build` clean at **268.94 kB, 83.73 kB gzipped**, byte-identical to V7 because nothing in the interface imports the detector yet.
+
+**The act 1 canonical hash is untouched and no tuned number moved.** The detector writes to nothing.
 
 ---
 
