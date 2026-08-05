@@ -113,7 +113,9 @@ The algorithm exploits that.
 
 1. Replay at full fidelity for up to SETTLE_MAX_TICKS, set to 1200, which is 60 game-seconds. Bounded cost regardless of how long the player was away.
 
-2. Test for steady state. All pool derivatives below STEADY_EPSILON as a fraction of pool size, sustained for STEADY_WINDOW consecutive ticks. If not reached, see the fallback below.
+2. Test for steady state. Every pool's rate of change must have stopped changing: the second difference of each pool amount, over the pool's own size, below STEADY_EPSILON, sustained for STEADY_WINDOW consecutive ticks. If not reached, see the fallback below.
+
+   This step used to read "all pool derivatives below STEADY_EPSILON as a fraction of pool size", and that is wrong rather than imprecise. Corrected 2026-08-05 by UPDATELOGV8.md stage 1, which measured it. Two things are wrong with it. It is unsatisfiable in act 1 at any epsilon below 1e-3, because a finite substrate pool draining and a terminal product pool accumulating both change linearly forever and their fractional derivative decays only as one over elapsed time. And it contradicts step 4 below, which applies accumulated output as rate multiplied by duration, and therefore assumes pools that are still changing at a constant rate. What has to be constant for the jump to be valid is the rate, not the amount. The old wording is kept here because a specification that quietly rewrites itself teaches nobody why the first version failed.
 
 3. Identify the next event. An event is any discrete change that invalidates the current steady state. Candidates are a finite substrate pool depleting, a storage pool filling to capacity, an environmental schedule boundary such as an oxygen concentration step in act 2, and an unlock threshold crossing. For each, compute time-to-event in closed form from the steady-state rates, which are constant, so this is division.
 
@@ -195,13 +197,15 @@ A determinism test that runs a fixed seed and input script twice and compares a 
     TICK_MS               50
     MAX_CATCHUP_TICKS     200
     SETTLE_MAX_TICKS      1200
-    STEADY_EPSILON        tune during prototype
-    STEADY_WINDOW         tune during prototype
+    STEADY_EPSILON        1e-5
+    STEADY_WINDOW         250
     EVENT_BUDGET          64
     MAX_OFFLINE_HOURS     24
     SAFE_VALUE_CEILING    1e15
 
-All values other than the two marked for tuning are decisions, not defaults. Changing one requires updating this doc with the reason.
+Every value here is a decision, not a default. Changing one requires updating this doc with the reason.
+
+STEADY_EPSILON and STEADY_WINDOW were marked "tune during prototype" from 2026-07-28 to 2026-08-05 and shipped as placeholders of 1e-6 and 20. Both were measured against act 1 by UPDATELOGV8.md stage 1 and both moved. The placeholder epsilon was outside the usable band, which is 3e-6 to 1e-4, and the placeholder window was an order of magnitude below its measured floor of 142. The full derivation, both failure modes and the margin between them are in src/sim/constants.ts and in that stage's report. The band is narrow enough that a balance pass touching maintenance kinetics or the environment size has to re-run the measurement.
 
 ---
 

@@ -113,7 +113,143 @@ and the docs/SIMULATION.md Part 6 diff.
 
 ## Stage 1 Report
 
-_Pending._
+**Both placeholders were wrong and the criterion they attach to was wrong too.** `STEADY_EPSILON` moves from 1e-6 to **1e-5**, because 1e-6 sits outside the usable band. `STEADY_WINDOW` moves from 20 to **250**, because 20 is an order of magnitude below its measured floor. And `docs/SIMULATION.md` Part 3 step 2's criterion, which this stage was told to measure against, **is unsatisfiable in act 1 at any epsilon below 1e-3**, so it was corrected in the same stage. That last finding is the one everything else depends on and it is reported first.
+
+### Step 1. V5 chose more unlocks. The environment does not vary
+
+`UPDATELOGV5.md` stage 3 rejected candidate (b), a varying environment, and it rejected it **on exactly the cost this log was going to pay**: its own report says an environment that never settles makes the offline path fall back to coarse replay every time, which Part 3 describes as a bug signal rather than a normal condition. What shipped instead was the glycolytic capacity ladder, four purchases moving four rates each.
+
+So this stage is measuring a system that should settle, and it does. The inheritance was real rather than rhetorical: had V5 taken (b), everything below would have been a report about how badly a permanently unsettled configuration degrades.
+
+### Step 2. The criterion in Part 3 step 2 cannot be met, and it contradicts step 4
+
+Instrumented per tick over 2400 ticks against three candidate criteria, on twelve configurations.
+
+    A   Part 3 as written   max over pools of |da| / a per tick
+    B   rate constancy      max over reactions of |dv| / v per tick, applied flux
+    C   pool curvature      max over pools of |d2a| / a per tick
+
+**Criterion A never settles.** Sustained for 20 ticks, on the fresh fermenting configuration, it reaches 1e-3 at tick 1041 and never reaches 1e-4 inside 2400. Every other configuration is the same. The pool carrying it is `lactate` in every fermenting case and `atp` in the walled one.
+
+**The reason is structural rather than a matter of epsilon.** `lactate` is a terminal product accumulating from zero at a constant rate and `glucose_env` is a finite substrate draining at a constant rate. For a pool changing linearly, `|da| / a` is the rate over the amount, which decays as one over elapsed time and reaches no floor. Lactate would need to reach 397500 units for its fractional derivative to fall below 1e-6 at act 1's shipped rate, which is 13.9 game-hours of fermentation.
+
+**And the criterion contradicts the algorithm it belongs to.** Part 3 step 4 applies accumulated output as rate multiplied by duration. A pool whose amount has stopped changing has no output to accumulate. The pools the jump exists to advance are precisely the pools criterion A forbids from ever being steady.
+
+**Criterion B works for a running cell and fails for a stalled one.** It settles the fresh fermenting configuration at 246 ticks at 1e-6, and it never reaches 1e-3 in the walled configuration inside 2400 ticks. The pool is `maintain`, whose flux is decaying toward zero: a purely relative measure on a vanishing rate never converges, however small the absolute quantity gets.
+
+**Criterion C works everywhere, and it is closer to Part 3's own wording than B is.** It is still per pool and still normalised by pool size. What it measures is the second difference rather than the first, which is the thing that has to be small for a linear extrapolation to be right.
+
+    at tick 2400, fresh fermenting configuration
+      A   4.203e-4  on lactate
+      B   3.161e-8  on uptake
+      C   1.328e-11 on lactate
+
+    at tick 2400, walled configuration
+      A   4.258e-4  on atp
+      B   1.277e-3  on maintain
+      C   3.630e-7  on atp
+
+`docs/SIMULATION.md` Part 3 step 2 is corrected to state criterion C, keeping the old sentence on the page with the correction rather than deleting it, in the same spirit as V7 stage 5's handling of the colour-leaving sentence. **A specification that quietly rewrites itself teaches nobody why the first version failed.**
+
+**The residual floor of a settled act 1 cell is the environment, and it is arithmetic.** Criterion B's 3.161e-8 on `uptake` is not noise. For Michaelis-Menten uptake, the fractional rate of change of the flux is `Km / (Km + S)` times the fractional drain rate of `S`, which at Km 500, S 80000 and 0.3975 glucose per tick is 0.00621 times 4.97e-6, which is 3.09e-8. Measured 3.161e-8. **Act 1 is never exactly steady and never can be**, because the food is finite. What the constants have to decide is how much of that residual counts as steady enough.
+
+### Step 3a. STEADY_EPSILON. The band is 3e-6 to 1e-4 and 1e-6 is outside it
+
+**Too small, measured.** The binding configuration is the walled cell, whose ATP decays as a power law after the NAD+ wall and whose curvature therefore falls slowly. Settle tick under criterion C at a window of 20:
+
+    eps      walled   fermenting   uptake r2   glyc r4   ferment bought
+    3e-4        784           72         73        59               51
+    1e-4        784          101        101        87               56
+    1e-5        784          155        235       229              278
+    5e-6        784          169        283       299              308
+    3e-6        890          180        317       359              330
+    2e-6       1073          189        345       409              346
+    1e-6       1487          203        390       502              375
+    1e-7      never          250        535       841              680
+
+At the chosen window of 250 every figure above gains 230 ticks, so the walled cell settles at 1120 for 3e-6 and 1303 for 2e-6 against a `SETTLE_MAX_TICKS` of 1200. **The lower failure boundary is 3e-6 and the shipped placeholder of 1e-6 is a factor of three below it.** At 1e-6 a walled cell does not settle inside the budget, so every absence spent at the NAD+ wall would have fallen back to coarse replay, which Part 3 calls a bug signal.
+
+**Too large, measured.** Extrapolate the per-tick rates from the tick each epsilon declares and compare cumulative gross ATP against full replay, fresh fermenting configuration:
+
+    eps    settledAt    1 min      10 min     60 min
+    1e-2          34    1.15e-1    1.18e-1    1.18e-1
+    1e-3          48    5.60e-2    5.80e-2    5.70e-2
+    3e-4          72    1.71e-2    1.80e-2    1.68e-2
+    1e-4         101    4.12e-3    4.28e-3    3.03e-3
+    3e-5         130    9.70e-4    8.96e-4    3.74e-4
+    1e-5         155    2.69e-4    1.29e-4    1.15e-3
+    3e-6         180    6.59e-5    9.69e-5    1.38e-3
+    1e-6         203    1.01e-5    1.60e-4    1.44e-3
+    1e-7         250    1.31e-5    1.87e-4    1.47e-3
+
+**The sixty-minute column converges on 1.47e-3 and stops improving**, because below about 3e-5 the residual is the environment draining rather than the transient, and no epsilon can fix a genuine change by declaring it small. That convergence is what sets the upper boundary: at 1e-4 the error is 3.03e-3, twice the floor, and at 3e-4 it is 1.68e-2, eleven times it.
+
+**So the band is 3e-6 to 1e-4, a factor of 33, and 1e-5 is the round value nearest its geometric centre**: 3.3x above the fallback boundary and 10x below the accuracy boundary. **The margin the stage asked for is a factor of 33 and that is thin.** Its lower half is set by how fast a walled cell's ATP decays, which is `ACT1_MAINTAIN_HILL_N`, and its upper half by the environment size. Any balance pass touching either has to re-run this measurement rather than assume the constant survived, and `src/sim/constants.ts` says so.
+
+### Step 3b. STEADY_WINDOW. Act 1 has a flat moment that is not settled, and it is 141 ticks long
+
+**This stage expected to report that act 1 is too simple to constrain the window, and that is not what the data says.** The prompt anticipated it, and the honest answer is the other one.
+
+Buying fermentation produces a two-timescale recovery. The pathway restarts in 2 ticks, which is what V3 measured and what a player sees. What V3 could not see is the second timescale: the intracellular glucose that piled up during the stall drains over several hundred more ticks. **Between the two the system goes quiet, and at 1e-5 it sits below threshold for 141 consecutive ticks before moving again.**
+
+Longest below-epsilon run that is not the terminal one, ferment-bought configuration:
+
+    eps      1e-4   5e-5   3e-5   1e-5   5e-6   1e-6   5e-7   1e-7
+    ticks     363    227    195    141    111     44     16      0
+
+**What a window of 20 costs, measured.** Declare steady at the tick each window picks, extrapolate, compare against full replay:
+
+    declaredAt   window   ATP error over 1 min   10 min    60 min
+           278       20                2.05e-1  3.12e-1   3.27e-1
+           500        -                1.47e-2  2.19e-2   2.42e-2
+           600        -                1.02e-4  3.24e-4   1.62e-3
+           712      142                1.13e-5  1.82e-4   1.47e-3
+           900        -                1.00e-5  1.79e-4   1.47e-3
+          1100        -                9.23e-6  1.77e-4   1.47e-3
+
+**The smallest window that clears the gap is also the window that lands the declaration where the extrapolation is right.** 142 gives 1.47e-3 over an hour, which is the same answer 900 and 1100 give, which is the environmental floor. 20 gives 32.7 percent. That coincidence was not designed and it is the reason to trust the number.
+
+**The band is 142 to 436.** The floor is measured above. The ceiling is arithmetic: the window adds to every settle tick one for one, the walled cell settles at 784 plus the window, and the budget is 1200. **250 is the geometric centre of 142 and 436**, so both failure modes sit 1.76x away, which is the only choice that does not prefer one failure to the other without a reason to.
+
+**One case in the sweep looks like a false flat and is not, and it matters that they are told apart.** At an environment of 1000 the cell sits below epsilon for 1889 ticks and then rises above it. That is not a transient mistaken for steady. It is a genuine steady state that stops being steady because the environment ran down, which is precisely the event step 3 of the algorithm exists to find. It does not size the window and it was excluded from the floor above.
+
+### Step 4. Every act 1 configuration settles inside SETTLE_MAX_TICKS, and the worst is 85 percent of it
+
+At the shipped constants, 1e-5 and 250, against a budget of 1200:
+
+    walled, fresh                             1014
+    ferment bought after 200 walled ticks       820
+    glycolysis rung 1                           491
+    glycolysis rung 2                           494
+    uptake rung 2 (Vmax 12)                     465
+    glycolysis rung 4                           459
+    glycolysis rung 3                           458
+    uptake rung 1 (Vmax 10)                     461
+    fermenting, fresh, uptake 8                 385
+
+    environment sweep, settled cell, both rungs
+      80000  40000  30000  20000  10000  5000  2000  1000  600  400
+        250    250    250    250    250   250   250   250  250  250
+
+**Nothing falls back.** The environment sweep settles at exactly the window in every case, meaning a cell already settled stays settled all the way down to an environment of 400, which is well past anything act 1 reaches. The stage's own worry about the near-depletion configuration does not materialise under criterion C, and it does under criteria A and B, which is a fourth argument for C.
+
+**The answer to Part 3's first open question, for act 1 only.** The binding case uses 85 percent of the budget and it is the walled cell, not any healthy one. Every configuration a solved act 1 reaches uses between 32 and 41 percent. **That is a comfortable margin for act 1 and it says nothing about act 4**, which will have more pools, more coupling and at least one more timescale. What it does say is that the number that will eat the budget first is a stalled configuration rather than a busy one, because a stall is a slow decay rather than a fast equilibrium, and that is worth knowing before act 4 is designed. Left in the open questions for stage 6 to record.
+
+### The diff
+
+`src/sim/constants.ts`. Both `UNVALIDATED PLACEHOLDER` blocks are gone. `STEADY_EPSILON` is 1e-5 and `STEADY_WINDOW` is 250, each carrying the measurement, both failure boundaries, the margin between them and the stage that produced it. Neither is a placeholder and neither is a round number chosen for looking round.
+
+`docs/SIMULATION.md` Part 3 step 2. The criterion is corrected from the first difference to the second, with the old sentence kept and the reason it failed stated. Two reasons: unsatisfiable in act 1 at any usable epsilon, and contradicted by step 4 of the same algorithm.
+
+`docs/SIMULATION.md` Part 6. `STEADY_EPSILON 1e-5` and `STEADY_WINDOW 250` replace `tune during prototype`. The paragraph below the table said "all values other than the two marked for tuning are decisions"; there are no longer two marked for tuning, so it now says every value is a decision, followed by a note recording what the placeholders were, that both moved, and that the band is narrow enough to need re-measuring after a balance pass.
+
+**No simulation code changed and no tuned number moved.** The two constants are engine tolerances that nothing reads yet, which is why the act 1 canonical hash is untouched and the bundle is byte-identical to V7's at 268.94 kB.
+
+### Verify
+
+`npm test` 415 passed across 34 files, unchanged from V7 because nothing consumes these constants yet. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean, 268.94 kB and 83.73 kB gzipped, identical to V7. `npm run sim:act1` runs and reports 4.000000000 gross and 2.000000000 net ATP per completed glucose with worst conservation drift 2.001e-15 over the harness run.
+
+**The measurement scripts were temporary and are not committed.** Four probes were written and deleted: the three-criterion trace, the boundary sweep, the window sweep and the confirmation run. They are measurement rather than product, stage 2 builds the real detector in `src/sim/steady.ts`, and a permanent second implementation of the criterion is exactly the two-copies-of-one-fact problem V4 settled against. Every number in this report is reproducible from the criterion definitions above and the shipped constants.
 
 ---
 
