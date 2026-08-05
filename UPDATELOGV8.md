@@ -618,7 +618,96 @@ across the sweep, and the docs/SIMULATION.md Part 5 diff.
 
 ## Stage 4 Report
 
-_Pending._
+**The test Part 3 calls the justification for the entire approach exists, it runs on every `npm test`, and 200 randomized cases from one minute to twenty-four hours produce zero fallbacks and zero budget exhaustions.** Worst disagreement on cumulative gross ATP is **7.038e-3** and the tolerance is 2e-2. Worst conservation drift across the offline path is **1.417e-10** against the same 1e-9 the tick has been held to since V1.
+
+**And the stage's own diagnostic caught a real defect in stage 3's work.** The prompt says that if the worst case is at one minute rather than at twenty-four hours, something is wrong with the bounded replay rather than with the jump. It was, twice over, and the second half is not fully cured.
+
+### Step 1. The sweep, the seed, and the split
+
+`src/content/act1/offlineValidation.ts` builds and runs the sweep. `src/content/act1/__tests__/offlineValidation.test.ts` runs the fast band on every `npm test`. `npm run offline:validate` runs the whole range.
+
+**Seeded with the same PRNG the simulation uses**, for the reason V1 stage 5 gave for the conservation property test: a randomized failure nobody can replay from a seed is a failure nobody can fix. Default seed **20260805**, and `buildSweep` is asserted reproducible and asserted to differ at a different seed, so the seed is doing work rather than decorating the signature.
+
+**Ten configurations and eleven duration bands.** Walled, fresh fermenting, both uptake rungs, all four glycolytic rungs, the fermentation purchase, and a deliberately adversarial one: a fresh cell in a 4000-unit environment at the top rung, which drains fast enough that the rates move visibly inside a single window. Bands run one minute, two, five, ten, twenty, forty, ninety, three hours, six, twelve and twenty-four, each jittered by up to its own width. **Log-uniform in spirit and multiplication in fact**, because `Math.log` is banned in this directory and a band index picked uniformly does the same job.
+
+**The reference side is expensive and the split is disclosed rather than glossed.** Twenty-four game-hours is 1,728,000 ticks and takes **1459 ms** of full replay against **45.2 ms** for the offline path, a factor of 32. Across the 200-case sweep it is **59.6 s of reference replay against 2.72 s offline**, a factor of 22.
+
+    fast band   40 cases, six bands, one to eighty minutes    1.41 s replay, in npm test
+    slow band  200 cases, eleven bands, one min to 24 hours   59.6 s replay, npm run offline:validate
+
+**The slow band runs somewhere and the somewhere is named.** `npm run offline:validate` exits non-zero on any case outside tolerance, so it is a command a machine can run rather than a report a person reads. UPDATELOGV9.md owns CI and this is the command it should wire. Until then it is a person remembering, which is the sixth entry on the list of build-failing guards nothing automated runs, and the argument for pulling CI forward is now one item stronger than it was.
+
+**Both bands call the same `runSweep` and the same tolerance.** A fast approximation of a slow truth would be two tests that can disagree.
+
+### Step 2. The tolerance, and why it cannot be the conservation tolerance
+
+V1 stage 5 set 1e-9 for conservation against a worst observed 1.964e-13, a margin of five thousand. That is the right shape for an invariant whose true answer is zero and whose error is float64 arithmetic.
+
+**This is a different kind of number.** The offline path is approximate by construction and its error is designed rather than accidental: roughly `MAX_JUMP_DEPLETION_FRACTION` multiplied by how far the rates drift across one jump. Stage 3 measured that halving the jump fraction halves the error. A tolerance five thousand times the observation would stop being a test.
+
+Measured over 200 cases:
+
+    worst relative disagreement, cumulative gross ATP    7.038e-3
+    worst absolute disagreement                          617.8 ATP of 306482
+    worst misplaced fraction                             2.509e-2
+    worst conservation drift                             1.417e-10
+
+**`OFFLINE_ATP_TOLERANCE` is 2e-2**, 2.8x above the worst observed, and the margin is chosen so that doubling `MAX_JUMP_DEPLETION_FRACTION` would not pass silently. That is the change most likely to be made by somebody trying to make the offline path cheaper and it is exactly what this test exists to catch.
+
+**`OFFLINE_MISPLACED_TOLERANCE` is 1e-1, and the metric it applies to is not a pool-by-pool comparison.** A relative comparison per pool is a worse test rather than a stricter one: at the end of a long absence a starved cell's intermediates hold 1e-4 units and disagree by 15 percent of that, which says nothing about whether the path works. What is measured instead is how much of each conserved quantity sits in a different pool than replay put it in, weighted by what each pool carries and divided by the quantity's total. **The question that matters is how much of the carbon is in the wrong place, not how wrong a pool holding nothing is.**
+
+**Where the worst case is, and it is not where the prompt expected.** Both worst relative cases are at the short end. The prompt names that as the signature of a bounded-replay problem, and it was right.
+
+### The defect the diagnostic found, which is the most useful thing in this stage
+
+**Stage 3 triggered its finish-the-pool-off branch on jump length**: a jump buying less time than the replay that set it up is losing to plain replay, so go the whole way to the crossing instead of a quarter of it. That terminates the geometric chase, which is what it was for, and **it fires in exactly the wrong place**. A short jump also means a fast-moving system, and going the whole way there is the worst available choice.
+
+The sweep found it: `environment-low` over a 2.2 minute window came out **1.842e-2** out on cumulative ATP, and the worst misplaced fraction was **5.680e-2**. Both at the short end, both on the configuration whose environment moves fastest.
+
+**The trigger is now how much the pool still holds rather than how long the jump would be.** `OFFLINE_TAIL_FRACTION` at 1e-4: a pool below a ten-thousandth of its own peak is in its exponential tail, where finishing it costs at most that fraction of that pool and saves roughly fourteen events. Worst ATP relative fell from 1.842e-2 to **7.038e-3** and worst misplaced from 5.680e-2 to **2.509e-2**.
+
+**What remains at the short end is arithmetic rather than a defect, and it is reported rather than argued away.** A short window is one bounded replay plus one jump, so a single jump's drift is the whole of the error and the denominator is small. The worst absolute disagreement is at 130 minutes and is **617.8 ATP out of 306482**, which is 2.0e-3 and is where a real error would show. **A residual 0.7 percent on a 2.2 minute window is 0.7 percent of about 10000 ATP against a lifetime counter in the hundreds of thousands.** It is inside tolerance, it is the design's accuracy at a jump fraction of 0.25, and halving that fraction halves it at a cost stage 3 measured as not fitting the event budget.
+
+### Step 3. Conservation across the offline path
+
+All five quantities, before and after, on every case in the sweep, asserted at **1e-9**, the same figure the tick is held to.
+
+**Held to the same number rather than to something looser, and the margin is stated because it is thin.** Worst observed 1.417e-10 is a margin of 7x, against the tick's own five thousand. That difference is the whole point of reporting it: the offline path has a second source of loss the tick does not have, which is retiring a spent pool, and this is the number that would move if that bound were wrong. The discard itself is reported per resolution in `OfflineOutcome.discarded` and measured at 7.47e-17 to 4.35e-10 across a full day.
+
+### Step 4. Scoping determinism, in code and in the specification
+
+**Two properties, asserted separately so neither can stand in for the other.**
+
+Full replay is bit-identical seed for seed. Unchanged, still asserted at `172f83fb` and `49ea08d3` in the two determinism test files that have held them since V1 and V5, neither duplicated here.
+
+An offline jump agrees within tolerance and **is not bit-identical, and that is asserted rather than merely not asserted**. `hashState` of the offline result is required to differ from `hashState` of full replay over the same window. Asserting the difference is what makes this a scoped guarantee instead of an untested assumption: **if a future change made the two identical, the jump would have stopped jumping, and this test notices.**
+
+And a third, weaker and necessary: the offline path reproduces itself exactly. Same state, same window, same hash and same meter to the bit.
+
+**docs/SIMULATION.md Part 5 has a Scope section now.** It states all three, says explicitly that this narrows a claim rather than weakening a guarantee, and says the narrowing was always implied by Part 3 living in the same document: Part 3 has said since it was written that closed-form integration is unavailable and the approach is piecewise, and a piecewise approximation cannot be bit-identical to what it approximates. **What did not exist until now was the code, so nothing forced the sentence to be written.** That is the same pattern V7 stage 5 recorded about DESIGN.md's colour sentence: a wrong or missing statement in a specification survives until something is built on top of it.
+
+### Step 5. The fallback, across the whole sweep
+
+**Zero, across 200 randomized cases and all ten configurations.** Zero budget exhaustions too, and the two are separate fields rather than one. Part 3 says a well-tuned configuration should always settle and that the flag is a bug signal; act 1 as V5 balanced it always settles, and the test asserts that rather than reporting it. **Nothing goes back to docs/ECONOMY.md from this stage.**
+
+The event counts that produce it: a twenty-four hour window resolves in 27 to 51 events out of 64, and the highest observed across 200 cases is 51. The margin is 20 percent of the budget and it is reported rather than assumed comfortable.
+
+### The diff
+
+    src/content/act1/offlineValidation.ts        new, the sweep and the three tolerances
+    src/content/act1/validate.ts                 new, npm run offline:validate
+    src/content/act1/__tests__/offlineValidation.test.ts  new, 10
+    src/sim/constants.ts                         OFFLINE_TAIL_FRACTION added
+    src/sim/jump.ts                              the tail trigger replaced
+    package.json                                 one script
+    docs/SIMULATION.md Part 5                    the Scope section
+    docs/SIMULATION.md Part 6                    OFFLINE_TAIL_FRACTION
+
+**No tuned number moved and both canonical hashes are unchanged.**
+
+### Verify
+
+`npm test` **479 passed across 39 files**, up from 469 across 38, in 4.22 s. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean at **268.94 kB, 83.73 kB gzipped**. `npm run offline:validate -- 200` exits 0 with every case inside tolerance.
 
 ---
 

@@ -176,6 +176,38 @@ export const MAX_JUMP_DEPLETION_FRACTION = 0.25;
  */
 export const OFFLINE_DEPLETED_FRACTION = 1e-12;
 
+/**
+ * When a draining pool counts as being in its exponential tail.
+ * ADDED BY UPDATELOGV8.md stage 4, with a Part 3 and Part 6 entry.
+ *
+ * A jump normally covers MAX_JUMP_DEPLETION_FRACTION of the distance to the
+ * next event and then re-settles. In the tail of a saturating reaction that
+ * chase is geometric and needs about eighty events to take a pool from its Km
+ * to OFFLINE_DEPLETED_FRACTION, which does not fit in EVENT_BUDGET. So a pool
+ * deep enough in its tail is finished off in one jump instead, landing on empty
+ * rather than on a fraction of a fraction of itself.
+ *
+ * WHAT THIS REPLACED, AND WHY IT WAS WRONG. Stage 3 triggered that branch on a
+ * cost comparison: a jump buying less time than the replay that set it up is
+ * losing to plain replay, so go the whole way. It terminates and it fires in
+ * the wrong place. A short jump also means a fast-moving system, which is
+ * exactly where going the whole way is the worst available choice, and stage
+ * 4's sweep found it: a cell in a small environment came out 1.84e-2 out on
+ * cumulative ATP over a 2.2 minute window, with the worst case at the short end
+ * rather than the long end, which the stage prompt names as the signature of a
+ * bounded-replay problem rather than a jump problem.
+ *
+ * So the trigger is what it should always have been: how much the pool still
+ * holds. A pool below a ten-thousandth of its own peak is spent for every
+ * purpose except conservation, and finishing it costs at most that fraction of
+ * that pool while saving roughly fourteen events.
+ *
+ * 1e-4 rather than tighter because the chase between the tail floor and the
+ * discard floor is what costs events, and rather than looser because the error
+ * of landing a pool on empty is bounded by what it was holding.
+ */
+export const OFFLINE_TAIL_FRACTION = 1e-4;
+
 /** Offline credit cap, in hours. docs/SIMULATION.md Part 3, clock tampering. Also bounds the coarse-replay fallback. */
 export const MAX_OFFLINE_HOURS = 24;
 

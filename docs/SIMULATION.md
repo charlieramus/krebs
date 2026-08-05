@@ -179,6 +179,18 @@ This is not a defensive nicety. It is the tripwire that catches a balance change
 
 Determinism is a tested property of this codebase, not an aspiration. Same seed plus same input sequence must produce a bit-identical state hash across runs, machines and browsers.
 
+## Scope
+
+That sentence is true of the full-fidelity path and of nothing else, and saying so narrows a claim rather than weakening a guarantee. Written down on 2026-08-05 by UPDATELOGV8.md stage 4, which built the first deliberately approximate thing in the codebase.
+
+**Full replay is bit-identical, seed for seed.** Unchanged, and still asserted at `172f83fb` for the kernel fixture and `49ea08d3` for act 1.
+
+**An offline jump agrees with full replay within a stated tolerance and is not bit-identical.** It cannot be. Part 3 above resolves an absence by extrapolating a steady state rather than by evaluating every tick, and an extrapolation that reproduced the tick loop bit for bit would not be an extrapolation. The property that survives is agreement within tolerance and the property that does not is identity. Both are asserted, including the difference, because a future change that made the two identical would mean the jump had stopped jumping.
+
+**The offline path is deterministic in its own right**, which is a weaker claim than bit-identity with replay and a necessary one. The same state resolved twice over the same window produces the same result exactly, and the same save loaded twice with the same elapsed time credits identically.
+
+**This narrowing was always implied by Part 3 living in the same document.** Part 3 has said since it was written that closed-form integration is not available and that the approach is piecewise, and a piecewise approximation cannot be bit-identical to the thing it approximates. What did not exist until now was the code, so nothing forced the sentence above to be written down. The tolerance and the measurements behind it are in `src/content/act1/offlineValidation.ts`.
+
 ## Rules
 
 No Math.random in simulation code. Use a seeded PRNG with its state stored in the save. Mulberry32 or PCG32 are both fine and both small.
@@ -211,10 +223,11 @@ A determinism test that runs a fixed seed and input script twice and compares a 
 
     MAX_JUMP_DEPLETION_FRACTION   0.25
     OFFLINE_DEPLETED_FRACTION     1e-12
+    OFFLINE_TAIL_FRACTION         1e-4
 
 Every value here is a decision, not a default. Changing one requires updating this doc with the reason.
 
-The last two were added on 2026-08-05 by UPDATELOGV8.md stage 3, which measured both. Neither existed when Part 3 was written because neither is needed by the algorithm as specified; both are needed by the algorithm as it behaves against a finite substrate pool consumed by a saturating reaction, which is what act 1 is and what every later act will be. See the two corrections under Part 3 step 3. 0.25 is the smallest jump fraction that still resolves a 24-hour window inside EVENT_BUDGET, using 49 of 64 events, and error falls monotonically as the fraction falls, so it is the most accurate value the budget allows.
+The last three were added on 2026-08-05 by UPDATELOGV8.md stages 3 and 4, which measured all of them. `OFFLINE_TAIL_FRACTION` decides when a draining pool is deep enough in its exponential tail to be finished off in one jump instead of chased geometrically. Stage 3 triggered that on jump length and stage 4's sweep found it firing wherever the system was moving fast, which is the worst place for it. Neither existed when Part 3 was written because neither is needed by the algorithm as specified; both are needed by the algorithm as it behaves against a finite substrate pool consumed by a saturating reaction, which is what act 1 is and what every later act will be. See the two corrections under Part 3 step 3. 0.25 is the smallest jump fraction that still resolves a 24-hour window inside EVENT_BUDGET, using 49 of 64 events, and error falls monotonically as the fraction falls, so it is the most accurate value the budget allows.
 
 STEADY_EPSILON and STEADY_WINDOW were marked "tune during prototype" from 2026-07-28 to 2026-08-05 and shipped as placeholders of 1e-6 and 20. Both were measured against act 1 by UPDATELOGV8.md stage 1 and both moved. The placeholder epsilon was outside the usable band, which is 3e-6 to 1e-4, and the placeholder window was an order of magnitude below its measured floor of 142. The full derivation, both failure modes and the margin between them are in src/sim/constants.ts and in that stage's report. The band is narrow enough that a balance pass touching maintenance kinetics or the environment size has to re-run the measurement.
 

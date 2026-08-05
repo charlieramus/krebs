@@ -73,6 +73,7 @@ import {
   EVENT_BUDGET,
   MAX_JUMP_DEPLETION_FRACTION,
   OFFLINE_DEPLETED_FRACTION,
+  OFFLINE_TAIL_FRACTION,
   SAFE_VALUE_CEILING,
   SETTLE_MAX_TICKS,
 } from './constants';
@@ -497,12 +498,20 @@ export function resolveOffline(
     const hard = Number.isFinite(zero.ticks) ? Math.floor(zero.ticks) : remaining;
 
     /*
-     * A jump that buys less time than the replay that set it up is losing to
-     * plain replay, so go the whole way to the crossing instead of a fraction
-     * of it. That is the branch that makes act 1 terminate.
+     * A pool deep in its exponential tail is finished off in one jump rather
+     * than chased geometrically, which is what makes act 1 terminate inside
+     * EVENT_BUDGET. The trigger is how much the pool still holds, not how long
+     * the jump would be: see OFFLINE_TAIL_FRACTION for the version of this that
+     * triggered on jump length and for what it cost.
      */
+    const inTail =
+      horizon.poolIndex >= 0 &&
+      horizon.draining &&
+      (state.pools.amounts[horizon.poolIndex] as number) <=
+        (peak[horizon.poolIndex] as number) * OFFLINE_TAIL_FRACTION;
+
     let bound = Math.min(fractional, hard);
-    if (bound < settleTicks) bound = Math.min(hard, remaining);
+    if (inTail) bound = Math.min(hard, remaining);
     bound = Math.min(bound, hard);
 
     // Floating point can put `amount + rate * floor(amount / -rate)` a hair
