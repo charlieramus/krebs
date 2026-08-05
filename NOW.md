@@ -1,6 +1,6 @@
 # Now
 
-Last updated: 2026-08-04, by V7
+Last updated: 2026-08-05, by V8
 
 Where the project actually is. Read this before the spec docs.
 
@@ -9,6 +9,16 @@ This file holds state. CLAUDE.md holds instruction and changes rarely. This chan
 If this file disagrees with a spec doc, the spec doc wins and this file is stale. Fix it.
 
 ## Status
+
+**A player who leaves for eight hours comes back to a cell that kept running, and the game can now tell them what happened to it rather than handing them a total.**
+
+Measured, in a real browser, against a real save: eight hours away returns a cell at **482.5 elapsed game-minutes with 160000 lactate, an empty environment and 320000 cumulative ATP**, from a save that left off at 110 game-seconds. It costs **24.6 milliseconds**, which is under two frames, against 1459 milliseconds for the full replay it stands in for. `time.offlineCreditedMs` and `stats.eventsProcessed` are non-zero for the first time in the project's history.
+
+**docs/SIMULATION.md is fully implemented.** Part 3 was written before any code existed, it calls itself the hard problem and the one most idle games get wrong, and it is the last part to land. Every constant it left for the prototype has a measured value and both `UNVALIDATED PLACEHOLDER` blocks are gone.
+
+**Neither of the two constants it left survived contact with measurement.** `STEADY_EPSILON` moves from 1e-6 to 1e-5 because 1e-6 sits outside the usable band. `STEADY_WINDOW` moves from 20 to 250 because 20 is an order of magnitude below its measured floor. And **the criterion those constants attach to was wrong too**: Part 3 step 2 asked for pool derivatives below epsilon, which is unsatisfiable in act 1 at any usable value and contradicts step 4 of the same algorithm. All three were corrected in the document rather than worked around in the code.
+
+**The one thing that was implemented exactly as specified and then measured is the fallback, and it destroys the cell.** See Blocking item 6.
 
 **The game is now perceivable without colour, without a pointer and without sight, and the one thing it still cannot be is read by somebody who has never seen it.**
 
@@ -43,9 +53,11 @@ One sentence per log. The "does not" column is the fence each stage doc inherits
 | V5 | The economy pass: docs/ECONOMY.md and its divergence table, the ATP bootstrap repair, the glycolytic capacity ladder, and act 1 balanced end to end against its target duration | Offline progress, new pathway content, the steady-state display question | Done 2026-08-03 |
 | V6 | The comprehension pass: docs/CONTENT_STYLE.md, the first run, the about panel, the teaching layer, and the style guide as mechanism | The economy, new unlocks, the timeline, the beast, act 2, and any change to a tuned number | Done 2026-08-04, **unvalidated**. Stages 2 and 5 unrun for want of a cold reader |
 | V7 | Accessibility, and the colour-alone problem: the redox second channel, keyboard and focus, the screen reader layer, and DESIGN.md's accessibility rule | New content, new teaching beats, the economy, the simulation | Done 2026-08-04 |
-| V8 | Offline progress: steady-state detection, the analytic jump to the next event, and validation of STEADY_EPSILON and STEADY_WINDOW | New content, any interface beyond a return summary | Not started |
-| V9 | CI, cross-engine determinism and deployment | Not read in detail yet. Scheduled after V8 | Not started |
+| V8 | Offline progress: steady-state detection, the analytic jump, the Part 3 validation test, crediting, and the offline return screen | New content, act 2, the economy, any change to a tuned number | Done 2026-08-05 |
+| V9 | CI, cross-engine determinism and deployment | Not read in detail yet. The last planned log | Not started |
 | V10+ | Unplanned, deliberately | Anything written here now would be fiction | Held |
+
+**docs/SIMULATION.md is finished and that changes what the table is for.** Every part of the engine specification is implemented: the tick loop in V1, reaction kinetics in V1 and V2, offline progress in V8, number representation in V1, determinism throughout and the constants summary as of this log. It has been the document every log was measured against since V1 and there is nothing left in it to build. **What is left in the project's specifications is content**, which is docs/PROGRESSION.md acts 2 to 4, and process, which is V9.
 
 **The table moved by exactly one row and act 2 is still not on it.** V5 was the horizon for two logs because act 2 is the highest-risk beat in the game and docs/PROGRESSION.md lists its shape as an open question for the prototype. What V5 has changed is that act 1 no longer has a hole in it: the trap is repaired, the act is measured against its target, and every tuned number has a row. That licenses planning on top of act 1, which is what the offline log now is, and it does not license act 2.
 
@@ -259,6 +271,54 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
 
 86 tests were added, taking the suite to **415 across 34 files**, and the bundle to **268.94 kB, 83.73 kB gzipped**. **The act 1 canonical hash is `49ea08d3` and no tuned number moved**: `git diff main` across the three tuning files, `docs/SCIENCE.md`, `docs/ECONOMY.md`, `src/sim/` and `src/content/` is empty for the whole log.
 
+## What the offline path does
+
+`src/sim/steady.ts` and `src/sim/jump.ts` in the kernel, `src/content/act1/offline.ts` and `offlineValidation.ts` in content, `creditPendingOffline` in the runtime and one overlay. Added by V8. docs/SIMULATION.md Part 3, which is the last part of that document to be implemented.
+
+    src/sim/steady.ts            the detector, and bounded replay
+    src/sim/jump.ts              horizons, the jump, the loop, the fallback
+    src/content/act1/offline.ts  eleven lines carrying the meter across a jump
+    offlineValidation.ts         the Part 3 sweep and the three tolerances
+    validate.ts                  npm run offline:validate, the slow band
+    OfflineReturn.tsx            what happened while away, with the sequence
+
+**The two constants that had been placeholders since V1 are measured, and neither kept its value.**
+
+`STEADY_EPSILON` is **1e-5**, was 1e-6. The usable band is 3e-6 to 1e-4, a factor of 33. Below it the walled cell stops fitting inside `SETTLE_MAX_TICKS` and every absence spent at the NAD+ wall falls back. Above it a linear extrapolation is wrong: cumulative ATP over an hour is out by 1.68e-2 at 3e-4, against a floor of 1.47e-3 that is the environment draining rather than the transient. **The shipped placeholder was outside the band.**
+
+`STEADY_WINDOW` is **250**, was 20. The band is 142 to 436. The floor is measured: buying fermentation produces a two-timescale recovery, and between the visible restart and the slow drain of the glucose that piled up during the stall, the system sits below threshold for **141 consecutive ticks** while still moving. Declaring steady there is 20 to 33 percent out on cumulative ATP. **The smallest window that clears the gap is also the window that lands the declaration where the extrapolation is right**, which was not designed and is the reason to trust it. The ceiling is arithmetic: the window adds to every settle tick one for one and the walled cell settles at 784 plus the window.
+
+**Part 3 step 2's criterion was wrong and the document says so now.** It asked for every pool's derivative below epsilon as a fraction of pool size. That is unsatisfiable in act 1 at any epsilon below 1e-3, because `glucose_env` drains and `lactate` accumulates linearly forever and their fractional derivative decays only as one over elapsed time. It also contradicts step 4, which advances the state by rate multiplied by duration and therefore assumes pools that are still changing. **What has to stop changing is the rate**, so the test is on the second difference. The old sentence is kept on the page with the correction, in the same spirit as V7's handling of DESIGN.md's colour sentence.
+
+**Three constants exist that Part 3 never named, all measured, all with Part 6 entries.** `MAX_JUMP_DEPLETION_FRACTION` at 0.25, because Part 3 assumes piecewise-constant rates and a Michaelis-Menten uptake from a finite pool does not have them. `OFFLINE_DEPLETED_FRACTION` at 1e-12, because a pool consumed by a saturating reaction never actually depletes and the enumeration would not terminate. `OFFLINE_TAIL_FRACTION` at 1e-4, which decides when a pool is deep enough in its tail to finish off in one jump. **None of them is a nicety and each was added after measuring the thing that went wrong without it.**
+
+**The Part 3 validation test exists and it is what that document says the whole approach depends on.** Two bands over one implementation: 40 cases up to eighty minutes on every `npm test`, and `npm run offline:validate` across all eleven duration bands including twenty-four hours. Seeded at 20260805, so a failure is reproducible.
+
+    worst relative disagreement, cumulative gross ATP    7.038e-3
+    worst absolute disagreement                          617.8 ATP of 306482
+    worst misplaced fraction                             2.509e-2
+    worst conservation drift                             1.417e-10
+    fallbacks                                            0
+    budget exhaustions                                   0
+
+**The tolerance is 2e-2 on cumulative ATP and it cannot be the conservation tolerance.** V1 set 1e-9 for conservation against 1.964e-13 observed, a margin of five thousand, which is right for an invariant whose true answer is zero. The offline path's error is a designed quantity rather than an accident: roughly the jump fraction multiplied by how far the rates drift across one jump, so halving the fraction halves it. **2.8x above the worst observed, chosen so that doubling `MAX_JUMP_DEPLETION_FRACTION` cannot pass silently**, because that is the change somebody makes to speed the path up and it is what the test exists to catch.
+
+**The pool comparison is not pool by pool and that is a better test rather than a laxer one.** At the end of a long absence a starved cell's intermediates hold 1e-4 units and disagree by 15 percent of that, which says nothing about whether the path works. What is measured is how much of each conserved quantity sits in a different pool than replay put it in, weighted and divided by that quantity's total. The question is how much of the carbon is in the wrong place.
+
+**THE DETERMINISM GUARANTEE IS NARROWER AND IT IS THE THING A FUTURE MAINTAINER IS MOST LIKELY TO TRIP OVER.** docs/SIMULATION.md Part 5 has a Scope section now, saying three things separately:
+
+    full replay          bit-identical, seed for seed. Unchanged, 172f83fb and 49ea08d3
+    an offline jump      agrees within tolerance and is NOT bit-identical
+    the offline path     reproduces itself exactly, same state in, same state out
+
+**The second is asserted rather than merely not asserted**: the test requires the two hashes to differ. A change that made them identical would mean the jump had stopped jumping, and asserting the difference is what turns a scoped guarantee into a tested one. **The narrowing was always implied by Part 3 living in the same document**, which has said since it was written that closed-form integration is unavailable and the approach is piecewise. What did not exist until now was the code, so nothing forced the sentence to be written. Same pattern V7 found: a missing statement in a specification survives until something is built on top of it.
+
+**One thing the offline path does that nothing else in the project does: it discards matter.** Retiring a spent pool is the only place. It is bounded at `OFFLINE_DEPLETED_FRACTION` of that pool's peak, which is 1.7e-13 relative against act 1's carbon, below the tick's own observed drift of 1.113e-13, and `OfflineOutcome.discarded` reports the total so nobody has to take the bound on trust. Measured across a full day: 7.47e-17 to 4.35e-10.
+
+**The return screen shows the sequence and collapses it, and the collapse is the design rather than a shortcut.** A day away produces up to 51 events and most of them are `glucose_env` draining a little further. Fifty lines that all say the same thing is the algorithm's step count made visible rather than the event sequence. Consecutive events on one pool become one row, which leaves the sentence DESIGN.md wrote as its own target: steady for six hours, glucose ran low, steady again. **The quiet case gets its own line and it is a claim about cells rather than an apology**, because act 1 mostly produces one event or none and designing for the interesting case would make the screen worst where it is seen most.
+
+12 tests were added for the screen, 7 for the fallback, 26 for the jump, 28 for the detector and 10 for the validation sweep. The suite is **503 across 41 files**, up from V7's 415 across 34, and the bundle is **278.31 kB, 86.59 kB gzipped**, up from 268.94 kB and 83.73 kB. **Both canonical hashes are unchanged and no tuned number moved**: `172f83fb` and `49ea08d3`, and `git diff` across the three tuning files, docs/SCIENCE.md and docs/ECONOMY.md is empty for the whole log.
+
 ## What exists
 
     docs/BRIEF.md          orientation, the idea and the reasoning
@@ -286,6 +346,7 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
     UPDATELOGV5.md         the economy log, five stages, all reported
     UPDATELOGV6.md         the comprehension log, five stages, two unrun
     UPDATELOGV7.md         the accessibility log, five stages, all reported
+    UPDATELOGV8.md         the offline progress log, six stages, all reported
 
 Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system-20260728/`. `preview-cartoon.html` is the current direction. `preview.html` is a rejected earlier direction kept for comparison.
 
@@ -316,6 +377,19 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - Act 2 models two damage mechanisms, not one. ROS and molecular oxygen have different targets and the antioxidant enzymes only address the first. The target inside act 1's own loop is GAPDH by thiol oxidation.
 - Content lives in `src/content/` and the kernel never imports it. The arrow points one way, permanently.
 - ATP is a flux, not a score. The adenylate pool is fixed and closed and `maintain` hydrolyses ATP back to ADP and phosphate. Cumulative production is a counter beside the simulation, never a pool inside it.
+
+## Settled 2026-08-05, by V8
+
+- **A steady state is a state whose rates have stopped changing, not one whose pools have.** A pool changing at a constant rate is exactly what the analytic jump extrapolates, so a criterion that forbids it contradicts the algorithm it belongs to. docs/SIMULATION.md Part 3 step 2 says so now and keeps the wrong sentence on the page with the correction.
+- **A tolerance for a designed approximation cannot be set the way a tolerance for an invariant is.** Conservation's true answer is zero, so 1e-9 against 1.964e-13 observed is right. The offline path's error is a quantity the design chose, so its tolerance is set close enough that the change most likely to break it, a larger jump fraction, cannot pass silently.
+- **Determinism is two claims, not one.** Full replay is bit-identical seed for seed. An offline jump agrees within tolerance and is not bit-identical, and the difference is asserted rather than merely not asserted, because a change that made them identical would mean the jump had stopped jumping.
+- **A substrate consumed by a saturating reaction does not deplete.** Below the Km it decays exponentially with a fixed time constant, so there is always a next depletion event, always the same distance away. Any act with a Michaelis-Menten uptake from a finite pool has this, and act 1 met it twice, on `glucose_env` and then on `pyruvate` after the first was handled.
+- **A pool going negative is not a small error.** Michaelis-Menten with a negative substrate returns a negative flux, which runs a reaction backwards and manufactures matter. The accuracy bound and the non-negativity bound are therefore separate, cover different sets of pools, and the second one has no exemptions.
+- **The offline path discards matter, in exactly one place, bounded and reported.** Retiring a spent pool. It is the only exception to conservation in the project, it is four orders below the tolerance, and the amount is on the result object so nobody has to take the bound on trust.
+- **Spending a full settle budget on every event is cheaper than it looks and buys the rate estimate.** The steady test is on curvature, so a slow mode passes it while its rate is still real. The budget was already promised by Part 3 step 1; spending it turns a decaying transient into a steady rate and moved a residual by two orders of magnitude.
+- **An event list is shown collapsed.** The sequence is what changed, not how many steps the algorithm took to get there. Fifty rows that all say the same thing is the step count made visible.
+- **A screen that opens on load must read well in the case it will mostly be in.** Act 1's absences mostly contain one event or none, so the quiet case gets its own line and that line is a claim about cells rather than an apology.
+- **A wrong sentence in a specification survives until something is built on top of it.** V7 wrote this about DESIGN.md's colour sentence. V8 found three in docs/SIMULATION.md Part 3, a document written before any code existed and careful enough to reject four approaches with reasons. **It is a pattern rather than an anecdote now, and the lesson is about when a specification can be trusted rather than about how carefully it was written.**
 
 ## Settled 2026-08-04, by V7
 
@@ -355,7 +429,23 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Blocking
 
-**V6 added one, V7 widened it and added two conflicts. The list is still headed by a person rather than a feature.**
+**V8 added one, and it is the first item on this list that is a defect in a specification rather than a gap in the build. The list is still headed by a person rather than a feature.**
+
+6. **The offline fallback, implemented exactly as docs/SIMULATION.md Part 3 specifies, destroys the cell.** Opened 2026-08-05 by V8 stage 5, which ran it deliberately because the stage said a fallback nobody has ever executed is not a fallback.
+
+   **Coarse replay at 1Hz credits exactly zero ATP, from every act 1 configuration, at every window length.** Measured against full replay: a fermenting cell that makes 114287 ATP over an hour makes 0. A cell at the top glycolytic rung that makes 269820 makes 0.
+
+   **The mechanism is act 1's own bootstrap trap, reached by the integrator rather than by the economy.** `prep` costs 2 ATP per unit of flux and a one-second step asks for twenty times what a tick asks for, against an adenylate pool of 40. The proportional scaling saves conservation and nothing else: ATP goes to the floor on the first step, the preparatory phase can no longer pay its entry cost, and the payoff phase never runs again. **This is the state blocking item 1 closed, arrived at from a healthy cell in one step.**
+
+   **Part 3 predicted the shape and understated the size.** Its own rejection of coarse replay as a method says explicit Euler with a large step "produces wrong answers rather than approximate ones". The wrong answer is total.
+
+   **The implementation is not what is wrong with it.** The fallback conserves all five quantities to better than 1e-9, never drives a pool negative, and covers a window that is not a whole number of coarse steps rather than dropping the remainder. What is wrong is the specification.
+
+   **Nothing reaches it in normal play**, which is why this is blocking rather than urgent: act 1 always settles, asserted over 200 randomized absences and every configuration. It is on this list because a code path that silently destroys a player's cell should not sit in the build unexamined, and because the flag it raises, `diagnostics.offlineFallbackCount`, would tell a maintainer a bug had happened without telling them the save was ruined.
+
+   **The measured alternative, for whoever decides.** Part 3 rejected full replay because "the cost is unbounded in elapsed time", and `MAX_OFFLINE_HOURS` bounds it. A full-fidelity replay of the maximum credit is **1459 milliseconds**, measured. That is a visible stall and it is correct, against 22 milliseconds that is not. Changing Part 3's fallback is a specification decision and V8 stage 5 was a wiring stage, so it was measured and reported rather than taken. `fallback.test.ts` asserts the zero, so the day somebody fixes it the test fails and this entry can be deleted rather than left stale.
+
+**V6 added one, V7 widened it and added two conflicts.**
 
 0b. **Nobody who uses a screen reader has heard this game, and no screen reader has been run against it at all.** Opened 2026-08-04 by V7 stages 1 and 4, which both had to report the same limitation.
 
@@ -426,8 +516,8 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - **The scope of "the builder is the least reliable reader" is unchanged, and V6 is the log that was supposed to change it.** This page has carried that caveat since V3 and it applies to every comprehension claim in the project with exactly the same force today. **Readers found: 0. Readers asked: 0.** V6 built the thing to be read and did not get it read. See Blocking item 0, which is where this now lives as work rather than as a caveat.
 - **The uptake ladder stops at 12, and V5 both confirmed the reason and found it had been overstated.** Re-measured after the bootstrap repair, time to 30000 cumulative ATP is 11m51.7s at Vmax 12 and 11m51.4s at 26, so everything above the knee sells three tenths of a second. The figures this entry used to quote, 11m24s and 11m03s, were measured before V3 stage 6 raised the environment in the same stage and were never re-run. **The lead this entry recorded was acted on and it was wrong as stated.** Preparatory-phase capacity is not sellable on its own: raising `prep` without `payoff` kills the cell, so V5 sells them together as the glycolytic capacity ladder.
 - **The top of the uptake ladder over-delivers, permanently, and that is now a feature with a purchase attached.** `prep` never reaches its Vmax of 12, settling near 10.554 because it is second order in ATP, so uptake at 12 pushes intracellular glucose up by about 87 a minute forever. V3 sized that rung against a nameplate rather than a realized rate. Each rung of the glycolytic ladder narrows the gap, to +23.0 a minute, then +17.2, then +9.2, then -1.5 at the top, so the pile of unusable glucose visibly drains as the phase that consumes it is bought.
-- **A backgrounded tab still loses game time. The hole is narrower and it is not closed.** What changed: `pendingOfflineMs` now survives a reload, and real time away is measured at load, capped at `MAX_OFFLINE_HOURS` and added to the same field. So the time is no longer thrown away, it is recorded, and it accumulates across sessions rather than resetting. What has not changed: **nothing spends it.** Not one tick of it is simulated, the player still sees no progress for it, and the field just grows. Narrower means the accounting is now honest, not that the player gets their time back. V5 owns spending it, and it now starts from a real number instead of from zero.
-- **The offline delta is accumulated and never credited, on purpose.** `time.offlineCreditedMs` is 0 in every save this build writes. The save panel says the time away is being kept and not spent, which is the honest sentence, and it will stay wrong-sounding until V5 makes it true.
+- ~~**A backgrounded tab still loses game time.**~~ **Closed 2026-08-05 by V8 stage 5.** Open since V3, narrowed by V4, which made `pendingOfflineMs` survive a reload and said plainly that narrower is not closed because nothing spent it. It is spent now. Both sources feed one field and both are credited the same way: time the loop routed there when a catch-up exceeded `MAX_CATCHUP_TICKS`, which is the backgrounded tab, and time measured at load from a genuine absence. **The player gets their time back rather than an honest account of losing it.**
+- ~~**The offline delta is accumulated and never credited, on purpose.**~~ **Closed 2026-08-05 by V8 stages 5 and 6.** `time.offlineCreditedMs` and `stats.eventsProcessed` are non-zero in a written save for the first time, and they accumulate across sessions rather than resetting, which is what docs/SAVE_SCHEMA.md asks of them. **The save panel sentence is gone rather than softened.** It said "None of it has been simulated. It is being kept, not spent." It now says all of it has been simulated and the cell kept running, and `offlineReturn.test.tsx` fails if the old wording comes back.
 - **The autosave interval is 30 seconds and it is provisional.** `AUTOSAVE_INTERVAL_MS` in `src/save/tuning.ts`, reasoned from the unlock pacing measurement rather than measured. It is row S1 in docs/ECONOMY.md and the pacing it was reasoned from has since moved: purchases now sit 13 to 14 minutes apart rather than one and seven, so half a minute is a smaller fraction of a beat than it was. Nothing about that makes it wrong, and nobody has measured what tolerable loss is.
 - **`FERMENT_ATP_THRESHOLD` has no usable range and V5 measured it.** V3 left open whether the wall's answer should appear only after the player has sat in the stall for a while. It cannot be done with this number: cumulative ATP converges on the walled ceiling of 60 in the same breath as the pathway dies, so 50 is reached 0.50s before the wall and 59.99 is reached 0.10s after it. **A delay between the wall and its answer is an interface decision**, and it belongs with the coach mark rather than with a threshold.
 - **A development-time tick rate change costs one tick of game time per save, and that is the price of the rule rather than a defect.** `elapsedGameMs` is a whole multiple of the TICK_MS that wrote it, so reconstruction is exact while the rate is unchanged and floors when it is not. Storing milliseconds decouples the duration from `TICK_RATE_HZ`, which is what hard rule 6 depends on; it does not decouple the alignment. A save with a remainder is not corrupt and the loader must never treat it as corrupt. Written into docs/SAVE_SCHEMA.md Part 3 by V4.
@@ -446,28 +536,32 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - **docs/SIMULATION.md line 90 names three conserved quantities and act 1 has five.** It says "carbon, phosphate and redox equivalents". `nicotinamide` and `adenylate` are conserved too under the act 1 decomposition and are the more useful invariants, because they are what turn the NAD+ wall into a testable property. V2 deliberately did not edit docs/SIMULATION.md. Recommendation is that Part 2's wording be widened to say the conserved set is content's to declare, since act 3 will add more, but that is a spec edit and should be deliberate rather than incidental.
 - **The timeline date column has no treatment for a stop with no date.** Two stops now carry `unresolved` and `hypothesis` instead of a figure. They need to read as deliberate statements at the same visual weight as a real date, and the non-linear axis has to place an undated stop by ordering constraint alone. See DESIGN.md open question 5.
 - **Recovery from the NAD+ wall is instantaneous, and V3 found it is not anticlimactic.** Measured from a 20000-tick stall, which is 16.7 minutes: the payoff phase restarts after 2 ticks, 100 milliseconds. The way back in is the stranded g3p, 6.8 units left sitting in the pool for the whole stall, because ATP is at denormal by then and the preparatory phase cannot pay its entry cost. Asserted in `src/ui/__tests__/stallRecovery.test.ts`, mechanism as well as outcome, so a future balance change that consumes g3p during a stall fails there rather than silently making the wall unsolvable. On screen it reads as a whole dead pathway coming alive at once, which is the opposite of anticlimactic. The worry was misplaced.
-- `STEADY_EPSILON` and `STEADY_WINDOW` shipped in V1 as unvalidated placeholders, 1e-6 and 20. docs/SIMULATION.md Part 6 marks them tune during prototype and no measurement exists yet. **They are not tuned numbers in the docs/ECONOMY.md sense**, because they are engine tolerances rather than balance decisions, and they live in `src/sim/constants.ts` with the rest of the kernel. The offline log validates them, and that measurement is the first thing it has to do.
+- ~~**`STEADY_EPSILON` and `STEADY_WINDOW` shipped in V1 as unvalidated placeholders.**~~ **Closed 2026-08-05 by V8 stage 1. It was the oldest entry on this page.** Both are measured, both moved, and 1e-6 turns out to have been outside the usable band rather than merely unjustified. They are still not tuned numbers in the docs/ECONOMY.md sense, because they are engine tolerances rather than balance decisions, and they still live in `src/sim/constants.ts`. **What replaces the entry is an obligation**: the band is a factor of 33 wide and its lower half is set by how fast a walled cell's ATP decays, so a balance pass touching `ACT1_MAINTAIN_HILL_N` or the environment size has to re-run stage 1's measurement rather than assume the constant survived. See "What the offline path does".
 - **The act's last 28 minutes are empty on purpose and nothing says so on screen.** Content ends at 61m57s and the food lasts to 92m42s. The environment should outlast the act rather than define it, but a player who keeps going gets half an hour of nothing at the end. Whether the act should announce it is over, or whether act 2 arrives there, is docs/PROGRESSION.md's question.
 - **The two capacity ladders are sequential and nothing has watched a player meet the second one.** The glycolytic slot reads "Opens once uptake is at the top of its ladder" until it opens, which was checked in a browser and looks right. Whether a locked slot with no progress readout reads as a promise or as a dead card is a comprehension question.
 - **`?ferment=on` does not survive a reload.** The development scenario door enables the reaction without minting an unlock id, so a restored save has no `ferment` in `progression.unlocked` and the reaction comes back disabled. No player path reaches it and `src/ui/scenario.ts` documents itself as a development affordance. Recorded so the next person to use that door is not confused by it.
 
 ## Next, in order
 
-0. **Find one cold reader.** Not a log and not a stage. It is listed first because it is the only item on this page that no amount of building advances, because it gates docs/PILLARS.md's first two success conditions, and because every log after this one adds more to a screen nobody outside this project has looked at. See Blocking item 0. It does not block V7 and V7 should not wait for it.
+0. **Find one cold reader.** Not a log and not a stage. It is listed first because it is the only item on this page that no amount of building advances, because it gates docs/PILLARS.md's first two success conditions, and because every log after this one adds more to a screen nobody outside this project has looked at. See Blocking item 0. It does not block V9 and V9 should not wait for it.
 
-1. **Offline progress.** `UPDATELOGV8.md`, docs/SIMULATION.md Part 3, plus validating `STEADY_EPSILON` and `STEADY_WINDOW`, which have been unvalidated placeholders since V1. Act 1 has been a real configuration to validate them against since V2, can be saved mid-run since V4, and since V5 has a steady state that is genuinely steady and reachable without falling into a trap first. **V5 chose more unlocks over a varying environment specifically to avoid handing this log a permanent fallback to coarse replay**, so it inherits an economy that suits it rather than one that fights it. It also inherits a real accumulated `pendingOfflineMs` rather than a zero, and V6 has corrected the save panel badge that told the player offline progress was landing in V5.
+1. **CI, cross-engine determinism and deployment.** `UPDATELOGV9.md`. **It is the last planned log and it is now the only one with no dependencies left in front of it.**
 
-   **It also inherits a rule it has to obey rather than discover.** The offline return screen shows an event sequence, and every one of those events is the same kind of thing `Announcer.tsx` already says out loud. Whatever it renders has to reach speech too, and DESIGN.md's Accessibility section is now the place that says so.
+   **There are six build-failing guards in this project and nothing runs them except a person remembering to.** The determinism lint, the `Needs source` release gate, the DESIGN.md colour test, the divergence-row test, the accessibility test and now the Part 3 validation sweep. That argument has been on this page since V7 and V8 makes it stronger in a new way rather than by adding one more item: **the offline path has a slow band that does not run in `npm test` at all.** `npm run offline:validate` is 200 cases and a minute of reference replay, it exits non-zero on a failure, and it is deliberately outside the suite because a suite that takes a minute is a suite people stop running. **Until CI exists, the test docs/SIMULATION.md calls the justification for the entire approach runs when somebody types a command.**
 
-2. **CI, cross-engine determinism and deployment.** `UPDATELOGV9.md`.
+   Cross-engine determinism has a second thing to check now and it is narrower than it was. Full replay must be bit-identical across engines, which is what it always meant. The offline path must agree within tolerance, and `172f83fb` and `49ea08d3` are the two values a second engine has to reproduce exactly.
 
-**Both are independent of V7 and of each other, and CI could be pulled forward at any point.** It is the one remaining log with no dependencies: it needs no content, no economy and no interface decision, and the case for it grows with every log rather than with any particular one. **There are five build-failing guards in this project and nothing runs them except a person remembering to.** The determinism lint, the `Needs source` release gate, the DESIGN.md colour test, the divergence-row test and now the accessibility test are all mechanism on a machine nobody has automated. That is the argument for CI and it is stronger after V7 than before it, because V7 added a guard that a palette edit is exactly the kind of change somebody makes without running the suite.
+2. **Act 2, and it is decidable for the first time.** Not scheduled and not written. What changed is that every reason to defer it has been discharged: the economy is settled and documented, the text has a style guide, the interface is perceivable, saves migrate, and the engine specification is fully implemented rather than partly. **Act 2 was never blocked on the engine and it is now not blocked on anything technical.**
 
-**The ordering note that stood here for two logs is discharged.** It said docs/ECONOMY.md should go first and warned that building on an unsettled economy costs a rewrite, and V4 built saves on top of a known hole anyway. V5 paid that debt. **The same reasoning put docs/CONTENT_STYLE.md ahead of offline progress and it was right for the same reason: text written against numbers that are about to move gets written twice, and the numbers had stopped moving.** It then put accessibility ahead of offline progress, for text rather than for numbers.
+   **What is still true is the reason it has never been on the table.** docs/PROGRESSION.md lists act 2's shape as an open question for the prototype, and act 2 is the highest-risk beat in the game because it introduces damage, which is the first mechanic that can take something away from a player. Whether that reads as a metabolic consequence or as a punishment is a comprehension question, and this project has never had a reader.
 
-**And that ordering was right, for a reason nobody predicted.** The stated argument was that V7 needed V6's text to exist before it could make it perceivable, which is true and turned out to be the smaller half. The larger half is that **V7 found things wrong with the parts of the build that had been finished longest**: a file input unreachable by keyboard since V4, a focus ring invisible since V3, a colour axis that fails for one reader in twelve and was described backwards in DESIGN.md since 2026-07-29. None of those were introduced by V6 and none would have been found by building anything new. **Running an audit late finds four logs of accumulated defects at once, which is an argument for running the next one earlier rather than for having run this one late.**
+   **What would have to be true before a V10 row could be written without it being fiction.** One of two things. Either **a cold reader has played act 1**, which turns act 2's teaching beats from guesses into decisions, and Blocking item 0 is the whole of that. Or **the act 2 shape is settled in docs/PROGRESSION.md** the way act 1's was before V2, with the two damage mechanisms, the oxygen schedule and the unlock order written down and argued rather than sketched. **Writing a V10 row today would be inventing content in a state file, which is what the "Unplanned, deliberately" row exists to prevent.**
 
-**One ordering claim V6 cannot make.** V5's entry here said the comprehension pass "owns the question this project most needs answered by someone who is not its author". It did own it. **It did not answer it**, and the ordering above deliberately does not put another content log in front of V7 in the hope of answering it by building more, because the thing missing is a person rather than a feature.
+**The ordering notes from three logs are all discharged and the pattern in them is worth keeping.** docs/ECONOMY.md before saves, and V4 built on a known hole anyway and V5 paid it. docs/CONTENT_STYLE.md before offline progress, because text written against numbers that are about to move gets written twice. Accessibility before offline progress, for text rather than for numbers. **Every one of those was an argument that a foundation should be laid before something is built on it, and every one was right.**
+
+**V8 is the log that tested the pattern against a specification rather than against code, and the specification lost.** docs/SIMULATION.md Part 3 was written in July before any code existed and it called itself the hard problem. Three of its statements turned out to be wrong once something was built on them: the steady-state criterion, the assumption of piecewise-constant rates, and the fallback. **None of them could have been found by reading it more carefully.** V7 found the same shape in DESIGN.md and wrote it down as a rule: a wrong sentence in a specification survives until something is built on top of it. **V8 is the second instance and it is now a pattern rather than an anecdote.**
+
+**And one ordering claim V6 still cannot make, unchanged.** V5's entry here said the comprehension pass "owns the question this project most needs answered by someone who is not its author". It did own it. **It did not answer it**, and nothing since has either.
 
 ## The vertical slice
 
@@ -484,6 +578,8 @@ Done in V4, outside the slice: persistence. Every property this project treats a
 Done in V6, outside the slice: the comprehension pass. **It is the first log whose deliverable cannot be verified by the test suite**, and it is the first to end with a number that is zero rather than a measurement.
 
 Done in V7, outside the slice: the accessibility pass. **It is the first log that repaired defects in every earlier one**: V3's focus ring, V4's unreachable file input, V3's colour axis and a DESIGN.md sentence wrong since 2026-07-29. It is also the first whose central claim is arithmetic rather than judgement, so most of it is now a test, and the part that is not is the same part every log has left open: whether it reads.
+
+Done in V8, outside the slice: offline progress. **It is the first log whose central deliverable was specified in full before any code existed, and the first to find that the specification was wrong in three places.** The steady-state criterion could not be satisfied, the assumption of piecewise-constant rates does not hold for a Michaelis-Menten uptake from a finite pool, and the fallback destroys the cell. All three were found by building the thing rather than by reading the document again. It is also the log that finishes docs/SIMULATION.md.
 
 Done in V5, outside the slice: the economy. **The claim the slice exists to make is now asserted over nine purchasable configurations rather than two**: gross ATP per completed glucose is 4.000000000 and net is 2.000000000 at the shipped default and at the top of both ladders, while ATP per second goes from 31.795 to 75.494. docs/PROGRESSION.md says enzyme upgrades increase throughput and never yield, and that is measured across the whole ladder now rather than argued.
 

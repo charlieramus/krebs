@@ -37,6 +37,7 @@ import { RuntimeProvider, useRuntime } from './ui/RuntimeContext';
 import { About } from './ui/components/About';
 import { Announcer } from './ui/components/Announcer';
 import { FirstRunCard } from './ui/components/FirstRunCard';
+import { OfflineReturn } from './ui/components/OfflineReturn';
 import { OverlayOpenProvider } from './ui/components/Overlay';
 import { PathwayCard } from './ui/components/PathwayCard';
 import { PoolRail } from './ui/components/PoolRail';
@@ -45,6 +46,7 @@ import { TeachingPanel, TeachingPanelProvider } from './ui/components/TeachingPa
 import { UnlockShelf } from './ui/components/UnlockShelf';
 import { TopBar } from './ui/components/TopBar';
 import { YIELD_PANEL } from './ui/content';
+import { OFFLINE_REPORT_THRESHOLD_MS } from './ui/tuning';
 import { scenarioFromLocation } from './ui/scenario';
 
 function ActScreen() {
@@ -52,6 +54,20 @@ function ActScreen() {
   const [firstRun, setFirstRun] = useState(() => !runtime.firstRunSeen());
   const [about, setAbout] = useState(false);
   const [panel, setPanel] = useState(false);
+  /**
+   * The offline return, opened once at mount and never again.
+   *
+   * SAME THRESHOLD THE SAVE PANEL USES, and for the reason DESIGN.md gives for
+   * that one: a refresh is a positive offline delta of a second or two, and a
+   * panel that announces a non-event on every reload teaches the player to stop
+   * reading it. A returning player gets one overlay or none.
+   *
+   * Seeded from state rather than read every render, the same way the first run
+   * is, because the report describes the load and the load happens once.
+   */
+  const [offlineReturn, setOfflineReturn] = useState(
+    () => runtime.session.offline.creditedMs >= OFFLINE_REPORT_THRESHOLD_MS,
+  );
 
   function dismissFirstRun() {
     runtime.markFirstRunSeen();
@@ -62,7 +78,7 @@ function ActScreen() {
     // The NAD+ coach mark fires automatically on the wall, which arrives about
     // three seconds in, so on a fresh run it would open underneath the first run
     // card and spend its one firing unseen. See Overlay.tsx.
-    <OverlayOpenProvider open={firstRun || about || panel}>
+    <OverlayOpenProvider open={firstRun || about || panel || offlineReturn}>
       <TeachingPanelProvider onOpen={() => setPanel(true)}>
         {/*
           THE TOP BAR IS A SIBLING OF main, NOT A CHILD OF IT. UPDATELOGV7.md
@@ -94,6 +110,15 @@ function ActScreen() {
           <Announcer />
         </div>
 
+        {/* The return screen comes first when both could show. A player who has
+            been away eight hours has seen the first run already, because the
+            first run only shows when there is no save to be away from. */}
+        {offlineReturn ? (
+          <OfflineReturn
+            report={runtime.session.offline}
+            onDismiss={() => setOfflineReturn(false)}
+          />
+        ) : null}
         {firstRun ? <FirstRunCard onDismiss={dismissFirstRun} /> : null}
         {about ? <About onDismiss={() => setAbout(false)} /> : null}
         {panel ? <TeachingPanel content={YIELD_PANEL} onDismiss={() => setPanel(false)} /> : null}

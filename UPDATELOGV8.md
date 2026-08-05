@@ -969,7 +969,79 @@ questions diff and the NOW.md diff summary.
 
 ## Stage 6 Report
 
-_Pending._
+**The offline return screen is built, and it is the last thing on DESIGN.md's screen inventory that V8 owed.** An eight-hour absence in a real browser renders: away for 8.0 h, 319604 ATP made while away, and then four rows of what happened. **docs/SIMULATION.md is fully implemented and both canonical hashes are unchanged.**
+
+### Step 1. The return screen
+
+`src/ui/components/OfflineReturn.tsx`, an overlay on the V6 and V7 precedent, opened once at mount when the credit clears `OFFLINE_REPORT_THRESHOLD_MS`. Strings in `src/ui/content.ts` under `OFFLINE_RETURN`, every figure through `Figure`, keyboard reachable and focus managed because `Overlay` does that, and nothing carried by colour or motion.
+
+**It shows the sequence rather than a total, and it collapses it.** DESIGN.md answers docs/SIMULATION.md's open question and says why: the algorithm produces a genuine bounded event list, so showing it is honest and instructive and it teaches that metabolism is homeostatic between shocks. **The noise worry was real and it was about the wrong thing.** A day away produces up to 51 events and most of them are `glucose_env` draining a little further. Fifty rows that all say the same thing is the algorithm's step count made visible, not the event sequence, and a player learns nothing about metabolism from it.
+
+So consecutive events on one pool become one row and their durations sum. What the real eight-hour absence rendered:
+
+    Steady for  2.9 h    Glucose (environment) then it ran low
+    Steady for  2 min    Pyruvate then it ran low
+    Steady for  2 min    Glucose (environment) then it ran low
+    Steady for  5.0 h    Pyruvate then it ran low
+    The food outside the cell is gone. Nothing is coming in.
+
+**That is DESIGN.md's own target sentence**, which it writes as "steady for six hours, glucose ran low, steady again", produced by the algorithm rather than by a designer.
+
+**The boring case gets its own line and it is not an apology.** Act 1 mostly produces one event or none, so designing for the interesting case and letting the quiet one fall out as an empty list would make the screen worst exactly where it is seen most. When nothing ran low it says the cell held steady the whole time and that is what a cell does between shocks, which is a claim about biology with a `Sourced` badge on it rather than a note about a boring screen.
+
+**It is not also announced through the live region and that is deliberate.** V7's rule was that speech announces what is not otherwise reachable. The panel takes focus when it opens, so a screen reader reads it where focus lands; routing it through `Announcer.tsx` as well would say the whole thing twice. Recorded in the file, because NOW.md's own handoff note told this log that whatever the return screen renders has to reach speech, and the answer is that it does, by a different route than the act screen uses.
+
+### Step 2. The save panel sentence, and the bug the browser found in it
+
+`SAVE.awayNotSimulated` is gone. It said "None of it has been simulated. It is being kept, not spent." NOW.md called it the honest sentence that would stay wrong-sounding until this log made it false. It says **"All of it has been simulated. The cell kept running."** `offlineReturn.test.tsx` fails if the old wording comes back.
+
+**And the first version of the replacement shipped a bug that only a browser could show.** The panel branched on `uncreditedMs > 0` to decide between "all of it" and "some of it could not be simulated". `uncreditedMs` is the sub-tick remainder: game time is a whole number of ticks and wall-clock time is not, so it is non-zero on almost every load and holds anything under 50 milliseconds. **An eight-hour absence credited in full displayed "Some of it could not be simulated and has not been counted."** It now branches on `budgetExhausted`, which is the only way a material amount is left, and a source-reading test pins the condition.
+
+**Every headless test passed with that bug in it**, because none of them rendered the panel against a real remainder. That is the third defect in this log found by running the thing rather than by testing it.
+
+### Step 3. The coherence pass
+
+No `Math.pow`, `Math.exp`, `Math.log`, `Math.random` or `Date` in `src/sim/steady.ts`, `src/sim/jump.ts` or any of the new content files; the only occurrences are the comments saying they are banned. No object-key iteration on any hot path. No allocation per tick in the detector, which `steady.test.ts` asserts by reading its own source and which was probed by adding a real allocation.
+
+**The ESLint guard needed no scope change.** Everything new landed in `src/sim/**`, `src/content/**` or `src/ui/**`, all three of which the config already covers correctly, and no new directory appeared. `src/content/act1/offlineValidation.ts` uses `performance.now`, which is a monotonic duration reading rather than a wall clock, never enters simulation state and is used only to report how long the reference side took; the file says so.
+
+### Step 4. Full verify
+
+`npm run typecheck` clean. `npm run lint` clean. `npm run build` clean. `npm test` **504 passed across 41 files**, up from V7's 415 across 34. `npm run offline:validate` exits 0 with every case inside tolerance.
+
+    tests     415 across 34   V7        504 across 41   V8
+    bundle    268.94 kB       V7        278.31 kB       V8
+    gzipped    83.73 kB       V7         86.60 kB       V8
+
+**Both full-replay canonical hashes are unchanged.** `172f83fb` for the kernel fixture and `49ea08d3` for act 1. The offline path is additive and the one kernel edit it needed, extracting `step` out of `tick`, changes no arithmetic on the live path. **No tuned number moved**: `git diff` across the three tuning files, `docs/SCIENCE.md` and `docs/ECONOMY.md` is empty for the whole log.
+
+### Step 5. NOW.md
+
+Status rewritten around what a real absence produces and around docs/SIMULATION.md being finished. Build state table: V8 done 2026-08-05, V9 relabelled the last planned log. A **"What the offline path does"** section, sibling to the other four, carrying both validated constants with their bands and both failure modes, the three constants Part 3 never named, the tolerance with the argument for why it cannot be the conservation tolerance, and the determinism scoping, which is the part a future maintainer is most likely to trip over.
+
+**Three items closed and one opened.**
+
+Closed: `STEADY_EPSILON` and `STEADY_WINDOW` as unvalidated placeholders, **which was the oldest entry on the page**, open since V1. The backgrounded tab losing game time, open since V3 and narrowed by V4 with V4 saying in its own words that narrower is not closed. And `offlineCreditedMs` being zero in every save.
+
+Opened, as **Blocking item 6**: the fallback destroys the cell. It is the first item on that list that is a defect in a specification rather than a gap in the build, and it carries the measured alternative so the decision is available rather than only the problem.
+
+A **Settled 2026-08-05, by V8** section with eleven entries, the last of which is the one worth keeping longest: a wrong sentence in a specification survives until something is built on top of it. V7 wrote that about DESIGN.md. **V8 found three in a document written before any code existed and careful enough to reject four approaches with reasons, which makes it a pattern rather than an anecdote.**
+
+"Next, in order" is rewritten. CI is now the only planned log and the argument for it is one item stronger: the Part 3 validation sweep has a slow band that deliberately does not run in `npm test`, so **the test that document calls the justification for the entire approach runs when somebody types a command.** Act 2 is decidable for the first time and the entry says exactly what would have to be true before a V10 row could be written without being fiction: either a cold reader has played act 1, or act 2's shape is settled in docs/PROGRESSION.md the way act 1's was before V2.
+
+### Step 6. The open questions
+
+**One closed, one given its first data point, one unchanged**, and the section says which is which.
+
+Closed: whether the offline summary should show the event sequence. Yes, DESIGN.md decided it and it is built.
+
+First data point: act 4's settling time. Act 1 uses at most 85 percent of `SETTLE_MAX_TICKS` and every healthy configuration uses 32 to 41 percent. **The binding case is the NAD+ stall rather than any busy configuration**, because a stall is a slow decay rather than a fast approach to equilibrium. That says nothing about act 4 except which configuration to measure first.
+
+Unchanged: whether the enumeration stays tractable with act 4 substrate switching. Act 1 has one event kind and the count is bounded by the geometry of a single draining pool. **What act 1 did find is a failure mode worth expecting**: an event that is asymptotic rather than discrete, which is what a saturating reaction on a finite pool produces, and which made the enumeration non-terminating until it was handled.
+
+### What this stage did not commit
+
+`TODOS.md` and `docs/designs/` appeared in the working tree during this session from a separate CEO review rather than from any stage of this log. They are left untracked rather than folded into `stage6v8`, because a stage commit should contain that stage's work and nothing else.
 
 ---
 

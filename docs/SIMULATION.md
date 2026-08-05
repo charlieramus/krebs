@@ -235,6 +235,16 @@ STEADY_EPSILON and STEADY_WINDOW were marked "tune during prototype" from 2026-0
 
 # Open questions for prototype
 
-- What is the real settling time of an act 4 configuration? If it exceeds 60 game-seconds, SETTLE_MAX_TICKS needs raising and the offline path gets more expensive.
-- Does the event enumeration in Part 3 step 3 stay tractable once act 4 substrate switching exists, or does the event count per window grow past the budget?
-- Should the offline summary show the player the event sequence that occurred while they were away? It would be honest, it would teach, and it might be noise.
+Updated 2026-08-05 by UPDATELOGV8.md stage 6, which was the first log able to answer any of them. One is closed, one has its first data point and one is unchanged.
+
+- **STILL OPEN, with act 1's answer recorded.** What is the real settling time of an act 4 configuration? If it exceeds 60 game-seconds, SETTLE_MAX_TICKS needs raising and the offline path gets more expensive.
+
+  Act 1 settles in at most 1015 ticks against a budget of 1200, which is 85 percent, and every healthy configuration uses between 32 and 41 percent. The binding case is not a healthy one. **It is the NAD+ stall**, because a stall is a slow decay toward zero rather than a fast approach to equilibrium, so it settles slowly for the same reason it looks like nothing is happening. Act 4 will have more pools, more coupling and at least one more timescale, so this says nothing about it except which configuration to measure first: its worst stall rather than its busiest state.
+
+- **STILL OPEN, and act 1 cannot narrow it.** Does the event enumeration in Part 3 step 3 stay tractable once act 4 substrate switching exists, or does the event count per window grow past the budget?
+
+  Act 1 has one event kind and needs 27 to 51 events for a twenty-four hour window. That count is bounded by the geometry of a single draining pool and tells you nothing about a system that switches substrates. What act 1 did find is a failure mode worth expecting: an event that is asymptotic rather than discrete, which is what a substrate consumed by a saturating reaction produces, and which made the enumeration non-terminating until it was handled. Any act with a Michaelis-Menten uptake has it.
+
+- **CLOSED 2026-08-05.** Should the offline summary show the player the event sequence that occurred while they were away? It would be honest, it would teach, and it might be noise.
+
+  Yes. DESIGN.md's screen inventory decided it before the code existed, on the grounds that the algorithm produces a genuine bounded event list and showing it teaches that metabolism is homeostatic between shocks rather than smoothly accumulating. It is built. **The noise worry was real and it was about the wrong thing**: the sequence is not noisy because it is a sequence, it is noisy because a day away produces up to 51 events and most of them are the same pool draining further. Consecutive events on one pool collapse into one row, which leaves the sentence DESIGN.md wrote as its own target.
