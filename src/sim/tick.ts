@@ -57,6 +57,29 @@ export function setShortfallLogging(enabled: boolean): void {
 }
 
 export function tick(state: SimulationState): void {
+  step(state, TICK_SECONDS, 1);
+}
+
+/**
+ * One step of arbitrary length. `tick` is this at TICK_SECONDS.
+ *
+ * ADDED BY UPDATELOGV8.md STAGE 5, FOR ONE CALLER, and the caller is the
+ * offline fallback. docs/SIMULATION.md Part 3 specifies coarse replay at 1Hz
+ * when a configuration will not settle, which is a twenty-fold larger timestep
+ * than the simulation's own, and the only way to take one honestly is to take a
+ * real step of that length rather than to drop nineteen ticks in twenty.
+ *
+ * `tickAdvance` is how much game time the step covers, in ticks, so a one
+ * second step advances `tickCount` by TICK_RATE_HZ. Game time stays an integer
+ * count, which docs/SIMULATION.md Part 5 requires.
+ *
+ * NOTHING ELSE MAY CALL THIS WITH ANYTHING BUT TICK_SECONDS. Part 3's own
+ * rejection of coarse replay says explicit Euler with a large step is unstable
+ * in precisely this system and produces wrong answers rather than approximate
+ * ones. That is why it is the fallback rather than the method, and a second
+ * caller would be reintroducing the thing the piecewise path exists to avoid.
+ */
+export function step(state: SimulationState, seconds: number, tickAdvance: number): void {
   const { pools, reactions, fluxes, scales, demand, poolFactors, consumed, produced } = state;
   const amounts = pools.amounts;
   const reactionCount = reactions.length;
@@ -80,7 +103,7 @@ export function tick(state: SimulationState): void {
   for (; passes < MAX_SCALING_PASSES; passes += 1) {
     demand.fill(0);
     for (let r = 0; r < reactionCount; r += 1) {
-      const consumedUnits = (fluxes[r] as number) * (scales[r] as number) * TICK_SECONDS;
+      const consumedUnits = (fluxes[r] as number) * (scales[r] as number) * seconds;
       if (consumedUnits === 0) continue;
       const substrates = (reactions[r] as Reaction).substrates;
       for (let i = 0; i < substrates.length; i += 1) {
@@ -128,7 +151,7 @@ export function tick(state: SimulationState): void {
   consumed.fill(0);
   produced.fill(0);
   for (let r = 0; r < reactionCount; r += 1) {
-    const units = (fluxes[r] as number) * (scales[r] as number) * TICK_SECONDS;
+    const units = (fluxes[r] as number) * (scales[r] as number) * seconds;
     if (units === 0) continue;
     const reaction = reactions[r] as Reaction;
     const substrates = reaction.substrates;
@@ -150,7 +173,7 @@ export function tick(state: SimulationState): void {
   // (e) Game time is an integer count. docs/SIMULATION.md Part 5 forbids
   // accumulating it as a float. Conversion to milliseconds is a boundary
   // concern and lives in loop.ts.
-  state.tickCount += 1;
+  state.tickCount += tickAdvance;
 
   if (DEV) assertBelowCeiling(state);
 }

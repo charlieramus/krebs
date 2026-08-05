@@ -70,18 +70,21 @@
  */
 
 import {
+  COARSE_STEP_SECONDS,
   EVENT_BUDGET,
   MAX_JUMP_DEPLETION_FRACTION,
   OFFLINE_DEPLETED_FRACTION,
   OFFLINE_TAIL_FRACTION,
   SAFE_VALUE_CEILING,
   SETTLE_MAX_TICKS,
+  TICK_RATE_HZ,
+  TICK_SECONDS,
 } from './constants';
 import { DEV } from './dev';
 import type { Reaction, StoichiometryTerm } from './reactions';
 import type { SimulationState } from './state';
 import { observeSteady, replayUntilSteady, type SteadyDetector } from './steady';
-import { tick } from './tick';
+import { step, tick } from './tick';
 
 /**
  * One flag per pool: does any enabled reaction consume it.
@@ -283,7 +286,7 @@ function assertBelowCeiling(state: SimulationState): void {
  * already been overwritten.
  */
 export interface OfflineObserver {
-  onTick?(state: SimulationState): void;
+  onTick?(state: SimulationState, seconds: number): void;
   capture?(state: SimulationState): void;
   advance?(ticks: number): void;
 }
@@ -419,7 +422,7 @@ export function resolveOffline(
     const refine = Math.min(SETTLE_MAX_TICKS - settle.ticksRun, remaining);
     for (let i = 0; i < refine; i += 1) {
       tick(state);
-      if (onTick !== undefined) onTick(state);
+      if (onTick !== undefined) onTick(state, TICK_SECONDS);
       observeSteady(detector, state);
     }
     remaining -= refine;
@@ -557,4 +560,39 @@ export function resolveOffline(
     discarded,
     events,
   };
+}
+
+/**
+ * The fallback. docs/SIMULATION.md Part 3, "Fallback".
+ *
+ * If steady state is not reached within SETTLE_MAX_TICKS, replay coarsely at
+ * 1Hz until the window is consumed.
+ *
+ * IT IS KNOWINGLY WORSE THAN THE PATH IT BACKS UP, and Part 3 says so in the
+ * same document that specifies it: its own rejection of coarse replay as a
+ * method is that explicit Euler with a large step is unstable in precisely this
+ * nonlinear system and produces wrong answers rather than approximate ones. A
+ * twenty-fold timestep is exactly that. It exists because losing the player's
+ * time entirely is worse than crediting it badly, and because the flag it
+ * raises is a bug signal a maintainer can act on.
+ *
+ * `diagnostics.offlineFallbackCount` is the caller's to increment, because the
+ * kernel does not own the save schema.
+ */
+export function coarseReplay(
+  state: SimulationState,
+  windowTicks: number,
+  observer?: OfflineObserver,
+): number {
+  const onTick = observer?.onTick;
+  const perStep = COARSE_STEP_SECONDS * TICK_RATE_HZ;
+  let covered = 0;
+  while (covered < windowTicks) {
+    const advance = Math.min(perStep, windowTicks - covered);
+    const seconds = advance / TICK_RATE_HZ;
+    step(state, seconds, advance);
+    if (onTick !== undefined) onTick(state, seconds);
+    covered += advance;
+  }
+  return covered;
 }

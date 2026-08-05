@@ -47,6 +47,7 @@ import {
   type Act1Meter,
   type Act1MeterProbes,
 } from '../content/act1/meter';
+import { createAct1OfflineObserver } from '../content/act1/offline';
 import { ACT1_POOL_IDS, type Act1PoolId } from '../content/act1/pools';
 import {
   ACT1_REACTION_IDS,
@@ -68,6 +69,8 @@ import { serializeReadable } from '../save/codec';
 import { currentBuildId, epochNow } from '../save/meta';
 import { parseAndMigrate } from '../save/migrations';
 import { computeOfflineDelta } from '../save/offline';
+import { coarseReplay, resolveOffline, type OfflineEventRecord } from '../sim/jump';
+import { createSteadyDetector } from '../sim/steady';
 import type { SaveSettingsV1, SaveV1 } from '../save/schema';
 import {
   createSaveStore,
@@ -252,6 +255,34 @@ export interface Act1Session {
   readonly reason: string | null;
   /** The version found, when the save came from a newer build. */
   readonly futureVersion: number | null;
+  /** What the offline path did with `awayMs` plus anything already pending. */
+  readonly offline: Act1OfflineReport;
+}
+
+/**
+ * What the offline path did with the time this session was away.
+ *
+ * Everything the return screen needs, and nothing it does not. Present on every
+ * session; `creditedMs` is zero when there was nothing to credit, which is the
+ * common case and is what a reload produces.
+ */
+export interface Act1OfflineReport {
+  /** Game time actually simulated, in milliseconds. */
+  readonly creditedMs: number;
+  /** Time that was owed and not simulated, in milliseconds. Non-zero only when the budget ran out. */
+  readonly uncreditedMs: number;
+  /** Cumulative gross ATP produced while away. */
+  readonly atpProduced: number;
+  /** The event sequence, which DESIGN.md's screen inventory says to show. */
+  readonly events: readonly OfflineEventRecord[];
+  /** Pool ids, so the return screen can name an event without importing the registry. */
+  readonly poolIds: readonly string[];
+  /** Whether the coarse-replay fallback ran. docs/SIMULATION.md Part 3 calls this a bug signal. */
+  readonly fellBack: boolean;
+  /** Whether EVENT_BUDGET ran out. Not the same thing as falling back. */
+  readonly budgetExhausted: boolean;
+  /** How long the credit took, in real milliseconds. Measured, not estimated. */
+  readonly elapsedRealMs: number;
 }
 
 export type ImportOutcome =
@@ -416,7 +447,13 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * it was handed.
    */
   let settings: SaveSettingsV1 = restoredOk === null ? {} : restoredOk.settings;
-  const carried: Act1CarriedCounters = restoredOk?.carried ?? ACT1_NO_CARRIED_COUNTERS;
+  /**
+   * `let` rather than `const` since UPDATELOGV8.md stage 5, and replaced rather
+   * than mutated for the same reason `settings` is: the fields are readonly and
+   * the readonly half is the useful half. The offline credit is the only thing
+   * that moves them.
+   */
+  let carried: Act1CarriedCounters = restoredOk?.carried ?? ACT1_NO_CARRIED_COUNTERS;
   const createdAt = restoredSave?.meta.createdAt ?? epochClock();
 
   const poolCount = state.pools.count;
@@ -555,7 +592,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
   }
 
   /* =========================================================================
-     THE OFFLINE DELTA. Computed once, at the boundary, and spent by nobody.
+     THE OFFLINE DELTA, AND SPENDING IT. docs/SIMULATION.md Part 3.
      ========================================================================= */
 
   const offline =
@@ -567,11 +604,97 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * Accumulated onto the same field a backgrounded tab already feeds.
    *
    * V3 left `pendingOfflineMs` on the snapshot with nothing consuming it, so a
-   * hidden tab lost game time into a counter nobody read. V4 makes that counter
-   * survive a reload and adds real time away to it. IT STILL CREDITS NOTHING.
-   * Not one tick of this is simulated, and V5 owns spending it.
+   * hidden tab lost game time into a counter nobody read. V4 made that counter
+   * survive a reload and added real time away to it, and credited none of it.
+   *
+   * TWO SOURCES AND BOTH ARE REAL. Time the loop routed here when a catch-up
+   * exceeded MAX_CATCHUP_TICKS, which is the backgrounded tab, and time measured
+   * at load from a genuine absence. Both are elapsed game time that was never
+   * simulated and both are spent the same way, which is why they share a field
+   * rather than being told apart.
+   *
+   * The three clock rules V4 established are not reimplemented here. The delta
+   * is computed once, at the boundary, from now minus `meta.lastSavedAt`;
+   * negative credits zero; positive caps at MAX_OFFLINE_HOURS. All three live in
+   * `computeOfflineDelta` above and this spends what they produce.
    */
   state.diagnostics.pendingOfflineMs += offline.awayMs;
+
+  const offlineReport = creditPendingOffline();
+
+  /**
+   * Spend `pendingOfflineMs`. Called once, before the first frame.
+   *
+   * `elapsedGameMs` is a whole multiple of TICK_MS by construction, so the
+   * window is floored to whole ticks and the sub-tick remainder stays pending
+   * rather than being rounded into existence. That is the same rule
+   * docs/SAVE_SCHEMA.md Part 3 applies to reconstruction.
+   */
+  function creditPendingOffline(): Act1OfflineReport {
+    const startedAt = clock();
+    const pendingMs = state.diagnostics.pendingOfflineMs;
+    const windowTicks = Math.floor(pendingMs / TICK_MS);
+    const atpBefore = meter.atpProduced;
+
+    if (windowTicks <= 0) {
+      return {
+        creditedMs: 0,
+        uncreditedMs: 0,
+        atpProduced: 0,
+        events: [],
+        poolIds: ACT1_POOL_IDS,
+        fellBack: false,
+        budgetExhausted: false,
+        elapsedRealMs: 0,
+      };
+    }
+
+    const observer = createAct1OfflineObserver(probes, meter);
+    const outcome = resolveOffline(
+      state,
+      createSteadyDetector(state.pools.count),
+      windowTicks,
+      observer,
+    );
+
+    let coveredTicks = outcome.ticksResolved;
+    let fellBack = false;
+
+    /*
+     * THE FALLBACK. docs/SIMULATION.md Part 3, and it is a bug signal rather
+     * than a normal condition. Act 1 as V5 balanced it always settles and stage
+     * 4 asserts that over 200 randomized cases, so reaching this line means
+     * something about the economy changed and docs/ECONOMY.md wants to know.
+     *
+     * Falling back is NOT the same as exhausting the event budget and the two
+     * are kept apart. A budget exhaustion means the window was too eventful to
+     * finish; a fallback means the configuration would not settle at all.
+     */
+    if (!outcome.resolved && outcome.ticksRemaining > 0) {
+      fellBack = true;
+      coveredTicks += coarseReplay(state, outcome.ticksRemaining, observer);
+    }
+
+    const creditedMs = coveredTicks * TICK_MS;
+    state.diagnostics.pendingOfflineMs = pendingMs - creditedMs;
+    carried = {
+      ...carried,
+      offlineCreditedMs: carried.offlineCreditedMs + creditedMs,
+      eventsProcessed: carried.eventsProcessed + outcome.events.length,
+      offlineFallbackCount: carried.offlineFallbackCount + (fellBack ? 1 : 0),
+    };
+
+    return {
+      creditedMs,
+      uncreditedMs: state.diagnostics.pendingOfflineMs,
+      atpProduced: meter.atpProduced - atpBefore,
+      events: outcome.events,
+      poolIds: ACT1_POOL_IDS,
+      fellBack,
+      budgetExhausted: outcome.budgetExhausted,
+      elapsedRealMs: clock() - startedAt,
+    };
+  }
 
   const session: Act1Session = {
     kind: store === null ? 'disabled' : (loaded?.kind ?? 'new-game'),
@@ -586,6 +709,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     reason:
       loaded?.kind === 'recoverable' || loaded?.kind === 'unreadable' ? loaded.reason : null,
     futureVersion: loaded?.kind === 'future' ? loaded.version : null,
+    offline: offlineReport,
   };
 
   const listeners = new Set<Act1SnapshotListener>();

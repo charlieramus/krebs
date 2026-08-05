@@ -208,6 +208,12 @@ export const OFFLINE_DEPLETED_FRACTION = 1e-12;
  */
 export const OFFLINE_TAIL_FRACTION = 1e-4;
 
+/**
+ * Timestep of the coarse-replay fallback, in game-seconds. docs/SIMULATION.md
+ * Part 3, "Fallback", which specifies 1Hz. Twenty times TICK_MS.
+ */
+export const COARSE_STEP_SECONDS = 1;
+
 /** Offline credit cap, in hours. docs/SIMULATION.md Part 3, clock tampering. Also bounds the coarse-replay fallback. */
 export const MAX_OFFLINE_HOURS = 24;
 

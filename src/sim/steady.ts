@@ -63,7 +63,7 @@
  * No iteration over object keys. Indexed loops over typed arrays only.
  */
 
-import { STEADY_EPSILON, STEADY_WINDOW } from './constants';
+import { STEADY_EPSILON, STEADY_WINDOW, TICK_SECONDS } from './constants';
 import type { SimulationState } from './state';
 import { tick } from './tick';
 
@@ -222,7 +222,7 @@ export function replayUntilSteady(
   state: SimulationState,
   detector: SteadyDetector,
   maxTicks: number,
-  onTick?: (state: SimulationState) => void,
+  onTick?: (state: SimulationState, seconds: number) => void,
 ): SettleResult {
   resetSteadyDetector(detector, state);
 
@@ -232,7 +232,7 @@ export function replayUntilSteady(
   while (ticksRun < maxTicks) {
     tick(state);
     ticksRun += 1;
-    if (onTick !== undefined) onTick(state);
+    if (onTick !== undefined) onTick(state, TICK_SECONDS);
     if (observeSteady(detector, state)) {
       settled = true;
       break;

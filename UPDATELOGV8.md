@@ -774,7 +774,119 @@ are now non-zero in a written save.
 
 ## Stage 5 Report
 
-_Pending._
+**`pendingOfflineMs` is spent.** A real eight-hour absence, driven in a real browser against a real save with `lastSavedAt` edited backwards, returns a cell at **482.5 elapsed game-minutes with 160000 lactate, an empty environment and 320000 cumulative ATP**, from a save that left off at 110 game-seconds. `time.offlineCreditedMs` and `stats.eventsProcessed` are non-zero for the first time in the project's history.
+
+**And the fallback was run deliberately, which the stage asked for, and it is much worse than Part 3 predicted.** Coarse replay at 1Hz credits **exactly zero ATP** from every act 1 configuration. It does not approximate act 1, it kills it. That is a finding and it goes to Blocking.
+
+### Step 1. Spending it, and the three rules that were not reimplemented
+
+`creditPendingOffline` in `src/ui/runtime.ts`, called once at construction, before the first frame. It floors `pendingOfflineMs` to whole ticks, resolves the window through `resolveOffline`, and writes the leftover back.
+
+**V4's three clock rules are wired rather than rewritten.** The delta is computed once at the boundary from now minus `meta.lastSavedAt`, negative credits zero, positive caps at `MAX_OFFLINE_HOURS`. All three live in `computeOfflineDelta` and this stage spends what they produce. Reimplementing them here would have been two copies of one rule, which is the specific way V4 said save formats rot.
+
+**Both sources of `pendingOfflineMs` are spent the same way and that is why they share a field.** Time the loop routed there when a catch-up exceeded `MAX_CATCHUP_TICKS`, which is a backgrounded tab, and time measured at load from a genuine absence. Both are elapsed game time that was never simulated.
+
+**The sub-tick remainder stays pending rather than being rounded into existence**, which is the same rule docs/SAVE_SCHEMA.md Part 3 applies to reconstruction. Asserted: 60037 ms away credits 60000 and leaves 37 pending.
+
+### Step 2. The fields that stop being zero
+
+`time.offlineCreditedMs` accumulates across sessions and is never reset, per docs/SAVE_SCHEMA.md. Asserted: two one-minute absences leave it at 120000. `stats.eventsProcessed` likewise. `diagnostics.offlineFallbackCount` stays at zero, which is the point of it.
+
+**Two V4 tests were rewritten rather than deleted, and the old text is worth quoting.** `persistence.test.ts` asserted "NOT ONE TICK OF IT IS SIMULATED. That is V5's, and this is the seam", with the whole three hours sitting in `pendingOfflineMs` and `offlineCreditedMs` at zero. That was the correct assertion for V4 to make and it is the exact behaviour this log exists to replace, so the test moved with the behaviour.
+
+### Step 3. The fallback, and what it actually does to act 1
+
+Implemented exactly as Part 3 specifies: coarse replay at 1Hz, bounded by the same window, `offlineFallbackCount` incremented, and **kept separate from budget exhaustion**, which is a different field for a different condition.
+
+It needed one kernel change. `tick` hardcoded `TICK_SECONDS`, so a 1Hz step was not expressible. `src/sim/tick.ts` now has `step(state, seconds, tickAdvance)` and `tick` is that at `TICK_SECONDS`, with every existing call site unchanged. **The alternative was simulating one tick in twenty, which is not coarse replay, it is dropping time.** The meter took the same treatment: `recordAct1Tick` accepts the step length, defaulting to `TICK_SECONDS`, because a meter that assumed the tick length would undercount a coarse step twentyfold and the symptom would look like the fallback losing progress rather than like a bookkeeping bug.
+
+**Run deliberately, against full replay:**
+
+    configuration    window     replay ATP    coarse ATP    relative
+    fermenting       10 min          19048             0    1.00e+0
+    fermenting       60 min         114287             0    1.00e+0
+    walled           10 min             60             0    1.00e+0
+    walled           60 min             60             0    1.00e+0
+    glycolytic-4     10 min          45206             0    1.00e+0
+    glycolytic-4     60 min         269820             0    1.00e+0
+
+**Zero, from every configuration, at every length.** `prep` costs 2 ATP per unit of flux and a one-second step asks for twenty times what a tick asks for, against an adenylate pool of 40. The proportional scaling saves conservation and nothing else: ATP goes to the floor on the first step, the preparatory phase can no longer pay its entry cost, and the payoff phase never runs again. **The fallback drives act 1 straight into the unrecoverable ATP state NOW.md blocking item 1 describes**, and it does it from a healthy cell.
+
+Part 3's own rejection of coarse replay says explicit Euler with a large step "produces wrong answers rather than approximate ones". **It understated it. The wrong answer is total.**
+
+**What is not wrong with it, measured, because the distinction matters.** It conserves all five quantities to better than 1e-9, because a coarse step is still the two-phase update. It never drives a pool negative. It covers a window that is not a whole number of coarse steps rather than dropping the remainder. So the implementation is correct and the specification is not.
+
+**Asserted as exactly zero rather than bounded loosely, on purpose.** If a later change makes the fallback survivable, `fallback.test.ts` fails and whoever made it can delete the blocking item this opened rather than leaving a stale warning on the page.
+
+**It was not repaired here and the reason is scope.** Changing Part 3's fallback is a spec decision, this is a wiring stage, and the log's own Decisions section says the fallback is a bug signal and must not be absorbed by being made comfortable. **The measured alternative is in the report for stage 6 to carry to Blocking**: Part 3 rejected full replay because "the cost is unbounded in elapsed time", and `MAX_OFFLINE_HOURS` bounds it. A full-fidelity replay of the maximum credit is 1459 ms, measured in stage 4. That is a visible stall and it is correct, against 22 ms that is not.
+
+**Nothing reaches it in normal play.** Act 1 always settles, asserted over 200 randomized cases in stage 4 and over every configuration here.
+
+### Step 4. The budget, and making it visible
+
+`EVENT_BUDGET` exhaustion and falling back are separate fields on `Act1OfflineReport`, which is on every session rather than only when something went wrong, so the return screen never has to guess which shape it was handed:
+
+    creditedMs        game time actually simulated
+    uncreditedMs      time owed and not simulated. Non-zero only on exhaustion
+    atpProduced       cumulative gross ATP made while away
+    events            the sequence, which DESIGN.md says to show
+    fellBack          the bug signal
+    budgetExhausted   not the same thing
+    elapsedRealMs     what it cost, measured rather than estimated
+
+**The remaining window on exhaustion is left uncredited and reported rather than silently dropped**, which is the distinction Part 3 draws when it rejects capped replay for losing player progress silently. Act 1 never reaches it.
+
+### Step 5. Determinism across the credit
+
+A save loaded twice with the same injected clock credits identically: same tick count, same event count, same pool amounts to the bit, same meter, same progression. **The wall clock is an input rather than a source of variation**, and that is now a test rather than an argument.
+
+### Step 6. What it costs, measured
+
+**Twenty-four hours of absence: 22.0 ms, 38 events.** Eight hours from a fermenting cell: **24.6 ms, 27 events**. A frame is 16.7 ms, so the worst case is under two frames and it happens once, before the first frame is drawn.
+
+The test asserts under 1000 ms rather than under 25, and says why in its own comment: it is a tripwire rather than a performance budget. If crediting a day ever takes a second, the algorithm has stopped scaling with events and started scaling with time, which is the property the whole approach exists for.
+
+### What a real eight-hour absence produces
+
+Measured twice. Headless, from a save with fermentation bought at 500 ticks:
+
+    credited      8.00 hours, 27 events, 24.6 ms real
+    ATP produced  319234 while away, against 766 before
+    lactate       380 to 160000
+    glucose_env   0 left
+    fell back     false      budget exhausted false
+
+**160000 lactate is the carbon ceiling**, which is the whole environment converted, and `glucose_env` at zero is the honest consequence: eight hours is longer than act 1's food lasts. **That is a property of the economy rather than a defect in the credit** and it belongs to docs/ECONOMY.md if anybody wants it different.
+
+### The browser check, which was run rather than reported unrun
+
+`npm run dev`, a real Chromium, a real save. Played to the NAD+ wall, bought lactate dehydrogenase, let it run to 110 game-seconds, then edited `meta.lastSavedAt` eight hours backwards and loaded the act screen.
+
+**Elapsed reads 482.5 min. Lactate reads 160000.00. Glucose (environment) reads 0.00. ATP reads 0.02 against ADP 39.98. The uptake capacity slot reads 320000 of 4000 ATP made and its button is live.** Every net rate is 0.00, which is correct: the cell has eaten everything there was.
+
+**Two things the browser found that headless did not.**
+
+**The save panel is now wrong, and it is wrong in the exact words stage 6 is told to replace.** It reads "Away for 8.0 h. None of it has been simulated. It is being kept, not spent." NOW.md called that "the honest sentence that will stay wrong-sounding until this log makes it true". It is true no longer.
+
+**`beforeunload` overwrites `lastSavedAt` on reload, and it took two failed attempts to see it.** Editing the save and calling `location.reload()` fires the unload autosave, which rewrites `lastSavedAt` to now, so the gap the test was constructing was destroyed before the page could read it. The working method is a second page on the same origin that patches the save while the app is not loaded. **This is the same `beforeunload` NOW.md records as wired, not load-bearing, and destructive the one time it demonstrably fired.** It fired again. Recorded here rather than acted on, because the fix is V4's sealed-session pattern and this stage has no business widening it.
+
+### The diff
+
+    src/sim/tick.ts                   `step` extracted, `tick` is it at TICK_SECONDS
+    src/sim/constants.ts              COARSE_STEP_SECONDS
+    src/sim/jump.ts                   coarseReplay, and onTick carries the step length
+    src/sim/steady.ts                 the same signature widening
+    src/content/act1/meter.ts         recordAct1Tick takes a step length
+    src/content/act1/offline.ts       passes it through
+    src/ui/runtime.ts                 creditPendingOffline, Act1OfflineReport, carried counters
+    src/save/__tests__/persistence.test.ts   two V4 tests rewritten, five added
+    src/content/act1/__tests__/fallback.test.ts  new, 7
+
+**No tuned number moved and both canonical hashes are unchanged.** `tick` is byte-equivalent to what it was: the extraction changes no arithmetic.
+
+### Verify
+
+`npm test` **491 passed across 40 files**, up from 479 across 39. `npm run typecheck` clean. `npm run lint` clean. `npm run build` clean at **273.99 kB, 85.66 kB gzipped**, up from 268.94 and 83.73, which is the first bundle movement in this log and is the offline path reaching the interface for the first time. `npm run dev` checked in a real browser as above.
 
 ---
 

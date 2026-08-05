@@ -40,8 +40,8 @@ export function createAct1OfflineObserver(
 ): OfflineObserver {
   const rates = createAct1MeterRates();
   return {
-    onTick(state: SimulationState): void {
-      recordAct1Tick(state, probes, meter);
+    onTick(state: SimulationState, seconds: number): void {
+      recordAct1Tick(state, probes, meter, seconds);
     },
     capture(state: SimulationState): void {
       captureAct1MeterRates(state, probes, rates);
