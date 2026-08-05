@@ -34,7 +34,7 @@
  * the player is between upgrades.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSnapshotEffect } from '../RuntimeContext';
 import { Badge } from './Badge';
 import { Button } from './Button';
@@ -58,6 +58,10 @@ export function InfoAffordance({ onClick, label }: { onClick: () => void; label:
       type="button"
       onClick={onClick}
       aria-label={label}
+      // 16px has no room for the inner focus rule index.css gives everything
+      // else, and a pill carries no shadow for an outer one to collide with.
+      // See the focus section of index.css.
+      data-focus-ring="outer"
       className="flex size-4 shrink-0 items-center justify-center rounded-pill border-solid border-ink bg-white text-micro font-body font-extrabold leading-none text-ink"
       style={{ borderWidth: 'var(--outline-pill)' }}
     >
@@ -71,14 +75,47 @@ export function CoachMark({
   onDismiss,
   onAction,
   actionEnabled,
+  autoFocus = false,
 }: {
   content: CoachMarkContent;
   onDismiss: () => void;
   onAction: () => void;
   actionEnabled: boolean;
+  /**
+   * Whether to take focus on open. TRUE ONLY WHEN THE PLAYER ASKED FOR IT.
+   *
+   * A mark opened from the info affordance is a thing the player just did, and
+   * focus should follow it. The NAD+ mark fires by itself on the wall, and
+   * moving focus without the player having done anything takes the keyboard out
+   * of their hands mid-sentence. It is also the one thing a screen reader user
+   * would experience as the page grabbing them. So the automatic firing draws
+   * the mark and leaves focus alone, and stage 4 owns announcing it instead.
+   */
+  autoFocus?: boolean;
 }) {
+  const card = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    card.current?.querySelector('button')?.focus();
+  }, [autoFocus]);
+
+  /**
+   * Escape closes it, to the same contract Overlay gives the panels. A coach
+   * mark is not an overlay, it is drawn inline in the pool rail, but a player
+   * who has learned that Escape dismisses the thing on top of the screen should
+   * not have to learn that this one is different.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onDismiss();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onDismiss]);
+
   return (
-    <Card surface="white" className="flex max-w-[42ch] flex-col gap-2 p-3">
+    <Card surface="white" className="flex max-w-[42ch] flex-col gap-2 p-3" containerRef={card}>
       <span className="flex items-center justify-between gap-2">
         <span className="font-display font-semibold text-card-title leading-tight">
           {content.heading.text}
@@ -132,8 +169,25 @@ export function useCoachMark(trigger: CoachMarkTrigger): {
   open: boolean;
   show: () => void;
   dismiss: () => void;
+  /**
+   * Whether this opening was the player's doing. Drives whether the mark takes
+   * focus, and it is a separate fact from `open` because the same mark can
+   * arrive either way. See CoachMark's `autoFocus`.
+   */
+  requested: boolean;
 } {
   const [open, setOpen] = useState(false);
+  const [requested, setRequested] = useState(false);
+  /**
+   * What had focus when the player asked for the mark, so dismissing can give
+   * it back. Stage 1 measured the cost of not doing this on the About panel:
+   * close it and focus is on `document.body`, so the next Tab restarts from the
+   * top of the document rather than from the control the player was on.
+   *
+   * Null when the mark fired by itself, which is what makes dismissing an
+   * unrequested mark leave focus exactly where the player left it.
+   */
+  const opener = useRef<HTMLElement | null>(null);
   // A ref rather than state: firing once is bookkeeping, not something the tree
   // needs to re-render over, and reading it inside the subscription avoids the
   // setState-inside-setState shape that a state flag would need.
@@ -155,11 +209,28 @@ export function useCoachMark(trigger: CoachMarkTrigger): {
     if (autoFired.current) return;
     autoFired.current = true;
     setOpen(true);
+    // Deliberately does not set `requested`. Nothing the player did opened it,
+    // so nothing should move under their hands.
   });
 
   return {
     open,
-    show: () => setOpen(true),
-    dismiss: () => setOpen(false),
+    requested,
+    show: () => {
+      opener.current = document.activeElement as HTMLElement | null;
+      setRequested(true);
+      setOpen(true);
+    },
+    dismiss: () => {
+      setOpen(false);
+      setRequested(false);
+      const back = opener.current;
+      opener.current = null;
+      // `isConnected` because the thing that opened the mark can be gone by the
+      // time it closes. The clearest case is the ferment slot: the mark's own
+      // action buys the unlock and the affordance survives, but a later mark on
+      // a card that has changed would not.
+      if (back?.isConnected === true) back.focus();
+    },
   };
 }

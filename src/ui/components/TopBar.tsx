@@ -20,7 +20,7 @@
 import { Figure } from './Figure';
 import { Badge, type BadgeSpec } from './Badge';
 import { Button } from './Button';
-import { ABOUT, READOUTS, WORDMARK } from '../content';
+import { ABOUT, LANDMARKS, READOUTS, WORDMARK } from '../content';
 import { poolIndex, type Act1Snapshot } from '../runtime';
 
 const ATP = poolIndex('atp');
@@ -102,20 +102,31 @@ export function TopBar({ onOpenAbout }: { onOpenAbout: () => void }) {
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-end gap-8">
+      <div className="flex flex-wrap items-end gap-8" role="group" aria-label={LANDMARKS.readouts.text}>
+        {/*
+          NO COLOUR ON THE FIGURES. UPDATELOGV7.md stage 5.
+
+          These were `text-atp` and `text-substrate` and they are the two worst
+          contrast ratios stage 1 found anywhere on the screen: 2.00:1 and
+          2.05:1 on the page ground, against a 3:1 floor, on the largest type in
+          the game. Neither colour was carrying anything the label beside it was
+          not already saying in words.
+
+          It is also what DESIGN.md's own direction asks for. "Illustration can
+          be warm, numbers cannot" has been in the Direction section since
+          2026-07-28, and a coloured headline figure was warming a number.
+        */}
         <Headline
           label={READOUTS.atpRate.text}
           badge={READOUTS.atpRate.badge}
           read={readAtpPerSecond}
           unit="/s"
-          colour="text-atp"
         />
         <Headline
           label={READOUTS.glucoseRate.text}
           badge={READOUTS.glucoseRate.badge}
           read={readGlucosePerSecond}
           unit="/s"
-          colour="text-substrate"
         />
         <Headline
           label={READOUTS.elapsed.text}

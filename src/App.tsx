@@ -35,6 +35,7 @@
 import { useState } from 'react';
 import { RuntimeProvider, useRuntime } from './ui/RuntimeContext';
 import { About } from './ui/components/About';
+import { Announcer } from './ui/components/Announcer';
 import { FirstRunCard } from './ui/components/FirstRunCard';
 import { OverlayOpenProvider } from './ui/components/Overlay';
 import { PathwayCard } from './ui/components/PathwayCard';
@@ -63,22 +64,35 @@ function ActScreen() {
     // card and spend its one firing unseen. See Overlay.tsx.
     <OverlayOpenProvider open={firstRun || about || panel}>
       <TeachingPanelProvider onOpen={() => setPanel(true)}>
-        <main className="min-h-screen bg-page text-ink">
+        {/*
+          THE TOP BAR IS A SIBLING OF main, NOT A CHILD OF IT. UPDATELOGV7.md
+          stage 4. A `<header>` that descends from `<main>` does not get the
+          `banner` role, and stage 1 read the tree and found it coming out as a
+          plain `sectionheader`, so the three headline readouts could not be
+          reached by landmark navigation at all. The page background moved to
+          this wrapper, which is the only thing `<main>` was carrying it for.
+        */}
+        <div className="min-h-screen bg-page text-ink">
           <TopBar onOpenAbout={() => setAbout(true)} />
 
-          {/* DESIGN.md, Layout: a grid column holding a wide pathway SVG must
-              set min-width: 0, or the SVG forces the track wider than its
-              container. */}
-          <div className="grid grid-cols-1 gap-4 px-8 pb-8 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
-            <PoolRail />
+          <main>
+            {/* DESIGN.md, Layout: a grid column holding a wide pathway SVG must
+                set min-width: 0, or the SVG forces the track wider than its
+                container. */}
+            <div className="grid grid-cols-1 gap-4 px-8 pb-8 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+              <PoolRail />
 
-            <div className="flex min-w-0 flex-col gap-4">
-              <PathwayCard />
-              <UnlockShelf />
-              <SavePanel />
+              <div className="flex min-w-0 flex-col gap-4">
+                <PathwayCard />
+                <UnlockShelf />
+                <SavePanel />
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
+
+          {/* The one live region. Announces events and never the tick. */}
+          <Announcer />
+        </div>
 
         {firstRun ? <FirstRunCard onDismiss={dismissFirstRun} /> : null}
         {about ? <About onDismiss={() => setAbout(false)} /> : null}

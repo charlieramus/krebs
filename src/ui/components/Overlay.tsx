@@ -26,7 +26,30 @@
  * the same rule.
  */
 
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react';
+
+/**
+ * Everything inside `root` that a keyboard can reach, in document order.
+ *
+ * A query rather than a registry, because the overlays' contents are ordinary
+ * components that should not have to know they are inside one. `disabled` is
+ * excluded by the selector, and the scrim button excludes itself with
+ * `tabindex="-1"` for the same reason it is `aria-hidden`: it is a click target
+ * for a pointer and it is not a control.
+ */
+const FOCUSABLE = ['button', '[href]', 'input', 'select', 'textarea', '[tabindex]']
+  // The exclusions have to apply to EVERY term, not to a trailing one. The
+  // first version put `:not([tabindex="-1"])` only on the generic `[tabindex]`
+  // term, so the scrim, which is a button carrying `tabindex="-1"` precisely so
+  // it stays out of the tab order, still matched `button` and became the first
+  // thing focused when a panel opened. Caught by opening the About panel in a
+  // browser and reading what had focus.
+  .map((term) => `${term}:not([disabled]):not([tabindex="-1"]):not([aria-hidden="true"])`)
+  .join(', ');
+
+function focusable(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE));
+}
 
 /**
  * Whether some overlay is currently on top of the act screen.
@@ -67,18 +90,92 @@ export function Overlay({
   label: string;
   dim?: boolean;
 }) {
-  // Escape closes it. Cheap, expected, and it is the only way out that does not
-  // require finding a control.
+  const frame = useRef<HTMLDivElement>(null);
+
+  /**
+   * FOCUS MANAGEMENT. UPDATELOGV7.md stage 3, and every part of it is repairing
+   * something stage 1 measured on the real page rather than anticipating a
+   * problem.
+   *
+   * Move focus in. Stage 1 found the About panel open with `document.body`
+   * still focused, so a keyboard player opened a panel and stayed outside it,
+   * and on a fresh launch the first run card was the EIGHTH tab stop, after
+   * every control on the act screen. Focus goes to the first control inside, or
+   * to the frame itself if there is none.
+   *
+   * Trap, but only when this is really modal. `dim` is already what drives
+   * `aria-modal`, so the two cannot disagree: a dimmed overlay says the
+   * background is inert and now keeps focus out of it, and an undimmed one says
+   * the background is live and lets focus leave. Stage 1 found the dimmed
+   * panels claiming `aria-modal="true"` while all nine controls behind them
+   * were still tabbable, which is worse than no dialog role at all, because
+   * assistive technology hides a background the keyboard walks straight into.
+   *
+   * Return focus on close, to whatever opened it. Without this, dismissing a
+   * panel drops the player back to the top of the document.
+   *
+   * The undimmed first run keeps its promise. It is not trapped, so a player
+   * can tab straight past it into the running act screen, which is the whole
+   * argument for it not dimming in the first place.
+   */
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const root = frame.current;
+    if (root !== null) {
+      const first = focusable(root)[0];
+      if (first !== undefined) first.focus();
+      else root.focus();
+    }
+    return () => {
+      // Only if focus is still somewhere in here or nowhere. A player who
+      // clicked something on the act screen has already chosen where to be.
+      const active = document.activeElement;
+      const inside = root !== null && active !== null && root.contains(active);
+      if ((inside || active === document.body) && opener?.isConnected === true) opener.focus();
+    };
+  }, []);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onDismiss();
+      // Escape closes it. Cheap, expected, and it is the only way out that does
+      // not require finding a control.
+      if (event.key === 'Escape') {
+        onDismiss();
+        return;
+      }
+      if (event.key !== 'Tab' || !dim) return;
+
+      const root = frame.current;
+      if (root === null) return;
+      const stops = focusable(root);
+      if (stops.length === 0) {
+        event.preventDefault();
+        root.focus();
+        return;
+      }
+      const first = stops[0] as HTMLElement;
+      const last = stops[stops.length - 1] as HTMLElement;
+      const active = document.activeElement;
+      // Wrap at both ends, and also catch focus that is already outside, which
+      // is what happens when the player tabs in from the act screen behind.
+      if (event.shiftKey && (active === first || !root.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !root.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onDismiss]);
+  }, [onDismiss, dim]);
 
   return (
     <div
+      ref={frame}
+      // Focusable as a target but never a tab stop, so an overlay with no
+      // controls in it still has somewhere to put focus.
+      tabIndex={-1}
       role="dialog"
       aria-modal={dim}
       aria-label={label}

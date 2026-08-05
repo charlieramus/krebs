@@ -31,12 +31,19 @@ import { useLiveNode, useRuntime, useSnapshotEffect } from '../RuntimeContext';
 import { poolIndex, type Act1Snapshot } from '../runtime';
 import type { Act1PoolId } from '../../content/act1/pools';
 import { Badge } from './Badge';
-import { Blob } from './Blob';
+import { Blob, setRedoxLevel } from './Blob';
 import { Card } from './Card';
 import { CoachMark, COACH_MARK_TRIGGER, InfoAffordance, useCoachMark } from './CoachMark';
 import { Figure } from './Figure';
 import { useOpenTeachingPanel } from './TeachingPanel';
-import { blobReadout, CARRIER_READOUT, MOLECULES, POOL_FIGURES } from '../content';
+import {
+  blobReadout,
+  carrierState,
+  CARRIER_READOUT,
+  FIGURE_LABELS,
+  MOLECULES,
+  POOL_FIGURES,
+} from '../content';
 import { carbonOf, phosphateOf, type PoolCardSpec } from '../poolCards';
 import { FERMENT_ATP_THRESHOLD } from '../tuning';
 
@@ -44,19 +51,46 @@ import { FERMENT_ATP_THRESHOLD } from '../tuning';
 const FLAT_RATE = 1e-6;
 
 function SignedRate({ read }: { read: (snapshot: Act1Snapshot) => number }) {
+  /**
+   * MOVING OR FLAT, IN INK. UPDATELOGV7.md stage 5.
+   *
+   * This used to be `gain` when rising and `loss` when falling, which is
+   * DESIGN.md's own definition of those two tokens and read well. It measured
+   * at 2.17:1 for `gain` on the pink carrier card against a 3:1 floor for text
+   * this size, and it cannot be fixed by moving the token: darkening `gain`
+   * enough to read on a pale surface takes the ink word on the Sourced badge
+   * from 6.54:1 to 3.30:1, which breaks the badge contract to fix a rate.
+   *
+   * The semantic colours in this palette are chosen so INK reads on them, and a
+   * colour with that property cannot also read as text on a pale surface. That
+   * is a fact about how the palette is built rather than a defect in it, and
+   * DESIGN.md now states it as a rule: a semantic colour fills, ink writes.
+   *
+   * Nothing is lost that was only here. Direction is carried by the sign
+   * character, which `Figure` renders explicitly and which `pathway.test.tsx`
+   * has asserted since stage 2, and the channel table in UPDATELOGV7.md already
+   * listed the sign rather than the colour as what survives. What remains is a
+   * lightness step: a pool that is moving is ink and a pool that is flat is
+   * ink2, both well clear of the floor.
+   */
   const ref = useLiveNode<HTMLSpanElement>((element, snapshot) => {
     const rate = read(snapshot);
-    const colour =
-      rate > FLAT_RATE
-        ? 'var(--color-gain)'
-        : rate < -FLAT_RATE
-          ? 'var(--color-loss)'
-          : 'var(--color-ink2)';
+    const moving = rate > FLAT_RATE || rate < -FLAT_RATE;
+    const colour = moving ? 'var(--color-ink)' : 'var(--color-ink2)';
     if (element.style.color !== colour) element.style.color = colour;
   });
 
   return (
     <span ref={ref} className="inline-flex">
+      {/*
+        Which of the two numbers on this card is the rate. DESIGN.md says so by
+        making it large, and type size is not a channel speech has: stage 1 read
+        the tree and found a card announcing as "Glucose, SOURCED, +7.95, /s,
+        GLUCOSE, 944.72", two figures with nothing distinguishing them. The
+        stock below already carries a visible label, so this is the only one
+        that was unnamed.
+      */}
+      <span className="sr-only">{FIGURE_LABELS.netRate.text}</span>
       <Figure
         read={read}
         decimals={2}
@@ -91,27 +125,72 @@ function Stock({ poolId }: { poolId: Act1PoolId }) {
 
 /**
  * DESIGN.md illustration rule 3, and the single most important colour decision
- * in the system: redox is saturation, not hue.
+ * in the system. Since UPDATELOGV7.md stage 2 it is carried on two channels.
  *
- * One silhouette, one fill, moving along the axis between `oxidized` and
- * `reduced` as the pool is reduced. The two electron dots NADH carries fade in
- * along the same axis, because rule 3 gives NADH dots and NAD+ none, and a
- * fixed pair of dots on a pool that is only half reduced would be a lie about
- * the count.
+ * ---------------------------------------------------------------------------
+ * COLOUR, AND A LEVEL
+ * ---------------------------------------------------------------------------
  *
- * The mix is the NADH fraction of the nicotinamide total, which is a conserved
+ * One silhouette, filled `oxidized`, with the reduced fraction of it overlaid
+ * in `reduced` and the boundary drawn as a hard ink rule. The rule's HEIGHT is
+ * the reading and it does not depend on hue, which is what makes the wall
+ * legible to a player who cannot separate the two tokens. Stage 1 measured that
+ * player into existence: 3.21 dE between the two states act 1 moves between,
+ * under protanopia, against a just-noticeable difference of 2.3.
+ *
+ * Colour is unchanged at both ends of the axis and that is the point of doing
+ * it this way rather than by replacing the fill with a pattern. Fully oxidized
+ * is the flat `oxidized` blob that shipped in V3 and fully reduced is the flat
+ * `reduced` one. What went is the interpolated mix in between, and it went
+ * because a level is the truer statement: the pool holds real NAD+ and real
+ * NADH in a proportion, not one substance of intermediate colour.
+ *
+ * The fraction is NADH over the nicotinamide total, which is a conserved
  * quantity, so the denominator cannot drift.
+ *
+ * ---------------------------------------------------------------------------
+ * THE ELECTRON DOTS ARE LEFT ALONE, DELIBERATELY
+ * ---------------------------------------------------------------------------
+ *
+ * They are rule 3's other half and they remain what they were: two dots whose
+ * opacity is the reduced fraction. They were the obvious candidate for this
+ * channel and they lost, for a reason recorded in the stage 2 report. A count
+ * cannot carry a continuous quantity here without lying, because NADH carries
+ * two electrons as a hydride and there is no carrier holding one, so quantising
+ * to zero, one and two would put a species on the screen that does not exist.
  */
 function NicotinamideBlob({ seed }: { seed: number }) {
   const nad = poolIndex('nad');
   const nadh = poolIndex('nadh');
 
-  const pathRef = useLiveNode<SVGPathElement>((element, snapshot) => {
+  const levelRef = useLiveNode<SVGGElement>((element, snapshot) => {
     const oxidized = snapshot.amounts[nad] as number;
     const reduced = snapshot.amounts[nadh] as number;
     const total = oxidized + reduced;
-    const fraction = total > 0 ? reduced / total : 0;
-    element.setAttribute('fill', mixRedox(fraction));
+    // The geometry belongs to Blob.tsx. This passes a fraction and nothing else.
+    setRedoxLevel(element, total > 0 ? reduced / total : 0);
+  });
+
+  /**
+   * THE ACCESSIBLE NAME IS THE READING, NOT THE LEGEND. UPDATELOGV7.md stage 4.
+   *
+   * Stage 1 read the tree and found this blob announcing as "NAD+ and NADH. One
+   * shape, and the colour is which one it is." On the one card in the game where
+   * the picture is the entire signal, the name explained the encoding and
+   * withheld the state. A screen reader user was told the colour means something
+   * and never told what the colour currently was.
+   *
+   * Banded rather than numeric, and `content.ts` says why. Quantised to the band
+   * rather than to the fraction, so the attribute is written when the READING
+   * changes, four or five times across a whole act, rather than whenever the
+   * twelfth decimal place moves.
+   */
+  const nameRef = useLiveNode<SVGSVGElement>((element, snapshot) => {
+    const oxidized = snapshot.amounts[nad] as number;
+    const reduced = snapshot.amounts[nadh] as number;
+    const total = oxidized + reduced;
+    const next = carrierState(total > 0 ? reduced / total : 0).text;
+    if (element.getAttribute('aria-label') !== next) element.setAttribute('aria-label', next);
   });
 
   const electronsRef = useLiveNode<SVGGElement>((element, snapshot) => {
@@ -135,38 +214,31 @@ function NicotinamideBlob({ seed }: { seed: number }) {
     <Blob
       carbon={carbonOf('nad')}
       phosphate={phosphateOf('nad')}
-      fill={mixRedox(0)}
+      // The two ends of the axis, straight off the tokens. No interpolation
+      // anywhere now, so nothing here has to reach past var() into channel
+      // values the way the old mix did, and index.css stays the definition of
+      // record for both colours rather than only for their endpoints.
+      fill="var(--color-oxidized)"
+      reducedFill="var(--color-reduced)"
       seed={seed}
       electrons={2}
       size={54}
-      // One silhouette, two states, and the readout is what says the colour is
-      // the state rather than a decoration. Item 11 of UPDATELOGV6.md's
-      // thirteen-item table, which DESIGN.md calls its most important colour
-      // decision and which nothing on the screen had ever stated.
+      // One silhouette, two states, and the readout is what says the level and
+      // the colour are the state rather than a decoration. Item 11 of
+      // UPDATELOGV6.md's thirteen-item table, which DESIGN.md calls its most
+      // important colour decision and which nothing on the screen had ever
+      // stated.
       label={CARRIER_READOUT.text}
-      pathRef={pathRef}
+      // The hover readout stays the encoding and the accessible name becomes
+      // the reading. See Blob's `stateLabel`. Seeded at fully oxidized, which is
+      // what a fresh act 1 starts at, so the name is right on the first paint
+      // rather than for one frame saying nothing.
+      stateLabel={carrierState(0).text}
+      rootRef={nameRef}
+      levelRef={levelRef}
       electronsRef={electronsRef}
     />
   );
-}
-
-/**
- * The redox axis, as a flat colour at any instant.
- *
- * DESIGN.md forbids gradients, and this is not one: it is a single flat fill
- * whose value is a function of simulation state, recomputed per frame. Hardcoded
- * channel values rather than var() because there is no way to interpolate
- * between two CSS custom properties without a colour-mix the test would have to
- * learn to read. The two endpoints are DESIGN.md's `oxidized` and `reduced`, and
- * the token block remains their definition of record.
- */
-function mixRedox(fraction: number): string {
-  const from = [0xa9, 0xbf, 0xb8]; // --color-oxidized #A9BFB8
-  const to = [0x23, 0xbf, 0xa0]; // --color-reduced  #23BFA0
-  const f = Math.min(1, Math.max(0, fraction));
-  const channel = (i: number): number =>
-    Math.round((from[i] as number) + ((to[i] as number) - (from[i] as number)) * f);
-  return `rgb(${channel(0)} ${channel(1)} ${channel(2)})`;
 }
 
 export function PoolCard({ spec }: { spec: PoolCardSpec }) {
@@ -226,6 +298,10 @@ export function PoolCard({ spec }: { spec: PoolCardSpec }) {
         <span className="absolute left-0 top-full z-20 mt-2 w-max max-w-[min(42ch,80vw)]">
           <CoachMark
             content={mark}
+            // Only when the player asked. See CoachMark's `autoFocus`: the NAD+
+            // mark fires on the wall by itself and must not take the keyboard
+            // out of anybody's hands to do it.
+            autoFocus={coach.requested}
             onDismiss={coach.dismiss}
             // Only the buy action can be unaffordable. An action that opens a
             // panel is always available, and disabling it would read as the

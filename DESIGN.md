@@ -1,8 +1,8 @@
 # Design System
 
-Last updated: 2026-07-29
+Last updated: 2026-08-04
 Direction: Honest Cartoon
-Status: partly implemented. V3 built the act 1 screen against a running simulation. See "What survived contact" below for what shipped, what was deferred and what turned out to be wrong.
+Status: partly implemented. V3 built the act 1 screen against a running simulation and V7 made it perceivable. See "What survived contact" below for what shipped, what was deferred and what turned out to be wrong, and Accessibility for the rule this document should have had from the start.
 
 The visual contract. Read this before making any UI decision. If a visual choice conflicts with anything here, the choice loses.
 
@@ -70,7 +70,9 @@ Surfaces are pastel. Meaning is saturated. Ink is a single near-black used for e
     gradient    #3FC9E0   act 3 proton motive force
     nitrogen    #C3CE3C   act 4 waste and disposal cost
 
-`reduced` and `oxidized` are deliberately the same shape at different saturation. When the redox pool drains, the player watches the NAD+ wall arrive as colour leaving before any number is read. This is the single most important colour decision in the system.
+`reduced` and `oxidized` are deliberately the same shape at different saturation. This is the single most important colour decision in the system, and since 2026-08-04 it is carried on a second channel as well, because a decision this important must not depend on one. See Accessibility.
+
+**The sentence that used to be here was backwards and it is corrected rather than deleted.** It said the player watches the NAD+ wall arrive as colour *leaving*. `oxidized` is the desaturated end of the axis, so as NAD+ drains, **colour arrives**: saturation rises into the wall and falls again when fermentation runs. V3 encoded the reduced fraction, which is monotonic in one quantity and legible from across a room, and it is the opposite of what this document described. Recorded as wrong on 2026-07-29 and left wrong for two logs because nothing depended on it. V7 built a channel for the axis and had to describe the axis to do it, which is what finally forced the correction.
 
 No gradients anywhere. No purple as a decorative accent. Lilac means contested, and only that.
 
@@ -91,7 +93,7 @@ Rules, in priority order:
 
 1. **Sides equal carbons.** Glucose is a six-sided blob. Pyruvate is three-sided. When one six splits into two threes, the arithmetic is visible rather than stated.
 2. **Phosphate dots are countable.** ATP carries three, ADP carries two. Spending energy visibly removes a dot.
-3. **Redox is saturation, not hue.** NADH and NAD+ are the same silhouette. NADH is `reduced` with two electron dots. NAD+ is `oxidized` and empty.
+3. **Redox is saturation and a level.** NADH and NAD+ are the same silhouette. NADH is `reduced` with two electron dots. NAD+ is `oxidized` and empty. The reduced fraction of the pool is drawn as a level, with a hard ink rule at the boundary, because saturation alone does not survive a colour vision deficiency. See Accessibility. Amended 2026-08-04 by V7; the original rule read "saturation, not hue" and was right about hue and incomplete about everything else.
 4. **Enzymes are machines with a notch.** The notch is shaped like the enzyme's substrate. This is induced fit drawn as a cartoon, and it teaches specificity for free.
 5. **Damage is cracks.** Act 2 degradation draws as `loss` coloured cracks across the enzyme blob, not as a percentage buried in a table.
 6. **ROS have X eyes.** Hazards read as characters, not as icons.
@@ -185,7 +187,77 @@ Flux animates along pathway arrows as flowing dashes at a speed proportional to 
 
 Buttons translate 3px into their own shadow on `:active` and drop the shadow to zero.
 
-**Accessibility obligation.** Because motion carries information, `prefers-reduced-motion` must not simply disable it. Reduced motion swaps flowing dashes for a static arrow plus an explicit numeric rate. Nothing in the game may be encoded in movement alone.
+Because motion carries information, `prefers-reduced-motion` must not simply disable it. Reduced motion swaps flowing dashes for a static arrow plus an explicit numeric rate. The rule this is an instance of has its own section below.
+
+## Accessibility
+
+Added 2026-08-04 by V7. This section is a promotion rather than an addition: the rule below was already here, under Motion, applying to one of the two properties it should always have applied to.
+
+**Nothing in the game may be encoded in movement or colour alone.**
+
+The reasoning is the direction's own. Every visual property carries simulation state, so a player who cannot perceive a property cannot read the state. That was accepted for motion on 2026-07-28 and the only reason it was not written for colour is that colour was decided first and never revisited.
+
+**It is not an argument, it is a measurement.** V7 stage 1 simulated the three common colour vision deficiencies against real screenshots of the act screen. `reduced` and `oxidized`, which this document calls the single most important colour decision in the system, are 37.50 dE apart in normal vision, 17.35 under deuteranopia and **7.64 under protanopia, end to end**. The two states a player actually moves between during act 1 sit 3.21 apart, against a just-noticeable difference of 2.3. Around one in twelve boys in the classroom `docs/PILLARS.md` success condition 1 describes could not read the game's central teaching beat.
+
+**The fix is redundant encoding, never replacement.** Colour stays and keeps being the fast channel. A second channel is added alongside so the information survives the loss of the first. Replacing colour with a pattern for everyone would make the game worse for the majority to serve a minority, which is the wrong trade and an avoidable one.
+
+### The second channel for redox is a level
+
+Illustration rule 3 gains a clause. The carrier's silhouette is filled `oxidized`, the reduced fraction of it is overlaid in `reduced`, and **the boundary between them is a hard ink rule whose height is the reading.** Position is the channel and ink is the contrast, and neither depends on hue.
+
+The silhouette does not change. Both ends of the axis render exactly as they did before the channel existed, so a fully oxidized carrier is the flat `oxidized` blob and a fully reduced one is the flat `reduced` blob. What went is the interpolated mix in between, and **the level is the truer statement**: the pool holds real NAD+ and real NADH in a proportion, not one substance of intermediate colour.
+
+A level gauge carries no signal at its own ends, so at exactly 0 and exactly 1 the rule sits on the outline and is invisible. Those two are told apart by the electron dots, which rule 3 already gives to NADH and denies to NAD+. **The level is load-bearing across the range and the dot count is load-bearing at the ends.**
+
+### A semantic colour fills, ink writes
+
+The palette is built so that ink reads on every semantic colour. That is what makes the badge contract work, and it is also why **a semantic colour cannot be the colour of text.**
+
+Measured, and it is not a preference. Darkening `gain` far enough to read as micro text on white takes the ink word on the Sourced badge from 6.54:1 to 3.30:1. The same token cannot serve both jobs, so it does the one the palette was designed for.
+
+    the top bar figures      were atp and substrate on the page ground,
+                             2.00:1 and 2.05:1, the two worst ratios on the
+                             screen and on the largest type in the game
+    a pool card net rate     was gain or loss, 2.17:1 on the pink carrier card
+    the unlock progress      was gain, 2.70:1 as micro text on white
+
+All three are ink now, and none of them lost a channel: direction is carried by the sign character, and a threshold being reached is carried by the button below it becoming operable. This also settles a tension that had been in this document since the start. **Direction has said "illustration can be warm, numbers cannot" since 2026-07-28, and a coloured headline figure was warming a number.**
+
+**`ink3` may not carry meaning at all.** It is 2.96:1 on white at full opacity, which is under the text floor on every surface in this palette, and 2.83:1 as a mark on cream, which is under the non-text floor too. It remains in the token block and nothing uses it. Its description above says "disabled, locked", and that is what it can no longer be trusted to say.
+
+**Dimming compounds and has to be counted that way.** Locked content stays visible and dimmed, and at `opacity-55` that dim was destroying the three other channels carrying lockedness: a locked slot's title measured 3.85:1, its detail line 2.36:1 and its button label 1.65:1, which is under the floor for a decorative border. The dim is **0.85**, where the same three are 11.00, 4.51 and 4.51. The dashed border with no shadow still says locked at a glance, which is the point: lockedness never depended on the dim.
+
+### The focus indicator is drawn inside
+
+Added by V7 stage 3, and the shadow is the reason it is not outside. `4px 4px 0` is a solid ink copy of the shape down and to the right, so an outer ring is clean along the top and left edges and merges into the shadow along the other two, and an indicator visible on two sides of an element is not an indicator.
+
+    3px solid ink, outline-offset -6px, on :focus-visible
+
+Drawn inside, it sits on the element's own surface, is identical on all four sides, and never touches the shadow. It reads as deliberate because a second hard stroke inside the first is this system's own language, and nothing else draws an inner rule, so it cannot be confused with a state. Ink against the surfaces a focused control can sit on is 14.19:1 or better against a 3:1 requirement, and the negative offset is what makes those the adjacent colours rather than the element's own ink border, which is the mistake the browser default makes at 1.02:1.
+
+Small controls take the ring outside instead, because 16px has no room for an inner rule and a pill carries no shadow for an outer one to collide with.
+
+### What speech is told
+
+Announce events, expose rates on demand, never narrate the tick.
+
+This is a simulation whose numbers change twenty times a second, and a live region pointed at any of them produces continuous speech, which is worse than silence. The line to draw is the one the architecture already draws: React re-renders only on discrete events while the display samples per frame, and that third clock is the set of things worth saying out loud. **Act 1 contains sixteen of them end to end.**
+
+One `aria-live="polite"` region, atomic, and nothing else on the screen carries `aria-live` at all. Rates are exposed as text and read on demand rather than announced, and the text is the same figure the reduced-motion path already renders rather than a second one, because a parallel readout drifts.
+
+**An accessible name states the reading, not the legend.** The carrier's name was "One shape, and the colour is which one it is", which told a screen reader user that the colour means something and never what the colour currently was. It says the state. In bands rather than as a figure, because the picture carries a level and a level is read as roughly how full, and because **a number in an `aria-label` has nowhere to put a badge**, which would make it a quantitative claim with no provenance. Every number stays where a badge can reach it.
+
+### How much of this is mechanism
+
+`src/ui/__tests__/accessibility.test.ts`, the fifth guard in the project after the determinism lint, the `Needs source` release gate, the colour test and the divergence-row test.
+
+Tested, because it is arithmetic: every rendered pair clears its WCAG 2.2 AA threshold, computed from the tokens in `index.css` and from the dim read out of `Card.tsx`, so a palette change fails the build rather than failing a user. No semantic colour is used as a text colour by either route, class or live style write. Every meaning in the channel table names a second channel and that channel is present in the build.
+
+**Not tested, and deliberately not faked: whether a channel READS.** Whether an ink rule across a blob says "half the carrier is reduced" to somebody who has never seen the game is the same kind of question as whether the voice in `docs/CONTENT_STYLE.md` is right, and `contentStyle.test.ts` refuses to fake that one for the same reason. It needs a reader.
+
+### What is in scope and what is not
+
+`prefers-contrast` and `forced-colors` are in scope. `prefers-reduced-transparency` is not, because the design has no transparency to reduce.
 
 ## Screen inventory
 
@@ -308,7 +380,7 @@ Illustration rules 4 to 6, because act 1 has no enzyme objects, no damage and no
 ### What turned out to be wrong
 
 - **Two dots on a blob read as a face.** Rules 2 and 3 give NADH two electron dots and ATP three phosphate dots, and the obvious layouts of both, a pair in the upper half and a row across the middle, produced little characters with eyes. That collides directly with rule 6, which reserves faces for ROS, and with the beast. Fixed by moving electrons to the upper-right edge and laying phosphates out as a diagonal chain. **The chain is better than the row on biological grounds too**, since ATP's phosphates are a chain and hydrolysis removes the terminal one, so a row was quietly saying they are interchangeable. This document should say where dots go, not just how many.
-- **"Colour leaving" is ambiguous, and as written it is backwards.** The Colour section says the player watches the NAD+ wall arrive as colour leaving, but `oxidized` is the desaturated end of the axis, so as NAD+ drains, colour *arrives*. V3 encodes the reduced fraction, so saturation rises into the wall and falls when fermentation runs. That is monotonic in one quantity and it is legible from across a room, but it is not what this sentence says.
+- ~~**"Colour leaving" is ambiguous, and as written it is backwards.**~~ **Corrected 2026-08-04 by V7**, in the Colour section, where the sentence now says colour arrives and says why the old one was kept on the page rather than quietly deleted. It stood wrong for two logs because nothing depended on it. What forced the fix is that V7 had to describe the axis correctly in order to build a second channel for it, which is worth noting as a pattern: **a wrong sentence in a specification survives until something is built on top of it.**
 - **The wordmark scale does not fit a persistent top bar.** 60 to 104px is a hero scale. On an act screen carrying eight pool cards, a pathway and an unlock shelf it takes a permanent 100px band for a word that never changes, and it was the largest thing on screen at all times. Implemented as specified and recorded as wrong.
 - **A coach mark cannot live inside the left rail.** The rail is 17rem. Rendered inline the mark came out at about twenty characters a line, against this document's own "comfortable in prose at 64ch". It is an overlay in the screen inventory and it has to actually be one, positioned out of its column.
 - **`Needs source` yellow is not in the palette, and should not be.** The badge contract asks for yellow and the Colour section has none. That is correct rather than an omission: the state is development-only, it must never reach a release build, and a colour that is deliberately outside the token set is the right way to make it look alien. It is hardcoded in the component. This document should say so.
@@ -365,3 +437,9 @@ Illustration rules 4 to 6, because act 1 has no enzyme objects, no damage and no
 | 2026-08-04 | The disclosure moved off the act screen into the two surfaces docs/SCIENCE.md actually asks for | Part 1 requires it "in the about screen and on first launch". V3 had neither surface and used a permanent footer as a substitute, which meets "on first launch" only in the sense that it also meets every other launch. Both halves are now met literally, and the copy moved rather than duplicating: the same 350 characters in three places is three places to drift. A test parses the blockquote out of docs/SCIENCE.md and fails if the game disagrees with it. |
 | 2026-08-04 | Illustration rules 1 to 3 say what they encode, on the shape itself | DESIGN.md's argument for rule 1 is that a player told ONCE that a six-sided blob has six carbons can read the whole pathway afterwards. Nothing had ever told them, so the design's central claim was being made to nobody. Every blob now carries a readout composed from the same conserved-weight table the geometry is drawn from, as an `aria-label` and a `<title>`. It is a hover affordance, so it is unreachable by touch and by keyboard, which is the next log's problem. |
 | 2026-07-31 | The return line never announces an absence shorter than a minute | A refresh is a positive offline delta, so the panel announced "Away for 0 min" on every reload. True, and noise. A panel that cries wolf on every reload will not be believed on the day it says something went wrong. |
+| 2026-08-04 | Nothing may be encoded in movement **or colour** alone, and it is its own section rather than a clause under Motion | Not an argument, a measurement. V7 stage 1 simulated the three common colour vision deficiencies on real screenshots: the `reduced` to `oxidized` axis is 37.50 dE end to end in normal vision and **7.64 under protanopia**, with the two states act 1 moves between 3.21 apart against a just-noticeable difference of 2.3. The rule was already accepted for motion in 2026-07-28 and the only reason it was not written for colour is that colour was decided first and never revisited. |
+| 2026-08-04 | The second channel for redox is a level with a hard ink rule, not a texture and not the electron dots | The dots were the strongest candidate and lost on chemistry: NADH carries two electrons as a hydride and there is no carrier holding one, so quantising a continuous fraction to zero, one and two would draw a species that does not exist. A level is continuous, derived, and **truer than the mix it replaces**, because the pool holds real NAD+ and real NADH in a proportion rather than one substance of intermediate colour. Texture lost on legibility at 54px and on introducing vocabulary this system does not have. |
+| 2026-08-04 | A semantic colour fills, and ink writes | The palette is built so ink reads on every semantic colour, which is what makes the badge contract work, and a colour with that property cannot also read as text on a pale surface. Measured: darkening `gain` far enough to read as micro text takes the ink word on the Sourced badge from 6.54:1 to 3.30:1. One token cannot do both jobs, so it does the one it was designed for. This also settles Direction's own "illustration can be warm, numbers cannot", which a coloured headline figure had been contradicting since V3. |
+| 2026-08-04 | The locked-slot dim is 0.85, not 0.55 | Dimming compounds with whatever it dims. At 0.55 a locked slot's title was 3.85:1, its detail 2.36:1 and its button label 1.65:1, which is under the floor for a decorative border let alone for text, so the dim was destroying the three other channels carrying lockedness. The dashed border with no shadow still says locked at a glance, which is the point: lockedness never depended on the dim. |
+| 2026-08-04 | The focus indicator is drawn INSIDE the element | The hard offset shadow is a solid ink copy of the shape down and to the right, so an outer ring is clean on two edges and merges into the shadow on the other two. An indicator visible on two sides is not an indicator. Drawn inside it is identical on all four sides, never touches the shadow, and reads as this system's own language rather than as a browser default. The browser default measured 1.02:1 against the ink border it was drawn on. |
+| 2026-08-04 | Speech announces events, exposes rates on demand, and never narrates the tick | The line is the one the architecture already draws between the three clocks. Act 1 contains sixteen events end to end, against roughly 74000 ticks, and a live region pointed at a rate would make the game unusable rather than accessible. The rates a screen reader reads are the same figures the reduced-motion path renders, not a parallel set, because a parallel set drifts. |

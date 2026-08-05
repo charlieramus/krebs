@@ -131,7 +131,12 @@ export function SavePanel() {
   }
 
   return (
-    <Card surface="cream" className="flex min-w-0 flex-col gap-2 p-4">
+    // A LANDMARK, added by UPDATELOGV7.md stage 4. The h2 was already here and
+    // was already correct; what was missing was a region for it to name, so
+    // stage 1 found the save panel unreachable by landmark navigation while the
+    // unlock shelf beside it was not.
+    <Card surface="cream" className="flex min-w-0 flex-col p-4">
+    <section aria-label={SAVE.heading.text} className="flex min-w-0 flex-col gap-2">
       <span className="flex items-center gap-2">
         <h2 className="font-display font-semibold text-card-title uppercase tracking-label text-ink2">
           {SAVE.heading.text}
@@ -181,15 +186,35 @@ export function SavePanel() {
           {SAVE.exportAction.text}
         </Button>
 
-        {/* A label wrapping a hidden input, rather than a Button that clicks one
-            through a ref. The native control is the accessible one and the
-            styling is the same class list Button applies. */}
+        {/*
+          A label wrapping the real file input, rather than a Button that clicks
+          one through a ref. The native control is the accessible one.
+
+          THE INPUT IS VISUALLY HIDDEN, NOT `display: none`, AND THAT IS THE
+          WHOLE FIX. It carried Tailwind's `hidden` from V4 until UPDATELOGV7.md
+          stage 3, which is `display: none`, which removes an element from the
+          tab order entirely. Stage 1 tabbed the real page and found export
+          present and import absent: it appeared in the accessibility tree as a
+          bare `LabelText` with no role, so export worked by keyboard and import
+          could not be reached at all, by anyone without a pointer. The comment
+          above it said "the native control is the accessible one" while the
+          native control was display-none.
+
+          `sr-only` keeps it in the layout at one clipped pixel, so it stays
+          focusable and stays operable: a focused file input opens the picker on
+          Enter or Space, with no handler of ours involved. The ring goes on the
+          label, because a clipped input cannot show one.
+        */}
         <label
           className={[
             'bg-white rounded-button border-ink border-solid text-ink',
             'px-4 py-2 font-display font-semibold text-card-title',
             'shadow-hard active:translate-x-[3px] active:translate-y-[3px] active:shadow-none',
             'transition-[transform,box-shadow] cursor-pointer',
+            // The same inner rule index.css gives every other focusable thing,
+            // driven by the input inside rather than by the label itself.
+            'has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px]',
+            'has-[:focus-visible]:outline-ink has-[:focus-visible]:-outline-offset-[6px]',
           ].join(' ')}
           style={{
             borderWidth: 'var(--outline-card)',
@@ -201,7 +226,7 @@ export function SavePanel() {
           <input
             type="file"
             accept="application/json,.json"
-            className="hidden"
+            className="sr-only"
             onChange={(event) => {
               const file = event.target.files?.[0];
               setImportProblem('none');
@@ -215,6 +240,7 @@ export function SavePanel() {
 
       {importProblem === 'failed' ? <Line entry={SAVE.importFailed} /> : null}
       {importProblem === 'future' ? <Line entry={SAVE.importFuture} /> : null}
+    </section>
     </Card>
   );
 }

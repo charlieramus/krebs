@@ -12,7 +12,7 @@
  * costs nothing the frame budget notices.
  */
 
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 import type { Surface } from './Card';
 
 const SURFACE_CLASS: Readonly<Record<Surface, string>> = {
@@ -28,12 +28,19 @@ const SURFACE_CLASS: Readonly<Record<Surface, string>> = {
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   surface?: Surface;
+  /**
+   * Handle on the button. Added by UPDATELOGV7.md stage 3, so a caller can ask
+   * whether the control focus was on has just become unfocusable. React 19
+   * passes `ref` as an ordinary prop, so no forwardRef is needed.
+   */
+  ref?: Ref<HTMLButtonElement>;
 }
 
-export function Button({ children, surface = 'white', className = '', ...rest }: ButtonProps) {
+export function Button({ children, surface = 'white', className = '', ref, ...rest }: ButtonProps) {
   return (
     <button
       type="button"
+      ref={ref}
       {...rest}
       className={[
         SURFACE_CLASS[surface],
@@ -44,7 +51,12 @@ export function Button({ children, surface = 'white', className = '', ...rest }:
         // grid: it is a motion distance rather than a layout distance.
         'shadow-hard active:translate-x-[3px] active:translate-y-[3px] active:shadow-none',
         'transition-[transform,box-shadow]',
-        'disabled:text-ink3 disabled:cursor-not-allowed',
+        // `ink2`, not `ink3`. UPDATELOGV7.md stage 5 measured `ink3` at 2.96:1
+        // on white, which is under the 4.5:1 floor at FULL opacity, and a
+        // disabled button most often sits inside a dimmed locked slot where it
+        // compounded to 1.65:1. `ink3` cannot carry text on any surface in this
+        // palette. See DESIGN.md, Accessibility.
+        'disabled:text-ink2 disabled:cursor-not-allowed',
         className,
       ]
         .filter(Boolean)
