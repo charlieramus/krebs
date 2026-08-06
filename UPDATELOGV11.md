@@ -241,7 +241,76 @@ from step 3, and confirmation that the three-clock boundary is unmoved.
 
 ## Stage 2 Report
 
-_Pending._
+**The regression bar, quoted, checked at every commit and clean at all four.**
+
+```
+  both canonical hashes         172f83fb  and  65b43d27      unchanged from V10
+  npm test                      568 across 44 files          green, up from 540
+  git diff, whole stage:
+    src/content/act1/tuning.ts    empty
+    src/ui/tuning.ts              empty
+    src/save/tuning.ts            empty
+    docs/SCIENCE.md               empty
+    docs/ECONOMY.md               empty
+  npm run offline:validate      47 cases green, 0 fallbacks, 0 budget
+                                exhaustions, worst ATP disagreement 3.903e-3
+                                against a 2e-2 tolerance. V10's figures
+  reload determinism sweep      36 cases green
+  npm run sim, npm run sim:act1 green
+  npm run build                 286.41 kB, 88.77 kB gzipped
+```
+
+**The commit sequence, four commits, the bar checked at each.**
+
+```
+  1  the rename          8 types across 17 files. Typecheck, lint, suite green
+  2  the semantics       construction, meter, save, offline, walled, the five
+                         literal ids. 559 green, hashes unmoved
+  3  the cards           CardKind stops naming molecules, the layout goes
+                         act-scoped, the rail reads the running act
+  4  index resolution    the map, the hooks, and 9 assertions on both paths
+```
+
+**Nothing moved a hash, so nothing had to be backed out.** The one place that could have is commit 2, because it replaced the constructor: `ACT1.create()` and `createAct1()` are asserted equal by hash at construction and again after 200 ticks, which stage 1 put in place for exactly this commit.
+
+**1. The rename.** `Act1Snapshot`, `Act1SnapshotListener`, `Act1PersistenceOptions`, `Act1Session`, `Act1OfflineReport`, `Act1RuntimeOptions`, `Act1Runtime` and `createAct1Runtime` are `ActSnapshot`, `ActSnapshotListener`, `ActPersistenceOptions`, `ActSession`, `ActOfflineReport`, `ActRuntimeOptions`, `ActRuntime` and `createActRuntime`. Seventeen files. `ActRuntimeOptions.act1` is `create` and takes `ActCreateOptions` rather than `Partial<Act1Options>`.
+
+**2. The semantics, which is the part that was not a rename.**
+
+- **`WALLED_NAD` is gone from `src/ui/runtime.ts` and the runtime no longer knows what a wall is.** `snapshot.walled` is one line, `descriptor.isWalled(state.pools.amounts, snapshot.appliedFlux, STOPPED_FLUX)`. The three conditions and the 0.05 moved to `src/content/acts.ts` unchanged, with their reasoning attached.
+- **Construction, the meter, the offline observer and the save mapping all come from the descriptor.** `descriptor.create(options.create)`, `createMeterProbes`, `createMeter`, `recordTick`, `createOfflineObserver`, `capture`, `restore`, `noCarriedCounters`, `atpPerCompletedGlucose`, `netAtpPerCompletedGlucose`.
+- **The five literal ids are gone.** `'g3p'` became `descriptor.yieldBaselinePoolId` and the two locals renamed with it, `g3pIndex` and `g3pInitial` to `baselineIndex` and `baselineInitial`, because a variable named after a molecule is the same defect one level down. `'payoff'`, `'uptake'` and `'nad'` live inside `isWalled`. `'ferment'`, `'ferment_ethanol'` and `'store'` on the snapshot's initial unlock flags go through `descriptor.reactionIndex`.
+- **`CardKind` stopped naming molecules.** `'simple' | 'nicotinamide' | 'adenylate' | 'branch-products'` became `'simple' | 'mix' | 'pair' | 'products'`. Each name says what the card does with the pools it is given rather than which pools it was written for, so the four kinds are available to every act. The card table is unchanged under the new names and `PoolCard`'s two `kind === 'nicotinamide'` branches are `kind === 'mix'`.
+- **The card layout is act-scoped and stayed in `src/ui/`.** `poolCardsFor(act)` off a map keyed by act number, and `PoolRail` calls it with `useAct()`. It could not move into the descriptor and the reason is the import rule: a card carries a `Surface`, a `CoachMark` and player-facing `Entry` strings, and content may not import the interface. So the descriptor answers what the act is and the card table answers what it looks like, keyed by the same number. `PoolCardSpec.stocks` and `.headline` are `string` rather than `Act1PoolId`, which needed one new accessor, `moleculeName(id)` in `content.ts`, throwing on an unknown id rather than rendering a blank label.
+
+**3. `poolIndex`, and the assertion that no existing test could have made.** The two module-level functions are deleted rather than rewritten. They were `ACT1_POOL_IDS.indexOf(id)`, and they were also the last two places in `runtime.ts` that answered for act 1 on everyone's behalf. The replacement is `descriptor.poolIndex`, backed by a map built once at module load, reached through three new hooks in `RuntimeContext`: `useAct`, `usePoolIndex` and `useReactionIndex`, the last two memoised on the act.
+
+`src/ui/__tests__/indexResolution.test.tsx`, nine assertions in three groups:
+
+```
+  the map is built once
+    resolving every pool and reaction id does 0 array scans and 0 map writes
+    ten thousand resolutions do 0 and 0
+    the OLD implementation, restored inline, does more than 0    <- the probe
+    every id still resolves to the index the kernel gives it
+  the per-frame path
+    500 frames: 0 resolutions beyond construction, 0 scans, 0 map writes,
+                and the same six typed arrays handed out on all 500
+    200 frames with the walled predicate live: 0 resolutions, 0 scans
+  the render path
+    one mount of the whole rail resolves exactly construction + 25, where
+      25 is computed from the card table rather than written down
+    rendering the rail does fewer scans than there are cards
+    the rail's cards are the act's cards
+```
+
+**Two things were found by writing the test rather than by reading the code.** The first assertion of array identity was an `expect` inside the per-frame subscriber, which measured vitest at 264 array scans per frame, because `expect` scans arrays and the probe was live. It counts and asserts afterwards now, and the comment says why. The second was the rail's expected count coming out at 29 against 25: `RuntimeProvider` builds a runtime during the render and construction resolves four ids of its own. The test measures construction separately rather than absorbing four into a hardcoded number.
+
+**What this file honestly cannot assert, said rather than faked.** The test environment is `node` with no DOM, so a mounted tree cannot be re-rendered and "a re-render resolves nothing" is not directly testable here, exactly as `keyboard.test.tsx` says about focus. What is asserted instead is stronger than it sounds: resolution does no scan and no map construction at all, and the per-frame path resolves nothing. A component resolving inside its render body cannot satisfy the render-path count without also failing the per-frame count.
+
+**4. The three clocks have not moved.** The simulation is still fixed 20Hz over a mutable `Float64Array`, the display still samples one preallocated snapshot per `requestAnimationFrame`, and React still re-renders only on discrete events. Two changes were checked against that boundary specifically. `fill()` gained one descriptor call, `isWalled`, which closes over indices resolved at module load and does no lookup, asserted at 0 resolutions across 500 frames. And `useAct()` returns `runtime.act`, one stable reference held in `useState`, so subscribing components do not re-render when it is read. The 500-frame test also asserts the six snapshot arrays are the same six objects on every frame, which is the property the whole architecture rests on and which nothing had ever asserted directly.
+
+**5. What deliberately did not move, reported rather than left to be noticed.** The purchase surface on `ActRuntime` is still act 1's: `buyFerment`, `buyEthanol`, `buyGlycogen`, `buyPfk1Pk`, `buyUptakeStep`, `buyGlycolysisStep` and their six `canBuy` twins, the two ladders in `src/ui/tuning.ts`, and the `ACT1_UNLOCK_*` ids. Generalising them means designing an unlock descriptor against one act's two sequential ladders and one two-enzyme purchase, which is the abstraction over n=1 this log's Context forbids and this log's Decisions fence off. `src/sim/jump.ts` leaves act 2's seam obvious for the same reason. Act 2 is what widens it, with two instances to be right about.
 
 ---
 
