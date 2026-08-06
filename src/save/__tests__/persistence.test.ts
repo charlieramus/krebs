@@ -150,7 +150,16 @@ describe('the offline delta', () => {
     expect(delta.rawMs).toBe(MAX_OFFLINE_MS * 3);
   });
 
-  it('is accumulated onto pendingOfflineMs and credited to nothing', () => {
+  /**
+   * REWRITTEN BY UPDATELOGV8.md STAGE 5, and the old version is worth naming.
+   *
+   * It asserted "NOT ONE TICK OF IT IS SIMULATED. That is V5's, and this is the
+   * seam", with `pendingOfflineMs` holding the whole three hours and
+   * `offlineCreditedMs` at zero. That was the correct assertion for V4 to make
+   * and it is the exact behaviour this log exists to replace, so the test moves
+   * with it rather than being deleted.
+   */
+  it('is spent rather than accumulated, and the tick count moves', () => {
     const h = harness();
 
     const first = makeRuntime(h);
@@ -158,17 +167,24 @@ describe('the offline delta', () => {
     first.save();
     const tickCountBefore = first.state.tickCount;
 
-    h.advanceWallClock(3 * 60 * 60 * 1000); // three hours away
+    const awayMs = 3 * 60 * 60 * 1000; // three hours away
+    h.advanceWallClock(awayMs);
 
     const second = makeRuntime(h);
-    expect(second.session.awayMs).toBe(3 * 60 * 60 * 1000);
-    // NOT ONE TICK OF IT IS SIMULATED. That is V5's, and this is the seam.
-    expect(second.state.tickCount).toBe(tickCountBefore);
-    expect(second.state.diagnostics.pendingOfflineMs).toBe(3 * 60 * 60 * 1000);
-    expect(second.capture().time.offlineCreditedMs).toBe(0);
+    expect(second.session.awayMs).toBe(awayMs);
+    expect(second.session.offline.creditedMs).toBe(awayMs);
+    expect(second.session.offline.uncreditedMs).toBe(0);
+    expect(second.state.tickCount).toBe(tickCountBefore + awayMs / TICK_MS);
+    expect(second.state.diagnostics.pendingOfflineMs).toBe(0);
+    expect(second.capture().time.offlineCreditedMs).toBe(awayMs);
+    // stats.eventsProcessed stops being zero for the first time in the project.
+    expect(second.capture().stats.eventsProcessed).toBeGreaterThan(0);
+    // And the fallback is a bug signal, so it must not have run.
+    expect(second.session.offline.fellBack).toBe(false);
+    expect(second.capture().diagnostics.offlineFallbackCount).toBe(0);
   });
 
-  it('survives a second reload rather than being recomputed from zero', () => {
+  it('accumulates offlineCreditedMs across sessions rather than resetting it', () => {
     const h = harness();
 
     const first = makeRuntime(h);
@@ -177,13 +193,139 @@ describe('the offline delta', () => {
 
     h.advanceWallClock(60000);
     const second = makeRuntime(h);
-    expect(second.state.diagnostics.pendingOfflineMs).toBe(60000);
+    expect(second.session.offline.creditedMs).toBe(60000);
+    expect(second.state.diagnostics.pendingOfflineMs).toBe(0);
     second.save();
 
     h.advanceWallClock(60000);
     const third = makeRuntime(h);
-    // The first minute was persisted and the second is added to it.
-    expect(third.state.diagnostics.pendingOfflineMs).toBe(120000);
+    expect(third.session.offline.creditedMs).toBe(60000);
+    // docs/SAVE_SCHEMA.md has offlineCreditedMs as cumulative, for stats and
+    // audit, so it accumulates across sessions and is never reset.
+    expect(third.capture().time.offlineCreditedMs).toBe(120000);
+  });
+
+  it('credits the same window identically twice, from the same save and the same clock', () => {
+    // The wall clock is an input rather than a source of variation, so the same
+    // input has to produce the same output. Two runtimes built from one save
+    // file at one epoch reading must land on the same state to the bit.
+    const h = harness();
+    const first = makeRuntime(h);
+    play(first, 400);
+    first.save();
+    h.advanceWallClock(8 * 60 * 60 * 1000);
+
+    const a = makeRuntime(h);
+    const b = makeRuntime(h);
+
+    expect(b.state.tickCount).toBe(a.state.tickCount);
+    expect(b.session.offline.creditedMs).toBe(a.session.offline.creditedMs);
+    expect(b.session.offline.events.length).toBe(a.session.offline.events.length);
+    for (let i = 0; i < a.state.pools.count; i += 1) {
+      expect(b.state.pools.amounts[i]).toBe(a.state.pools.amounts[i]);
+    }
+    expect(b.capture().progression).toEqual(a.capture().progression);
+    expect(b.snapshot.meter).toEqual(a.snapshot.meter);
+  });
+
+  it('leaves the sub-tick remainder pending rather than rounding it into existence', () => {
+    const h = harness();
+    const first = makeRuntime(h);
+    play(first, 100);
+    first.save();
+
+    // Not a whole number of ticks. TICK_MS is 50, so 37 milliseconds is under one.
+    h.advanceWallClock(60000 + 37);
+    const second = makeRuntime(h);
+    expect(second.session.offline.creditedMs).toBe(60000);
+    expect(second.state.diagnostics.pendingOfflineMs).toBe(37);
+  });
+
+  /**
+   * A REAL EIGHT-HOUR ABSENCE, from a cell that is actually running.
+   *
+   * The other tests in this block leave the cell at the NAD+ wall, because that
+   * is where act 1 sits twenty game-seconds in and it is the honest default. A
+   * walled cell produces no ATP whether it is away for a minute or a day, which
+   * is correct and says nothing about whether the credit works.
+   */
+  it('credits eight hours of a fermenting cell, and reports what it produced', () => {
+    const h = harness();
+    const first = makeRuntime(h);
+    play(first, 100);
+    expect(first.buyFerment()).toBe(true);
+    play(first, 400);
+    first.save();
+    const atpBefore = first.snapshot.meter.atpProduced;
+    const lactateBefore = first.state.pools.get('lactate');
+
+    const awayMs = 8 * 60 * 60 * 1000;
+    h.advanceWallClock(awayMs);
+    const second = makeRuntime(h);
+    const report = second.session.offline;
+
+    console.log(
+      `  eight hours away, fermenting:
+` +
+        `    credited        ${(report.creditedMs / 3600000).toFixed(2)} hours, ` +
+        `${report.events.length} events, ${report.elapsedRealMs.toFixed(1)} ms real
+` +
+        `    ATP produced    ${report.atpProduced.toFixed(0)} while away, ` +
+        `${atpBefore.toFixed(0)} before
+` +
+        `    lactate         ${second.state.pools.get('lactate').toFixed(0)} from ` +
+        `${lactateBefore.toFixed(0)}
+` +
+        `    glucose_env     ${second.state.pools.get('glucose_env').toFixed(0)} left
+` +
+        `    fell back       ${report.fellBack}   budget exhausted ${report.budgetExhausted}`,
+    );
+
+    expect(report.creditedMs).toBe(awayMs);
+    expect(report.atpProduced).toBeGreaterThan(0);
+    expect(second.state.pools.get('lactate')).toBeGreaterThan(lactateBefore);
+    expect(report.fellBack).toBe(false);
+    expect(report.budgetExhausted).toBe(false);
+    // The environment is finite and eight hours is longer than act 1's food
+    // lasts, so a player who leaves that long comes back to an empty larder.
+    // That is a real property of the economy rather than a defect in the credit.
+    expect(second.state.pools.get('glucose_env')).toBeLessThan(1);
+  });
+
+  it('exposes the budget and the fallback on the session, whether or not they fired', () => {
+    const h = harness();
+    const first = makeRuntime(h);
+    play(first, 100);
+    first.save();
+    h.advanceWallClock(60000);
+    const second = makeRuntime(h);
+    // Both fields exist on every session rather than only when something went
+    // wrong, so the return screen never has to guess which shape it was handed.
+    expect(second.session.offline.fellBack).toBe(false);
+    expect(second.session.offline.budgetExhausted).toBe(false);
+    expect(second.session.offline.uncreditedMs).toBe(0);
+    expect(second.session.offline.poolIds.length).toBeGreaterThan(0);
+  });
+
+  it('costs a few milliseconds for a full day, and the figure is measured', () => {
+    const h = harness();
+    const first = makeRuntime(h);
+    play(first, 400);
+    first.save();
+    h.advanceWallClock(MAX_OFFLINE_MS);
+
+    const second = makeRuntime(h);
+    console.log(
+      `  offline credit, ${(MAX_OFFLINE_MS / 3600000).toFixed(0)} hours: ` +
+        `${second.session.offline.elapsedRealMs.toFixed(1)} ms real, ` +
+        `${second.session.offline.events.length} events, ` +
+        `${second.session.offline.atpProduced.toFixed(0)} ATP produced`,
+    );
+    expect(second.session.offline.creditedMs).toBe(MAX_OFFLINE_MS);
+    // A frame is 16.7 ms. This is not a performance assertion with a tight
+    // budget, it is a tripwire: if crediting a day ever takes a second, the
+    // algorithm has stopped scaling with events and started scaling with time.
+    expect(second.session.offline.elapsedRealMs).toBeLessThan(1000);
   });
 });
 

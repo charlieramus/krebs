@@ -113,11 +113,19 @@ The algorithm exploits that.
 
 1. Replay at full fidelity for up to SETTLE_MAX_TICKS, set to 1200, which is 60 game-seconds. Bounded cost regardless of how long the player was away.
 
-2. Test for steady state. All pool derivatives below STEADY_EPSILON as a fraction of pool size, sustained for STEADY_WINDOW consecutive ticks. If not reached, see the fallback below.
+2. Test for steady state. Every pool's rate of change must have stopped changing: the second difference of each pool amount, over the pool's own size, below STEADY_EPSILON, sustained for STEADY_WINDOW consecutive ticks. If not reached, see the fallback below.
+
+   This step used to read "all pool derivatives below STEADY_EPSILON as a fraction of pool size", and that is wrong rather than imprecise. Corrected 2026-08-05 by UPDATELOGV8.md stage 1, which measured it. Two things are wrong with it. It is unsatisfiable in act 1 at any epsilon below 1e-3, because a finite substrate pool draining and a terminal product pool accumulating both change linearly forever and their fractional derivative decays only as one over elapsed time. And it contradicts step 4 below, which applies accumulated output as rate multiplied by duration, and therefore assumes pools that are still changing at a constant rate. What has to be constant for the jump to be valid is the rate, not the amount. The old wording is kept here because a specification that quietly rewrites itself teaches nobody why the first version failed.
 
 3. Identify the next event. An event is any discrete change that invalidates the current steady state. Candidates are a finite substrate pool depleting, a storage pool filling to capacity, an environmental schedule boundary such as an oxygen concentration step in act 2, and an unlock threshold crossing. For each, compute time-to-event in closed form from the steady-state rates, which are constant, so this is division.
 
-4. Jump forward to the earliest event, or to the end of the offline window if that comes first. Apply accumulated output as rate multiplied by duration.
+   Two corrections from measurement, both added 2026-08-05 by UPDATELOGV8.md stage 3.
+
+   A substrate pool consumed by a saturating reaction does not deplete. Below the Km, Michaelis-Menten is first order, so the pool decays exponentially with a fixed time constant of Km over Vmax and is always the same distance from empty. There is no time-to-event and division does not produce one. A pool holding less than OFFLINE_DEPLETED_FRACTION of the most it has held during the resolution is therefore treated as empty and retired. That is the only place in the project where matter is discarded and the bound is four orders below the conservation tolerance.
+
+   And the event that actually invalidates a steady state is a substrate changing enough to move the rate it drives, in either direction, rather than only one reaching zero. A jump covers MAX_JUMP_DEPLETION_FRACTION of the distance to that horizon and then re-settles. Without it a starved cell's jump was measured 998 percent out on cumulative ATP.
+
+4. Jump forward to the earliest event, or to the end of the offline window if that comes first. Apply accumulated output as rate multiplied by duration. No pool may cross zero: a negative amount makes Michaelis-Menten return a negative flux, which runs a reaction backwards and manufactures matter.
 
 5. If an event was reached, apply it and return to step 1.
 
@@ -171,6 +179,18 @@ This is not a defensive nicety. It is the tripwire that catches a balance change
 
 Determinism is a tested property of this codebase, not an aspiration. Same seed plus same input sequence must produce a bit-identical state hash across runs, machines and browsers.
 
+## Scope
+
+That sentence is true of the full-fidelity path and of nothing else, and saying so narrows a claim rather than weakening a guarantee. Written down on 2026-08-05 by UPDATELOGV8.md stage 4, which built the first deliberately approximate thing in the codebase.
+
+**Full replay is bit-identical, seed for seed.** Unchanged, and still asserted at `172f83fb` for the kernel fixture and `49ea08d3` for act 1.
+
+**An offline jump agrees with full replay within a stated tolerance and is not bit-identical.** It cannot be. Part 3 above resolves an absence by extrapolating a steady state rather than by evaluating every tick, and an extrapolation that reproduced the tick loop bit for bit would not be an extrapolation. The property that survives is agreement within tolerance and the property that does not is identity. Both are asserted, including the difference, because a future change that made the two identical would mean the jump had stopped jumping.
+
+**The offline path is deterministic in its own right**, which is a weaker claim than bit-identity with replay and a necessary one. The same state resolved twice over the same window produces the same result exactly, and the same save loaded twice with the same elapsed time credits identically.
+
+**This narrowing was always implied by Part 3 living in the same document.** Part 3 has said since it was written that closed-form integration is not available and that the approach is piecewise, and a piecewise approximation cannot be bit-identical to the thing it approximates. What did not exist until now was the code, so nothing forced the sentence above to be written down. The tolerance and the measurements behind it are in `src/content/act1/offlineValidation.ts`.
+
 ## Rules
 
 No Math.random in simulation code. Use a seeded PRNG with its state stored in the save. Mulberry32 or PCG32 are both fine and both small.
@@ -195,18 +215,36 @@ A determinism test that runs a fixed seed and input script twice and compares a 
     TICK_MS               50
     MAX_CATCHUP_TICKS     200
     SETTLE_MAX_TICKS      1200
-    STEADY_EPSILON        tune during prototype
-    STEADY_WINDOW         tune during prototype
+    STEADY_EPSILON        1e-5
+    STEADY_WINDOW         250
     EVENT_BUDGET          64
     MAX_OFFLINE_HOURS     24
     SAFE_VALUE_CEILING    1e15
 
-All values other than the two marked for tuning are decisions, not defaults. Changing one requires updating this doc with the reason.
+    MAX_JUMP_DEPLETION_FRACTION   0.25
+    OFFLINE_DEPLETED_FRACTION     1e-12
+    OFFLINE_TAIL_FRACTION         1e-4
+
+Every value here is a decision, not a default. Changing one requires updating this doc with the reason.
+
+The last three were added on 2026-08-05 by UPDATELOGV8.md stages 3 and 4, which measured all of them. `OFFLINE_TAIL_FRACTION` decides when a draining pool is deep enough in its exponential tail to be finished off in one jump instead of chased geometrically. Stage 3 triggered that on jump length and stage 4's sweep found it firing wherever the system was moving fast, which is the worst place for it. Neither existed when Part 3 was written because neither is needed by the algorithm as specified; both are needed by the algorithm as it behaves against a finite substrate pool consumed by a saturating reaction, which is what act 1 is and what every later act will be. See the two corrections under Part 3 step 3. 0.25 is the smallest jump fraction that still resolves a 24-hour window inside EVENT_BUDGET, using 49 of 64 events, and error falls monotonically as the fraction falls, so it is the most accurate value the budget allows.
+
+STEADY_EPSILON and STEADY_WINDOW were marked "tune during prototype" from 2026-07-28 to 2026-08-05 and shipped as placeholders of 1e-6 and 20. Both were measured against act 1 by UPDATELOGV8.md stage 1 and both moved. The placeholder epsilon was outside the usable band, which is 3e-6 to 1e-4, and the placeholder window was an order of magnitude below its measured floor of 142. The full derivation, both failure modes and the margin between them are in src/sim/constants.ts and in that stage's report. The band is narrow enough that a balance pass touching maintenance kinetics or the environment size has to re-run the measurement.
 
 ---
 
 # Open questions for prototype
 
-- What is the real settling time of an act 4 configuration? If it exceeds 60 game-seconds, SETTLE_MAX_TICKS needs raising and the offline path gets more expensive.
-- Does the event enumeration in Part 3 step 3 stay tractable once act 4 substrate switching exists, or does the event count per window grow past the budget?
-- Should the offline summary show the player the event sequence that occurred while they were away? It would be honest, it would teach, and it might be noise.
+Updated 2026-08-05 by UPDATELOGV8.md stage 6, which was the first log able to answer any of them. One is closed, one has its first data point and one is unchanged.
+
+- **STILL OPEN, with act 1's answer recorded.** What is the real settling time of an act 4 configuration? If it exceeds 60 game-seconds, SETTLE_MAX_TICKS needs raising and the offline path gets more expensive.
+
+  Act 1 settles in at most 1015 ticks against a budget of 1200, which is 85 percent, and every healthy configuration uses between 32 and 41 percent. The binding case is not a healthy one. **It is the NAD+ stall**, because a stall is a slow decay toward zero rather than a fast approach to equilibrium, so it settles slowly for the same reason it looks like nothing is happening. Act 4 will have more pools, more coupling and at least one more timescale, so this says nothing about it except which configuration to measure first: its worst stall rather than its busiest state.
+
+- **STILL OPEN, and act 1 cannot narrow it.** Does the event enumeration in Part 3 step 3 stay tractable once act 4 substrate switching exists, or does the event count per window grow past the budget?
+
+  Act 1 has one event kind and needs 27 to 51 events for a twenty-four hour window. That count is bounded by the geometry of a single draining pool and tells you nothing about a system that switches substrates. What act 1 did find is a failure mode worth expecting: an event that is asymptotic rather than discrete, which is what a substrate consumed by a saturating reaction produces, and which made the enumeration non-terminating until it was handled. Any act with a Michaelis-Menten uptake has it.
+
+- **CLOSED 2026-08-05.** Should the offline summary show the player the event sequence that occurred while they were away? It would be honest, it would teach, and it might be noise.
+
+  Yes. DESIGN.md's screen inventory decided it before the code existed, on the grounds that the algorithm produces a genuine bounded event list and showing it teaches that metabolism is homeostatic between shocks rather than smoothly accumulating. It is built. **The noise worry was real and it was about the wrong thing**: the sequence is not noisy because it is a sequence, it is noisy because a day away produces up to 51 events and most of them are the same pool draining further. Consecutive events on one pool collapse into one row, which leaves the sentence DESIGN.md wrote as its own target.

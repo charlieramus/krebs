@@ -104,12 +104,20 @@ export function createAct1MeterProbes(state: SimulationState): Act1MeterProbes {
   };
 }
 
-/** Units moved by one probe in the tick that just ran. */
-function moved(state: SimulationState, p: Probe): number {
+/**
+ * Units moved by one probe in the step that just ran.
+ *
+ * `seconds` is the length of that step. It is TICK_SECONDS for every caller but
+ * one, and the one is the offline fallback, which takes 1Hz steps. A meter that
+ * assumed the tick length would undercount a coarse step twentyfold and the
+ * error would look like the fallback losing the player's progress rather than
+ * like a bookkeeping bug. See `step` in src/sim/tick.ts.
+ */
+function moved(state: SimulationState, p: Probe, seconds: number): number {
   return (
     (state.fluxes[p.reactionIndex] as number) *
     (state.scales[p.reactionIndex] as number) *
-    TICK_SECONDS *
+    seconds *
     p.coefficient
   );
 }
@@ -119,14 +127,78 @@ export function recordAct1Tick(
   state: SimulationState,
   probes: Act1MeterProbes,
   meter: Act1Meter,
+  seconds: number = TICK_SECONDS,
 ): void {
-  meter.atpProduced += moved(state, probes.atpFromPayoff);
-  meter.atpSpent += moved(state, probes.atpIntoPrep);
-  meter.atpMaintained += moved(state, probes.atpIntoMaintain);
-  meter.glucoseConsumed += moved(state, probes.glucoseIntoPrep);
-  meter.glucoseTakenUp += moved(state, probes.glucoseFromUptake);
-  meter.lactateProduced += moved(state, probes.lactateFromFerment);
-  meter.nadhProduced += moved(state, probes.nadhFromPayoff);
+  meter.atpProduced += moved(state, probes.atpFromPayoff, seconds);
+  meter.atpSpent += moved(state, probes.atpIntoPrep, seconds);
+  meter.atpMaintained += moved(state, probes.atpIntoMaintain, seconds);
+  meter.glucoseConsumed += moved(state, probes.glucoseIntoPrep, seconds);
+  meter.glucoseTakenUp += moved(state, probes.glucoseFromUptake, seconds);
+  meter.lactateProduced += moved(state, probes.lactateFromFerment, seconds);
+  meter.nadhProduced += moved(state, probes.nadhFromPayoff, seconds);
+}
+
+/* ===========================================================================
+   THE OFFLINE PATH. UPDATELOGV8.md stage 3.
+
+   The meter lives outside the simulation, so a jump that advanced the pools and
+   not this would silently refund the player's progress toward every unlock. It
+   is the easy one to forget precisely because it is not simulation state.
+
+   Both halves read the same `moved` above, so the per-tick path and the jump
+   path cannot measure different pathways. A coefficient change moves both or
+   neither.
+   =========================================================================== */
+
+/** One tick's worth of every counter, captured at a steady state. */
+export interface Act1MeterRates {
+  atpProduced: number;
+  atpSpent: number;
+  atpMaintained: number;
+  glucoseConsumed: number;
+  glucoseTakenUp: number;
+  lactateProduced: number;
+  nadhProduced: number;
+}
+
+export function createAct1MeterRates(): Act1MeterRates {
+  return createAct1Meter();
+}
+
+/**
+ * Read the per-tick rate of every counter off the tick that just ran.
+ *
+ * Call immediately after a `tick`, for the same reason `recordAct1Tick` has to
+ * be: `state.fluxes` and `state.scales` are scratch and the next tick
+ * overwrites them.
+ */
+export function captureAct1MeterRates(
+  state: SimulationState,
+  probes: Act1MeterProbes,
+  rates: Act1MeterRates,
+): void {
+  rates.atpProduced = moved(state, probes.atpFromPayoff, TICK_SECONDS);
+  rates.atpSpent = moved(state, probes.atpIntoPrep, TICK_SECONDS);
+  rates.atpMaintained = moved(state, probes.atpIntoMaintain, TICK_SECONDS);
+  rates.glucoseConsumed = moved(state, probes.glucoseIntoPrep, TICK_SECONDS);
+  rates.glucoseTakenUp = moved(state, probes.glucoseFromUptake, TICK_SECONDS);
+  rates.lactateProduced = moved(state, probes.lactateFromFerment, TICK_SECONDS);
+  rates.nadhProduced = moved(state, probes.nadhFromPayoff, TICK_SECONDS);
+}
+
+/** Advance every counter by `ticks` at the captured rates. Part 3 step 4. */
+export function advanceAct1Meter(
+  meter: Act1Meter,
+  rates: Act1MeterRates,
+  ticks: number,
+): void {
+  meter.atpProduced += rates.atpProduced * ticks;
+  meter.atpSpent += rates.atpSpent * ticks;
+  meter.atpMaintained += rates.atpMaintained * ticks;
+  meter.glucoseConsumed += rates.glucoseConsumed * ticks;
+  meter.glucoseTakenUp += rates.glucoseTakenUp * ticks;
+  meter.lactateProduced += rates.lactateProduced * ticks;
+  meter.nadhProduced += rates.nadhProduced * ticks;
 }
 
 /**

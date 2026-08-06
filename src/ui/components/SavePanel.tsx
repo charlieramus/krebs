@@ -151,16 +151,27 @@ export function SavePanel() {
         />
       )}
 
-      {/* The offline delta. Kept, not spent, and the wording says both. A
-          refresh is a positive delta of a second or two, and announcing it
-          every time is noise on the one panel that has to be believed. */}
+      {/* The offline delta. Spent, since UPDATELOGV8.md stage 5, and the
+          wording says so. A refresh is a positive delta of a second or two, and
+          announcing it every time is noise on the one panel that has to be
+          believed. */}
       {session.awayMs >= OFFLINE_REPORT_THRESHOLD_MS ? (
         <div className="flex flex-col gap-1">
           <span className="flex flex-wrap items-center gap-1">
             <span className="text-micro font-body font-semibold">{SAVE.away.text}</span>
             <AwayFor awayMs={session.awayMs} />
           </span>
-          <Line entry={SAVE.awayNotSimulated} className="text-ink2" />
+          {/* BUDGET EXHAUSTION, NOT THE SUB-TICK REMAINDER. `uncreditedMs` is
+              non-zero on almost every load, because game time is a whole
+              number of ticks and wall-clock time is not, so the leftover is
+              anything under 50 milliseconds. Reading that as "some of it could
+              not be simulated" put a warning on a screen where nothing had gone
+              wrong. Found in a browser, fixed here. */}
+          <Line
+            entry={session.offline.budgetExhausted ? SAVE.awayPartlySimulated : SAVE.awaySimulated}
+            className="text-ink2"
+          />
+          {session.offline.fellBack ? <Line entry={SAVE.awayFellBack} className="text-ink2" /> : null}
           {session.offlineCapped ? <Line entry={SAVE.awayCapped} className="text-ink2" /> : null}
         </div>
       ) : null}
