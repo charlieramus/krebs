@@ -1,5 +1,5 @@
 /**
- * Ten pools, eight cards, and where each blob's geometry comes from.
+ * Thirteen pools, ten cards, and where each blob's geometry comes from.
  *
  * THE TWO CARRIER PAIRS SHARE A CARD EACH. Their sum is what is conserved and
  * the sum is what teaches. NAD+ draining while NADH fills, on one card, is the
@@ -17,6 +17,7 @@ import { act1PoolDefinitions, type Act1PoolId } from '../content/act1/pools';
 import type { Surface } from './components/Card';
 import {
   ATP_COACH_MARK,
+  BRANCH_PRODUCTS,
   CARBON_COACH_MARK,
   CARRIER_PAIRS,
   MOLECULES,
@@ -61,7 +62,18 @@ export type CardKind =
   /** NAD+ and NADH. One silhouette whose saturation is the redox state. */
   | 'nicotinamide'
   /** ATP and ADP. Two blobs differing only in how many phosphate dots they carry. */
-  | 'adenylate';
+  | 'adenylate'
+  /**
+   * Two pools produced together in a fixed ratio by one reaction, on one card.
+   * Ethanol and carbon dioxide, added by UPDATELOGV10.md stage 2.
+   *
+   * One card rather than two for the reason the carrier pairs get one: the pair
+   * is what teaches. Pyruvate has three carbons, two of them stay as ethanol and
+   * one leaves as gas, and putting those two counts side by side is the whole of
+   * what distinguishes this branch from the lactate branch. On two cards they
+   * are two numbers going up together and the player does the joining up.
+   */
+  | 'branch-products';
 
 export interface PoolCardSpec {
   readonly id: string;
@@ -146,6 +158,40 @@ export const POOL_CARDS: readonly PoolCardSpec[] = [
     stocks: ['lactate'],
     headline: 'lactate',
     blobs: [{ poolId: 'lactate', fill: SUBSTRATE, seed: 59 }],
+  },
+  {
+    id: 'ethanol',
+    kind: 'branch-products',
+    title: BRANCH_PRODUCTS.ethanol,
+    surface: 'sky',
+    stocks: ['ethanol', 'co2'],
+    // Ethanol's net rate. Carbon dioxide's is the same number by construction,
+    // since one reaction makes both at one apiece, so showing it twice would be
+    // showing the same figure twice.
+    headline: 'ethanol',
+    // Two beads and one bead. DESIGN.md rule 1 below three carbons: a polygon
+    // needs three sides, so the count is beads here and the arithmetic against
+    // pyruvate's three sides still reads.
+    blobs: [
+      { poolId: 'ethanol', fill: SUBSTRATE, seed: 97 },
+      { poolId: 'co2', fill: SUBSTRATE, seed: 103 },
+    ],
+  },
+  {
+    id: 'glycogen',
+    kind: 'simple',
+    title: MOLECULES.glycogen,
+    // Pink. DESIGN.md, Colour: sky is substrate cards and pink is pools and
+    // stores. Every other carbon pool on this rail is sky because every other
+    // one is on its way somewhere. This one is the only store in act 1 and it
+    // is the card the rule was written for.
+    surface: 'pink',
+    stocks: ['glycogen'],
+    headline: 'glycogen',
+    // Six sides, exactly like both glucose cards, because a stored glucosyl
+    // residue IS a glucose. The shape saying so is the encoding doing its job:
+    // storing changes where a glucose is and not what it is.
+    blobs: [{ poolId: 'glycogen', fill: SUBSTRATE, seed: 109 }],
   },
   {
     id: 'nicotinamide',

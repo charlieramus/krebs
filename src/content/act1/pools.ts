@@ -1,10 +1,12 @@
 /**
  * Act 1 pools. The first content in this repository that is not synthetic.
  *
- * Ten pools covering glucose uptake, both phases of glycolysis, the
- * nicotinamide carrier pair, the adenylate pair and free phosphate. Every
- * conserved weight below traces to docs/SCIENCE.md Part 2. UPDATELOGV2.md
- * settles the balance sheet these are transcribed from.
+ * Thirteen pools covering glucose uptake, both phases of glycolysis, the two
+ * fermentation branches and what each of them leaves behind, the nicotinamide
+ * carrier pair, the adenylate pair and free phosphate. Every conserved weight
+ * below traces to docs/SCIENCE.md Part 2. UPDATELOGV2.md settles the balance
+ * sheet the first ten are transcribed from and UPDATELOGV10.md stage 2 adds the
+ * ethanol branch's two products.
  *
  * ---------------------------------------------------------------------------
  * THE REDOX COUNTING CONVENTION
@@ -57,6 +59,9 @@ export type Act1PoolId =
   | 'g3p'
   | 'pyruvate'
   | 'lactate'
+  | 'ethanol'
+  | 'co2'
+  | 'glycogen'
   | 'nad'
   | 'nadh'
   | 'atp'
@@ -78,6 +83,9 @@ export const ACT1_POOL_IDS: readonly Act1PoolId[] = [
   'g3p',
   'pyruvate',
   'lactate',
+  'ethanol',
+  'co2',
+  'glycogen',
   'nad',
   'nadh',
   'atp',
@@ -107,6 +115,9 @@ const LABELS: Readonly<Record<Act1PoolId, string>> = {
   g3p: 'Glyceraldehyde 3-phosphate',
   pyruvate: 'Pyruvate',
   lactate: 'Lactate',
+  ethanol: 'Ethanol',
+  co2: 'Carbon dioxide',
+  glycogen: 'Glycogen',
   nad: 'NAD+',
   nadh: 'NADH',
   atp: 'ATP',
@@ -126,6 +137,54 @@ const LABELS: Readonly<Record<Act1PoolId, string>> = {
  * phase hands to the payoff phase, and the second phosphate the payoff phase
  * needs comes from the `pi` pool at the sourced GAPDH step, not from the
  * carbon skeleton it arrives on.
+ *
+ * ---------------------------------------------------------------------------
+ * THE TWO ETHANOL-BRANCH PRODUCTS, AND THE FIRST CARBON WEIGHTS BELOW THREE
+ * ---------------------------------------------------------------------------
+ *
+ * Added by UPDATELOGV10.md stage 2. docs/SCIENCE.md Part 2, "Ethanol
+ * fermentation": pyruvate decarboxylase removes one carbon as carbon dioxide to
+ * give acetaldehyde, and alcohol dehydrogenase reduces that to ethanol while
+ * reoxidising NADH.
+ *
+ *   ethanol   carbon 2, redox 1     two of pyruvate's three carbons, carrying
+ *                                   the electron pair taken off NADH
+ *   co2       carbon 1, redox 0     the third carbon. Fully oxidised, so it
+ *                                   carries no reducing power at all
+ *
+ * The redox weights are not free choices. Under the convention above, the
+ * branch has to balance: pyruvate at 0 plus NADH at 1 must equal ethanol plus
+ * co2 plus NAD+ at 0. Carbon dioxide is the most oxidised form carbon takes and
+ * is the natural zero, which leaves ethanol at 1 and no other pair works.
+ *
+ * CARBON DIOXIDE IS A RESERVOIR AND NOT A SINK, which was established in stage 1
+ * rather than assumed here. Act 3 produces far more of it at pyruvate
+ * dehydrogenase and around the TCA cycle, and act 4's pyruvate carboxylase
+ * consumes it, so a later act reads this pool. It must not be capped, discarded,
+ * or treated as write-only accounting. docs/SCIENCE.md Part 2, "Carbon dioxide,
+ * and whether anything in this game consumes it".
+ *
+ * ---------------------------------------------------------------------------
+ * GLYCOGEN IS GLUCOSE, COUNTED IN GLUCOSYL UNITS
+ * ---------------------------------------------------------------------------
+ *
+ * Added by UPDATELOGV10.md stage 3. docs/SCIENCE.md Part 2, "Glycogen, and what
+ * storage costs": glycogen is a branched polymer of glucose, alpha-1,4 linked
+ * along the chain with alpha-1,6 branch points.
+ *
+ *   glycogen  carbon 6, redox 2, phosphate 0
+ *
+ * The pool is measured in glucosyl residues rather than in polymer molecules,
+ * so one unit of glycogen is one unit of glucose that happens to be attached to
+ * a chain. Carbon and redox therefore match `glucose` exactly, which is the
+ * whole point: storing changes where a glucose is, not what it is.
+ *
+ * PHOSPHATE 0, AND IT IS NOT AN OVERSIGHT. The residue in the chain carries no
+ * phosphate. Glucose-1-phosphate exists on the way in and on the way out and it
+ * is not this pool: on the way in the phosphate leaves with the activated
+ * donor, and on the way out glycogen phosphorylase puts one back on. Act 1 has
+ * no glucose-6-phosphate pool for either to live in, which is the reason the
+ * storage cost is charged where it is. See `store` in reactions.ts.
  */
 const CONSERVED: Readonly<Record<Act1PoolId, Readonly<Record<string, number>>>> = {
   glucose_env: { carbon: 6, redox: 2 },
@@ -133,6 +192,9 @@ const CONSERVED: Readonly<Record<Act1PoolId, Readonly<Record<string, number>>>> 
   g3p: { carbon: 3, phosphate: 1, redox: 1 },
   pyruvate: { carbon: 3 },
   lactate: { carbon: 3, redox: 1 },
+  ethanol: { carbon: 2, redox: 1 },
+  co2: { carbon: 1 },
+  glycogen: { carbon: 6, redox: 2 },
   nad: { nicotinamide: 1 },
   nadh: { nicotinamide: 1, redox: 1 },
   atp: { phosphate: 3, adenylate: 1 },
@@ -173,6 +235,9 @@ export const ACT1_INITIAL: Readonly<Record<Act1PoolId, number>> = {
   g3p: 0,
   pyruvate: 0,
   lactate: 0,
+  ethanol: 0,
+  co2: 0,
+  glycogen: 0,
   nad: ACT1_NICOTINAMIDE_TOTAL,
   nadh: 0,
   atp: ACT1_ATP_INITIAL,
@@ -181,7 +246,7 @@ export const ACT1_INITIAL: Readonly<Record<Act1PoolId, number>> = {
 };
 
 /**
- * The ten pool definitions, in ACT1_POOL_IDS order.
+ * The thirteen pool definitions, in ACT1_POOL_IDS order.
  *
  * `initial` overrides let a test or a harness scenario start from anywhere
  * without a second definition table. The conservation property test in stage 5

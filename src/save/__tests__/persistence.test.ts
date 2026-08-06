@@ -18,6 +18,7 @@ import { TICK_MS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
 import {
   ACT1_UNLOCK_FERMENT,
+  ACT1_UNLOCK_PFK1_PK,
   act1GlycolysisUnlockId,
   act1UptakeUnlockId,
 } from '../../content/act1/save';
@@ -26,7 +27,7 @@ import {
   type Act1PersistenceOptions,
   type Act1Runtime,
 } from '../../ui/runtime';
-import { GLYCOLYSIS_STEPS, UPTAKE_VMAX_STEPS } from '../../ui/tuning';
+import { GLYCOLYSIS_STEPS, PFK1_PK_VMAX_FACTOR, UPTAKE_VMAX_STEPS } from '../../ui/tuning';
 import { serialize } from '../codec';
 import { computeOfflineDelta, MAX_OFFLINE_MS } from '../offline';
 import { createMemoryStore, createSaveStore, STORAGE_KEYS, type KeyValueStore } from '../storage';
@@ -484,25 +485,39 @@ describe('reloading a session', () => {
       play(first, 1);
       first.buyUptakeStep();
     }
+    // And the enzyme purchase, which UPDATELOGV10.md stage 4 put between the two
+    // ladders and gated this one behind. A loop that skipped it would sit at
+    // rung 0 forever.
+    for (let i = 0; i < 400000 && !first.snapshot.pfk1PkBought; i += 1) {
+      play(first, 1);
+      first.buyPfk1Pk();
+    }
+    expect(first.snapshot.pfk1PkBought).toBe(true);
     for (let i = 0; i < 400000 && first.snapshot.glycolysisStep < 1; i += 1) {
       play(first, 1);
       first.buyGlycolysisStep();
     }
     expect(first.snapshot.glycolysisStep).toBe(1);
     expect(first.unlocked).toContain(act1GlycolysisUnlockId(1));
+    expect(first.unlocked).toContain(ACT1_UNLOCK_PFK1_PK);
     first.stop();
 
     const second = makeRuntime(h);
     expect(second.snapshot.glycolysisStep).toBe(1);
+    expect(second.snapshot.pfk1PkBought).toBe(true);
 
     const rung = GLYCOLYSIS_STEPS[1];
     if (rung === undefined) throw new Error('no rung 1');
     const vmaxOf = (id: string): number | undefined =>
       second.state.reactions.find((r) => r.id === id)?.kinetics.vmax;
+    // THE RUNG AND THE ENZYME FACTOR, RESTORED TOGETHER. Restoring the rung and
+    // silently dropping the factor would be the same silent refund this test
+    // exists for, one level up, and it would leave `prep` and `payoff` in a
+    // ratio the player never bought.
     expect(vmaxOf('uptake')).toBe(rung.uptake);
-    expect(vmaxOf('prep')).toBe(rung.prep);
-    expect(vmaxOf('payoff')).toBe(rung.payoff);
-    expect(vmaxOf('ferment')).toBe(rung.payoff);
+    expect(vmaxOf('prep')).toBeCloseTo(rung.prep * PFK1_PK_VMAX_FACTOR, 10);
+    expect(vmaxOf('payoff')).toBeCloseTo(rung.payoff * PFK1_PK_VMAX_FACTOR, 10);
+    expect(vmaxOf('ferment')).toBeCloseTo(rung.payoff * PFK1_PK_VMAX_FACTOR, 10);
 
     // The preparatory phase is on the Hill form and must stay on it. Restoring a
     // Vmax by rebuilding the descriptor is exactly where a curve gets swapped

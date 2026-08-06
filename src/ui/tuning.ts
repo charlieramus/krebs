@@ -123,6 +123,142 @@ export const DASH_LENGTH = 8;
 export const FERMENT_ATP_THRESHOLD = 55;
 
 /**
+ * Cumulative gross ATP before the ethanol branch can be bought. Added by
+ * UPDATELOGV10.md stage 2 and derived from a clock in stage 5.
+ *
+ * UNLIKE FERMENT_ATP_THRESHOLD, THIS ONE HAS A RANGE. That number is trapped
+ * between a wall at 2.95 game-seconds and an unbuyable ceiling of 60, so it has
+ * half a second to live in. This one is a spacing decision like the two ladders:
+ * the branch is not an answer to anything, it is a second option offered to a
+ * player whose cell is already running, so it can land wherever the act needs a
+ * beat.
+ *
+ * ALSO GATED, AND THE GATE IS NOT THIS NUMBER. `canBuyEthanol` refuses until the
+ * lactate branch has been bought, whatever the meter says. The NAD+ wall gets
+ * one answer, not a fork between two things a player has no way to tell apart
+ * yet. docs/PROGRESSION.md lists lactate at 7 and ethanol at 8.
+ */
+export const ETHANOL_ATP_THRESHOLD = 52000;
+
+/**
+ * Cumulative gross ATP before glycogen storage can be bought. Added by
+ * UPDATELOGV10.md stage 3 and derived from a clock in stage 5.
+ *
+ * IT IS THE LAST PURCHASE IN THE ACT AND THAT IS WHAT THE NUMBER SAYS. The
+ * glycolytic ladder's last rung lands at 61m57s on 195000 cumulative ATP, and
+ * `canBuyGlycogen` refuses until that ladder is finished, so this number only
+ * ever binds after it. It is placed so the reserve is offered while there is
+ * still food left to charge it out of, which at the top rung means before about
+ * 75 game-minutes.
+ *
+ * PROVISIONAL, like ETHANOL_ATP_THRESHOLD, and for the same reason: stage 3 has
+ * no instrumented run of the whole act to read it off. Stage 5 re-derives it.
+ */
+export const GLYCOGEN_ATP_THRESHOLD = 36000;
+
+/* ===========================================================================
+   THE REGULATED GLYCOLYTIC ENZYMES. UPDATELOGV10.md stage 4.
+
+   docs/PROGRESSION.md act 1 item 5, and docs/SCIENCE.md Part 2, Regulation:
+   hexokinase, phosphofructokinase-1 and pyruvate kinase are the three steps of
+   glycolysis held far from equilibrium, which is what makes a step controllable
+   at all. The other seven follow their substrates and an upgrade to one of them
+   would move nothing.
+
+   THREE ENZYMES, ONE PURCHASE, AND ALL THREE REDUCTIONS WERE MEASURED RATHER
+   THAN REASONED. Stage 4 built all three, swept all eight on-and-off
+   combinations across all five glycolytic rungs, and climbed the ladder live
+   rather than only starting cold. Two of the three did not survive it.
+
+     PFK-1 ALONE KILLS THE CELL. It raises `prep` Vmax, and V5's stability
+     condition is that `payoff` Vmax must strictly exceed twice `prep` Vmax. At
+     the top of the uptake ladder that margin is 2.00, so any rise in `prep`
+     spends it. Measured at rung 0: 42.2175 ATP per second to 0.0000, with 3838
+     glucose piled up inside a corpse.
+
+     PYRUVATE KINASE ALONE BUYS NOTHING. Exactly 0.00 percent at every rung,
+     because the payoff phase is not the bottleneck in any configuration act 1
+     reaches. Raising a ceiling nothing is touching changes no flux.
+
+     HEXOKINASE IS NOT SHIPPED AT ALL, and it is the finding rather than the
+     casualty. Modelled as an affinity upgrade it multiplies `ACT1_KM.prep`, and
+     that K is shared across glucose and ATP, which docs/SCIENCE.md Part 1
+     discloses as a simplification. Measured at the top of the uptake ladder,
+     `sat(glucose)` is 0.999998 with the upgrade and 0.999998 without it. **The
+     glucose term is fully saturated and hexokinase moves it by nothing.** All of
+     its 6.07 percent came from `sat(atp)`, 0.879530 to 0.932951, which is the
+     preparatory phase gripping ATP harder. That is not what hexokinase does, and
+     it is the exact property UPDATELOGV5.md's bootstrap repair depends on: it
+     stops `prep` backing off as ATP falls. Climbed live it killed the cell at
+     rung 4 on its own and at rung 1 alongside the other two. A label with the
+     wrong thing behind it does not ship.
+
+   So the two that survive are one purchase, on exactly the reasoning
+   UPDATELOGV5.md used for the two phases of glycolysis. **Pyruvate kinase's
+   function in this game is to make phosphofructokinase-1 safe**, which is a true
+   statement about the pathway rather than a bookkeeping convenience: the exit
+   has to be widened before the entrance can be.
+   =========================================================================== */
+
+/**
+ * What phosphofructokinase-1 and pyruvate kinase do together to the two phases.
+ *
+ * ONE FACTOR ON BOTH, AND THE EQUALITY IS WHAT MAKES IT SAFE. V5's condition is
+ * that `payoff` Vmax strictly exceeds twice `prep` Vmax, which is a statement
+ * about their RATIO, so scaling both by the same number preserves it exactly at
+ * every rung of the capacity ladder. Checked at all five:
+ *
+ *     rung   prep   payoff   payoff - 2*prep
+ *        0   13.8     29.9              2.30
+ *        1   16.1     34.5              2.30
+ *        2   18.4     41.4              4.60
+ *        3   20.7     46.0              4.60
+ *        4   23.0     50.6              4.60
+ *
+ * WHAT IT ACTUALLY BUYS, MEASURED ON A LIVE CLIMB THROUGH THE WHOLE LADDER WITH
+ * A DRAIN-FREE LARDER, ATP per second settled fifteen minutes into each rung:
+ *
+ *     factor    rung 0   rung 1   rung 2   rung 3   rung 4
+ *       1.00    42.217   50.462   58.849   67.384   76.093
+ *       1.05    44.676   53.381   62.244   71.279   80.527
+ *       1.10    47.147   56.317   65.665   67.997   75.996
+ *       1.15    49.631   59.272   59.997   67.997   75.996
+ *       1.20    52.128   51.997   59.997   67.997   75.996
+ *
+ * **The ceiling is four times the uptake Vmax and the enzymes are how the cell
+ * reaches it.** 51.997, 59.997, 67.997 and 75.996 are 4 x 13, 15, 17 and 19: at
+ * and above 1.10 the preparatory phase consumes everything transport delivers
+ * and more enzyme buys nothing, because there is nothing left to buy. The
+ * figures above the ceiling are a cell eating its own stockpile, which is real
+ * ATP and is not a rate.
+ *
+ * **So the permanent gain is at rung 0 and the rest is a drawdown.** NOW.md
+ * records that the top of the uptake ladder over-delivers permanently, pushing
+ * intracellular glucose up by about 87 a minute forever, and calls it a feature
+ * with a purchase attached. This is that purchase. At 1.15 the pile at rung 0
+ * falls from 3454 to 1786 over fifteen minutes and keeps falling, and the cell
+ * runs at 49.631 against a baseline of 42.217 while it does.
+ *
+ * 1.15 rather than 1.20 because 1.20 puts rung 1 straight onto the transport
+ * ceiling and the purchase stops being visible one rung later. 1.15 leaves the
+ * drawdown running across two rungs.
+ */
+export const PFK1_PK_VMAX_FACTOR = 1.15;
+
+/**
+ * Cumulative gross ATP before the phosphofructokinase-1 and pyruvate kinase
+ * purchase. Provisional, derived from a clock in stage 5.
+ *
+ * THE WINDOW IS ONE RUNG WIDE AND STAGE 4 MEASURED IT. The purchase is worth
+ * 17.6 percent at glycolytic rung 0 and nothing at all at rung 4, because it
+ * raises the preparatory phase and the preparatory phase is only the bottleneck
+ * while transport is over-delivering, which is exactly the state the top of the
+ * uptake ladder leaves the cell in. So it is gated to sit between the two
+ * ladders, and the glycolytic ladder is gated behind it.
+ */
+export const PFK1_PK_ATP_THRESHOLD = 68000;
+
+/**
  * Uptake Vmax by capacity step. ENUMERATED, NOT A MULTIPLIER.
  *
  * CLAUDE.md hard rule 3 forbids infinite scaling, and an upgrade with no last
@@ -270,7 +406,7 @@ export const GLYCOLYSIS_STEPS: readonly GlycolysisStep[] = [
  * NOW.md blocking item 2 is about. 62 minutes is inside the target and it keeps
  * the worst wait at 14.
  */
-export const GLYCOLYSIS_ATP_THRESHOLDS: readonly number[] = [53000, 93000, 139000, 195000];
+export const GLYCOLYSIS_ATP_THRESHOLDS: readonly number[] = [87000, 108000, 131000, 158000];
 
 /* ===========================================================================
    SAVE MANAGEMENT. UPDATELOGV4.md stage 5.
@@ -317,6 +453,18 @@ export const TUNING_BADGES = {
   dashSpeed: tuned('How fast the pathway looks. Chosen by watching it'),
   fermentThreshold: tuned(
     'Bounded above by the measured cumulative-ATP ceiling of a walled cell, which is 60. Above that the unlock is unbuyable',
+  ),
+  enzymeFactor: tuned(
+    'That these are two of the three regulated steps is sourced. How much capacity the purchase adds is not, and it is sized against the transport ceiling',
+  ),
+  enzymeThreshold: tuned(
+    'Placed between the two capacity ladders, because that is the one configuration where the preparatory phase is the bottleneck',
+  ),
+  glycogenThreshold: tuned(
+    'Placed so the reserve is offered while there is still food left to charge it out of. The last purchase in the act',
+  ),
+  ethanolThreshold: tuned(
+    'A spacing decision rather than a constraint. The branch answers nothing, so it can land wherever the act needs a beat',
   ),
   uptakeThreshold: tuned(
     'Spaced so the capacity ladder is climbed across act 1 rather than in its first minute',

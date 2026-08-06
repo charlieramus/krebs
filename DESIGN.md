@@ -91,12 +91,26 @@ Thick black stroke, `stroke-width` 3 to 3.5, `stroke-linejoin: round`, flat past
 
 Rules, in priority order:
 
-1. **Sides equal carbons.** Glucose is a six-sided blob. Pyruvate is three-sided. When one six splits into two threes, the arithmetic is visible rather than stated.
+1. **Sides equal carbons, and below three carbons the count is beads.** Glucose is a six-sided blob. Pyruvate is three-sided. When one six splits into two threes, the arithmetic is visible rather than stated. Below three carbons a straight-edged polygon has no area, so the molecule is drawn as one round bead per carbon: ethanol is two beads and carbon dioxide is one. Amended 2026-08-06 by V10, which added the first act 1 molecules under three carbons; the original rule said sides and nothing else, and it was right about the arithmetic and silent about its own domain. See below.
 2. **Phosphate dots are countable.** ATP carries three, ADP carries two. Spending energy visibly removes a dot.
 3. **Redox is saturation and a level.** NADH and NAD+ are the same silhouette. NADH is `reduced` with two electron dots. NAD+ is `oxidized` and empty. The reduced fraction of the pool is drawn as a level, with a hard ink rule at the boundary, because saturation alone does not survive a colour vision deficiency. See Accessibility. Amended 2026-08-04 by V7; the original rule read "saturation, not hue" and was right about hue and incomplete about everything else.
 4. **Enzymes are machines with a notch.** The notch is shaped like the enzyme's substrate. This is induced fit drawn as a cartoon, and it teaches specificity for free.
 5. **Damage is cracks.** Act 2 degradation draws as `loss` coloured cracks across the enzyme blob, not as a percentage buried in a table.
 6. **ROS have X eyes.** Hazards read as characters, not as icons.
+
+### Rule 1 below three carbons
+
+Added 2026-08-06 by V10, which built act 1's ethanol branch and found the rule at the edge of its domain.
+
+**Act 1 had no molecule under three carbons until 2026-08-06**, because glycolysis never cleaves below a triose. The ethanol branch adds two. Ethanol carries 2 carbons and carbon dioxide carries 1, and at two sides a straight-edged polygon is a line while at one side it is a point. Neither encloses an area and neither can be stroked into a shape. **SVG says the same thing independently**: a curve or arc whose two endpoints are identical is defined as omitted entirely, so a closed one-edged path does not exist in the syntax.
+
+So the count moves channel and stays a count. **One round bead per carbon, joined into one silhouette.** Carbon dioxide is one bead. Ethanol is two, drawn with a visible seam so the pair reads as one molecule rather than two. A three-sided pyruvate splitting into two beads and one bead still reads as 3 = 2 + 1, which is the arithmetic rule 1 exists to make visible and the only thing it promises.
+
+**The threshold has a reason rather than a taste.** Three is the smallest number of straight sides that encloses an area. It is not a number anyone picked.
+
+**Beads and phosphate dots are both countable circles, and that collision is asserted rather than noted.** They never co-occur today because neither ethanol nor carbon dioxide carries phosphate. `illustration.test.ts` fails the build if a molecule below three carbons ever carries one, which is the point at which this needs designing again rather than extending.
+
+**This is an extension and it should be read as one.** The original rule said sides and nothing else. It was right about the arithmetic and silent about its own domain, which is the same shape as the colour sentence V7 found and the three Part 3 statements V8 found: a rule holds until something is built that reaches past it.
 
 ## The badge contract
 

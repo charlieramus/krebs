@@ -1,6 +1,6 @@
 # Science
 
-Last updated: 2026-07-29
+Last updated: 2026-08-06
 
 Biological ground truth for the project. Every quantitative claim in player-facing text traces back to this document.
 
@@ -145,6 +145,18 @@ PFK-1 shows cooperative sigmoidal kinetics, not hyperbolic. This is why the Hill
 
 Hexokinase is inhibited by its own product, glucose-6-phosphate. Pyruvate kinase is the third regulated step.
 
+Hexokinase is also the enzyme whose defining property is affinity rather than speed. It has a low Km for glucose and works at close to saturation at ordinary intracellular concentrations, which is what lets a cell commit glucose to glycolysis as soon as it arrives. The liver isozyme glucokinase does the same chemistry with a Km roughly two orders of magnitude higher and therefore responds to glucose level rather than ignoring it, which is the textbook demonstration that the same reaction with a different Km is a different regulatory device.
+
+### Flux control is distributed, and the three regulated steps are where it concentrates
+
+Added 2026-08-06, for act 1's fifth unlock.
+
+Hexokinase, phosphofructokinase-1 and pyruvate kinase are the three regulated steps of glycolysis and they are the three named above. Each catalyses a reaction held far from equilibrium in the cell, which is what makes a step controllable at all. The other seven run near equilibrium and follow their substrates, so raising one of those raises nothing.
+
+The honest qualification is that control is shared rather than owned. Metabolic control analysis measures how much a pathway's flux responds to a change in one enzyme's activity and expresses it as a control coefficient, and the coefficients over a pathway sum to one. For glycolysis the result is that no single enzyme holds all of it and the distribution shifts with conditions and with organism. "PFK-1 is the rate-limiting step" is a useful shorthand for where control concentrates. It is not a statement that raising PFK-1 alone raises flux by the same factor.
+
+What this licenses and what it does not. It licenses a model that sells these three steps and not the other seven, because these are where control sits. It does not license a claim that any one of them is the whole bottleneck, so a model that raises a phase's capacity when a named enzyme is improved is attributing the phase's response to one of its steps and should say so. It says nothing at all about yield: no change to any rate anywhere in the ten steps produces more than 4 ATP gross per glucose, because the yield is fixed by the stoichiometry.
+
 ## The NAD+ constraint
 
 Glycolysis reduces NAD+ to NADH at step 6. The cellular NAD+ pool is small and fixed. If NADH is not reoxidized back to NAD+, glycolysis halts within seconds regardless of glucose availability.
@@ -155,11 +167,70 @@ This is the single most important mechanic in act 1 and it is a genuine cellular
 
 Fermentation exists to regenerate NAD+. It produces zero additional ATP. Framing it as an energy pathway is a common misconception and the game should correct it directly.
 
-Lactate fermentation, one step. Lactate dehydrogenase reduces pyruvate to lactate, oxidizing NADH back to NAD+.
+Both branches below give a net of 2 ATP per glucose overall, which is the act 1 ceiling. Neither branch contributes any of it. The 2 ATP come from the payoff phase and would be there without any fermentation at all, for exactly as long as the NAD+ pool lasted.
 
-Ethanol fermentation, two steps. Pyruvate decarboxylase removes CO2 to give acetaldehyde, then alcohol dehydrogenase reduces acetaldehyde to ethanol, oxidizing NADH.
+### Lactate fermentation
 
-Both give a net of 2 ATP per glucose overall, which is the act 1 ceiling.
+One step. Lactate dehydrogenase reduces pyruvate to lactate, oxidizing NADH back to NAD+.
+
+    pyruvate + NADH + H+  ->  lactate + NAD+
+
+Three carbons in, three carbons out. Nothing leaves the cell as a gas. The reducing power taken off NADH stays in the lactate, which is why lactate is a dead end the cell excretes rather than a product it has finished with.
+
+### Ethanol fermentation
+
+Expanded 2026-08-06. This section was one sentence. It named the two enzymes and the carbon dioxide correctly and said nothing about stoichiometry, yield, redox or which organisms do it, which is not enough to build a pathway from. Everything the old sentence carried is retained below.
+
+Two steps.
+
+    pyruvate  ->  acetaldehyde + CO2                  pyruvate decarboxylase
+    acetaldehyde + NADH + H+  ->  ethanol + NAD+      alcohol dehydrogenase
+
+Pyruvate decarboxylase is thiamine pyrophosphate dependent and it is the step that releases carbon dioxide. Alcohol dehydrogenase is the step that reoxidizes NADH, and it is the only one of the two that touches the carrier at all. The branch runs once per pyruvate and twice per glucose, giving 2 ethanol and 2 CO2.
+
+Yield. Zero ATP, exactly as for lactate. That claim has to be made for this branch on its own rather than inherited from the section heading, because a decarboxylation looks like it ought to cost or release something and it does neither.
+
+Redox. One NADH consumed per pyruvate, which is the same as the lactate branch, so a cell running either branch at the rate its payoff phase makes NADH holds its carrier pool steady. **The two branches are interchangeable as NAD+ regenerators and interchangeable in nothing else.** What differs is what the cell is left holding: three carbons of lactate, or two carbons of ethanol and one carbon released as gas.
+
+Which organisms. The textbook example is Saccharomyces cerevisiae, which is a eukaryote and therefore the wrong organism for act 1. The route is genuinely present in bacteria and it is uncommon there. Zymomonas mobilis is the best characterized bacterial case and this document already cites it in Part 3 for its two alcohol dehydrogenases; it does ferment to ethanol through pyruvate decarboxylase and alcohol dehydrogenase, but it runs the Entner-Doudoroff pathway rather than glycolysis and so nets 1 ATP per glucose rather than 2. Sarcina ventriculi is the closer precedent for act 1, being a Gram-positive anaerobe that runs glycolysis and carries a pyruvate decarboxylase.
+
+Escherichia coli is the counterexample worth knowing, because it makes ethanol and does not make it this way. It has no pyruvate decarboxylase. Its fermentative route runs pyruvate through pyruvate formate-lyase to acetyl-CoA and formate, then through the bifunctional AdhE to ethanol, consuming two NADH per ethanol rather than one. Part 3 of this document already describes AdhE, for the unrelated reason that it is an oxidative-damage target. So the decarboxylase route is one of at least two ways a prokaryote reaches ethanol, and it is the one the two named enzymes belong to.
+
+What a game claims by shipping this branch in an anaerobic prokaryote. That a prokaryote running glycolysis can ferment to ethanol by decarboxylation and reduction. That is true of the class and uncommon within it, in the same way that Part 3's oxygen-stable PFOR is a real exception to a real rule. It is not a claim that the organism is any named species, and the game names none.
+
+## Carbon dioxide, and whether anything in this game consumes it
+
+Added 2026-08-06, for the act 1 ethanol branch. This section exists because the ethanol branch is the first reaction in the game that takes a carbon off a molecule, and the model treats carbon as a conserved quantity.
+
+The carbon does not go anywhere. Decarboxylation converts one carbon of pyruvate into carbon dioxide, which is a real molecule with that carbon still in it, and a cell that releases it has moved the carbon rather than destroyed it. A model in which it vanished would be wrong about chemistry rather than simplified about it.
+
+Carbon dioxide is produced in three places across the four acts and consumed in one.
+
+Produced. Ethanol fermentation, one per pyruvate, act 1. Pyruvate oxidation by the pyruvate dehydrogenase complex, one per pyruvate, act 3, Part 4 below. The TCA cycle, two per turn, act 3, Part 4 below.
+
+Consumed. Pyruvate carboxylase, act 4. See Part 5, "Gluconeogenesis". It carboxylates pyruvate to oxaloacetate, spending 1 ATP and taking its carbon from bicarbonate rather than from dissolved CO2 directly, the two being interconvertible in water. Gluconeogenesis then releases that same carbon one step later at phosphoenolpyruvate carboxykinase, so the pathway as a whole is carbon dioxide neutral while one of its reactions is a consumer.
+
+The same enzyme has a second use which is not neutral. Pyruvate carboxylase is the main anaplerotic reaction, topping the TCA cycle back up with oxaloacetate when intermediates are drawn off for biosynthesis, and used that way it is a net fixer of carbon dioxide. Part 4 already records that the cycle is amphibolic, and this is what that costs.
+
+The consequence for the model is small and it has to be decided once rather than discovered later. **Carbon dioxide is a reservoir, not a sink.** Nothing in act 1 or act 2 draws it down and act 4 does, so a pool that a later act reads from cannot be treated as write-only accounting now, cannot be capped, and cannot be discarded to keep a number small.
+
+## Glycogen, and what storage costs
+
+Added 2026-08-06, for act 1's ninth unlock. Glycogen appeared nowhere in this document before this date.
+
+Glycogen is a branched polymer of glucose, alpha-1,4 linked along the chain with alpha-1,6 branch points. It is the storage carbohydrate of animals and fungi and it is also widespread in bacteria and archaea, so it is available to an anaerobic prokaryote without special pleading.
+
+**The route in and the route out are different pathways with different enzymes, and that asymmetry is the whole content of the entry.**
+
+In, by the bacterial route. Glucose is phosphorylated to glucose-6-phosphate at a cost of 1 ATP, isomerized to glucose-1-phosphate by phosphoglucomutase at no cost, then activated by ADP-glucose pyrophosphorylase at a cost of 1 ATP, giving ADP-glucose and pyrophosphate. Glycogen synthase transfers the glucosyl unit onto a growing chain and a branching enzyme installs the alpha-1,6 branches. The pyrophosphate is hydrolysed, which is what makes the activation step effectively irreversible and is why it counts as a whole ATP equivalent rather than a fraction of one. **Two ATP equivalents per glucose unit stored.**
+
+Out. Glycogen phosphorylase cleaves a terminal glucosyl unit using inorganic phosphate rather than water, releasing glucose-1-phosphate directly and spending no ATP at all. Phosphoglucomutase converts that to glucose-6-phosphate, which is glycolysis's own second intermediate, so the unit re-enters the pathway past the hexokinase step and never pays the phosphorylation cost a second time. A debranching enzyme releases a minority of units as free glucose, and those do pay it.
+
+**Net cost of a full store and retrieve cycle is 1 ATP equivalent per glucose unit.** Two spent going in, one saved coming out. A glucose that went through storage therefore returns 1 net ATP through glycolysis where a glucose that did not returns 2. Storage is not free, it is not a yield, and it halves the return on every unit it handles. What it buys is the ability to keep running when there is nothing left to take up.
+
+Eukaryotes use UDP-glucose in place of ADP-glucose. The activated donor differs and the accounting does not.
+
+Regulation, and the futile cycle underneath it. Synthesis and degradation are reciprocally regulated so that they do not run hard at the same time, because a cell doing both stores and retrieves the same carbon and burns ATP for nothing. In bacteria the control point is ADP-glucose pyrophosphorylase, which is allosterically activated by glycolytic intermediates and inhibited by AMP, so storage switches on under the signal that glycolysis is well supplied. This is the same principle Part 5 records for glycolysis against gluconeogenesis. **The futile cycle is a real failure mode of a real cell rather than a modeling artifact, and the thing that suppresses it is allosteric regulation**, which is act 4's theme and not act 1's.
 
 ---
 
@@ -421,6 +492,8 @@ Nitrogen disposal is the constraint. Free ammonia is toxic and must be converted
 
 Glucose synthesis from non-carbohydrate precursors. Not simply glycolysis reversed. Three glycolytic steps are thermodynamically irreversible and require different enzymes to bypass.
 
+The three bypasses, named 2026-08-06 because act 1's carbon dioxide question turns on one of them. Pyruvate to phosphoenolpyruvate takes two steps rather than one: pyruvate carboxylase carboxylates pyruvate to oxaloacetate, spending 1 ATP and taking the carbon from bicarbonate, then phosphoenolpyruvate carboxykinase decarboxylates oxaloacetate to phosphoenolpyruvate, spending 1 GTP and releasing that same carbon again. Fructose-1,6-bisphosphatase bypasses the phosphofructokinase-1 step. Glucose-6-phosphatase bypasses the hexokinase step. **Pyruvate carboxylase is the only carbon dioxide consuming reaction in any pathway this game plans to model**, and its other and larger role is anaplerotic rather than gluconeogenic. See Part 2, "Carbon dioxide, and whether anything in this game consumes it".
+
 Costs more ATP than glycolysis yields. Running both simultaneously produces a futile cycle that burns ATP for nothing, which is why reciprocal regulation exists and is a real regulatory failure mode worth modeling.
 
 ## Regulation as the act 4 theme
@@ -650,6 +723,27 @@ Early eukaryote fossils, Part 6 stop 6:
 - Early fossil eukaryotes were benthic aerobes. Nature, 2026. Source for the roughly 1.75 to 1.4 Ga fossil eukaryotes being almost entirely restricted to oxygenated bottom water settings. https://www.nature.com/articles/s41586-026-10533-4
 - Schneider et al. 2002, for the redating of Grypania to 1874 plus or minus 9 Ma. Full citation not verified.
 
+Ethanol fermentation and its distribution among prokaryotes, Part 2, added 2026-08-06:
+- Lehninger Principles of Biochemistry, 8th edition, for the two-step pyruvate decarboxylase and alcohol dehydrogenase route, its stoichiometry and its zero ATP yield. Already listed above as a primary reference and repeated here because this is the load-bearing source for the branch
+- Lowe, S. E. and Zeikus, J. G. Purification and characterization of pyruvate decarboxylase from Sarcina ventriculi. Journal of General Microbiology, 1992. Source for a glycolytic Gram-positive anaerobe carrying pyruvate decarboxylase, which is the precedent act 1's organism rests on. Author list not independently verified
+- Zymomonas mobilis fermenting to ethanol through the Entner-Doudoroff pathway at a net of 1 ATP per glucose. Covered by the Lehninger and Berg references above. The Zymomonas alcohol dehydrogenase paper already cited under Part 3 is a separate claim and is not the source for this one
+- Escherichia coli reaching ethanol through pyruvate formate-lyase and AdhE rather than through a decarboxylase. Covered by the AdhE reference already cited under Part 3, which describes AdhE as bifunctional and acetyl-CoA dependent
+
+Glycogen, Part 2, added 2026-08-06:
+- Lehninger Principles of Biochemistry, 8th edition, for glycogen structure, glycogen phosphorylase using inorganic phosphate, the phosphoglucomutase step and the re-entry of glucose-1-phosphate past hexokinase
+- Ballicora, M. A., Iglesias, A. A. and Preiss, J. ADP-glucose pyrophosphorylase, a regulatory enzyme for bacterial glycogen synthesis. Microbiology and Molecular Biology Reviews, 67(2), 2003. Source for the bacterial ADP-glucose route and for allosteric activation of the committed step by glycolytic intermediates
+- Wilson, W. A. et al. Regulation of glycogen metabolism in yeast and bacteria. FEMS Microbiology Reviews, 34(6), 2010. Source for the reciprocal regulation of synthesis against degradation and for the breadth of glycogen across bacteria. Author list not independently verified
+
+Flux control and the three regulated steps, Part 2, added 2026-08-06:
+- Kacser, H. and Burns, J. A. The control of flux. Symposia of the Society for Experimental Biology, 27, 1973. The origin of control coefficients and of the summation theorem
+- Fell, D. A. Metabolic control analysis: a survey of its theoretical and experimental development. Biochemical Journal, 286, 1992. Source for control being distributed across a pathway rather than held by one enzyme
+
+Pyruvate carboxylase and anaplerosis, Part 5, added 2026-08-06:
+- Jitrapakdee, S. et al. Structure, mechanism and regulation of pyruvate carboxylase. Biochemical Journal, 413(3), 2008. Source for the carboxylation using bicarbonate and 1 ATP and for the enzyme's anaplerotic role. Author list not independently verified
+- Lehninger Principles of Biochemistry, 8th edition, for the three gluconeogenic bypasses and for phosphoenolpyruvate carboxykinase releasing the carbon that pyruvate carboxylase fixed
+
 Verification status. Entries marked "not verified" have a confirmed title, journal, year and where given a URL, but the author list was not independently checked during the 2026-07-28 sourcing pass. Do not cite those author names in player-facing text without checking them. Nothing in this section was invented; unverified fields were stripped rather than guessed.
+
+Verification status of the 2026-08-06 additions, stated separately because the pass was a different kind. The claims added on that date are textbook and review-level biochemistry rather than contested primary results, and every one of them is carried by the Lehninger and Berg references already at the head of this list. The named journal articles are given because a reader chasing the bacterial and control-analysis specifics should be sent somewhere better than a textbook, and where an author list was not independently checked the entry says so. **No URL was added in this pass**, because a guessed URL is worse than an absent one and none was confirmed. Nothing was invented.
 
 Citation discipline: every player-facing numeric claim needs a pointer into this section. If a number cannot be sourced, it does not ship.

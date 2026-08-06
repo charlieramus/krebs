@@ -138,32 +138,101 @@ function polygonPath(sides: number, radius: number, centre: number, seed: number
 }
 
 /**
+ * A closed round blob of four cubic curves, wobbled. Two shapes are drawn from
+ * it and they mean different things.
+ *
+ * `cx` and `cy` are separate so a bead can sit off centre. `carrierPath` below
+ * is this at the middle of the viewport and is the only caller that needs the
+ * extent, which `redoxExtent` recomputes from the same wobble.
+ */
+function roundPath(radius: number, cx: number, cy: number, seed: number): string {
+  const r = (i: number): number => radius * (1 + wobble(seed, i, 53) * RADIUS_WOBBLE);
+  const top = cy - r(0);
+  const right = cx + r(1) * 1.05;
+  const bottom = cy + r(2);
+  const left = cx - r(3) * 1.05;
+  const k = radius * 0.62;
+  return (
+    `M ${round(cx)} ${round(top)} ` +
+    `C ${round(cx + k)} ${round(top)} ${round(right)} ${round(cy - k)} ${round(right)} ${round(cy)} ` +
+    `C ${round(right)} ${round(cy + k)} ${round(cx + k)} ${round(bottom)} ${round(cx)} ${round(bottom)} ` +
+    `C ${round(cx - k)} ${round(bottom)} ${round(left)} ${round(cy + k)} ${round(left)} ${round(cy)} ` +
+    `C ${round(left)} ${round(cy - k)} ${round(cx - k)} ${round(top)} ${round(cx)} ${round(top)} Z`
+  );
+}
+
+/**
  * The carrier silhouette, for pools with no carbon skeleton.
  *
  * NAD+, NADH, ATP, ADP and free phosphate all carry a carbon weight of zero in
- * act 1's table, because act 1 never cleaves below a triose and the carriers are
- * modeled as carriers rather than as molecules with skeletons. Drawing them as
- * zero-sided polygons would be nonsense, so they get a shape of their own: a
- * closed blob of four cubic curves, wobbled the same way.
+ * act 1's table, because the carriers are modeled as carriers rather than as
+ * molecules with skeletons. Drawing them as zero-sided polygons would be
+ * nonsense, so they get a shape of their own.
  *
  * This is also what makes rule 3 work. NAD+ and NADH are the same call to this
  * function with the same seed, so they are the same silhouette to the pixel, and
  * only the fill distinguishes them.
  */
 function carrierPath(radius: number, centre: number, seed: number): string {
-  const r = (i: number): number => radius * (1 + wobble(seed, i, 53) * RADIUS_WOBBLE);
-  const top = centre - r(0);
-  const right = centre + r(1) * 1.05;
-  const bottom = centre + r(2);
-  const left = centre - r(3) * 1.05;
-  const k = radius * 0.62;
-  return (
-    `M ${round(centre)} ${round(top)} ` +
-    `C ${round(centre + k)} ${round(top)} ${round(right)} ${round(centre - k)} ${round(right)} ${round(centre)} ` +
-    `C ${round(right)} ${round(centre + k)} ${round(centre + k)} ${round(bottom)} ${round(centre)} ${round(bottom)} ` +
-    `C ${round(centre - k)} ${round(bottom)} ${round(left)} ${round(centre + k)} ${round(left)} ${round(centre)} ` +
-    `C ${round(left)} ${round(centre - k)} ${round(centre - k)} ${round(top)} ${round(centre)} ${round(top)} Z`
-  );
+  return roundPath(radius, centre, centre, seed);
+}
+
+/* ===========================================================================
+   BELOW THREE CARBONS, A POLYGON CANNOT ENCLOSE ANYTHING.
+   UPDATELOGV10.md stage 2, and it is a real extension to DESIGN.md rule 1
+   rather than an implementation detail.
+
+   Act 1 had no molecule under three carbons until the ethanol branch, because
+   glycolysis never cleaves below a triose. The branch adds two: ethanol at 2
+   and carbon dioxide at 1. Rule 1 says sides equal carbons, and at 2 sides a
+   straight-edged polygon is a line and at 1 side it is a point. Neither has an
+   area and neither can be stroked into a shape. This is not a bug in the code,
+   it is the rule reaching the edge of its domain.
+
+   SVG makes the same point independently: an arc or curve whose endpoints are
+   identical is defined as being omitted entirely, so a one-edged closed path
+   does not exist in path syntax at all.
+
+   SO THE COUNT MOVES CHANNEL, AND IT STAYS A COUNT. A molecule below three
+   carbons is drawn as one round bead per carbon, joined into one silhouette.
+   Carbon dioxide is one bead, ethanol is two. Pyruvate at three sides splitting
+   into two beads and one bead still reads as 3 = 2 + 1, which is the arithmetic
+   rule 1 exists to make visible, and which is the only thing rule 1 actually
+   promises.
+
+   THE THRESHOLD HAS A REASON RATHER THAN A TASTE. Three is the smallest number
+   of straight sides that encloses an area. It is the same kind of reason
+   ACT1_HILL_N is 2 and ACT1_MAINTAIN_HILL_N is 3: the smallest integer for
+   which the thing is true at all.
+
+   ONE COLLISION TO WATCH AND IT IS ASSERTED RATHER THAN NOTED. Beads and
+   phosphate dots are both countable circles. They never co-occur today because
+   ethanol and carbon dioxide carry no phosphate, and `illustration.test.ts`
+   fails the build if a future act adds a phosphorylated molecule below three
+   carbons, which is the point at which this needs designing again.
+   =========================================================================== */
+
+/** The smallest number of straight sides that encloses an area. */
+export const MIN_POLYGON_SIDES = 3;
+
+/**
+ * Where each bead sits and how big it is.
+ *
+ * A single bead fills the viewport the way a polygon would. Two sit side by
+ * side and overlap slightly, so the pair reads as one molecule with a visible
+ * seam rather than as two molecules that happen to be adjacent. The seam is
+ * what makes them countable.
+ */
+export function beadGeometry(
+  count: number,
+  index: number,
+  radius: number,
+  centre: number,
+): { readonly r: number; readonly cx: number; readonly cy: number } {
+  if (count <= 1) return { r: radius * 0.94, cx: centre, cy: centre };
+  const r = radius * 0.66;
+  const spread = r * 0.72;
+  return { r, cx: centre + (index - (count - 1) / 2) * spread * 2, cy: centre };
 }
 
 export interface RedoxExtent {
@@ -338,10 +407,23 @@ export function Blob({
   const centre = size / 2;
   const radius = size * 0.36;
   const isCarrier = carbon === 0;
+  /** One bead per carbon, because a polygon needs three sides. See the note above. */
+  const isBeaded = carbon > 0 && carbon < MIN_POLYGON_SIDES;
 
   const silhouette = isCarrier
     ? carrierPath(radius, centre, seed)
-    : polygonPath(carbon, radius, centre, seed);
+    : isBeaded
+      ? null
+      : polygonPath(carbon, radius, centre, seed);
+
+  const beads = isBeaded
+    ? Array.from({ length: carbon }, (_, i) => {
+        const g = beadGeometry(carbon, i, radius, centre);
+        // A different salt per bead, so two beads of the same molecule wobble
+        // differently and the pair does not read as one shape reflected.
+        return roundPath(g.r, g.cx, g.cy, seed + i * 29);
+      })
+    : [];
 
   // Unique per instance, because two carrier blobs on one page must not share a
   // clip. Stripped of the colons React puts in its ids, which are legal in an
@@ -364,19 +446,38 @@ export function Blob({
           pointer affordance: the one way a sighted player can ask a shape what
           it encodes without a legend panel nobody opens. */}
       <title>{label}</title>
-      <path
-        ref={pathRef}
-        // The role attribute is what illustration.test.ts keys off. The test
-        // counts the geometry in `d` rather than trusting a side-count
-        // attribute, so this only says which kind of shape it is.
-        data-role={isCarrier ? 'carrier' : 'silhouette'}
-        d={silhouette}
-        fill={fill}
-        stroke="var(--color-ink)"
-        strokeWidth={STROKE_WIDTH}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+      {silhouette === null ? (
+        beads.map((d, i) => (
+          <path
+            key={d}
+            ref={i === 0 ? pathRef : undefined}
+            // One element per carbon rather than one path with several
+            // subpaths, so the count is read by counting elements the way
+            // phosphate dots are, rather than by parsing subpath commands.
+            data-role="skeleton-bead"
+            d={d}
+            fill={fill}
+            stroke="var(--color-ink)"
+            strokeWidth={STROKE_WIDTH}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        ))
+      ) : (
+        <path
+          ref={pathRef}
+          // The role attribute is what illustration.test.ts keys off. The test
+          // counts the geometry in `d` rather than trusting a side-count
+          // attribute, so this only says which kind of shape it is.
+          data-role={isCarrier ? 'carrier' : 'silhouette'}
+          d={silhouette}
+          fill={fill}
+          stroke="var(--color-ink)"
+          strokeWidth={STROKE_WIDTH}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      )}
 
       {/* Rule 3's second channel, drawn between the base fill and the dots so
           it sits inside the shape rather than over its outline. The extent
@@ -400,12 +501,15 @@ export function Blob({
               <rect data-role="redox-clip" x="0" y={round(extent.bottom)} width={size} height={size} />
             </clipPath>
             <clipPath id={`${clipId}-shape`}>
-              <path d={silhouette} />
+              {/* Only a carrier is ever driven by this block, and a carrier
+                  always has a silhouette, so the fallback is unreachable rather
+                  than a default. Beads carry no redox state. */}
+              <path d={silhouette ?? undefined} />
             </clipPath>
           </defs>
 
           <g clipPath={`url(#${clipId}-below)`}>
-            <path d={silhouette} fill={reducedFill} />
+            <path d={silhouette ?? undefined} fill={reducedFill} />
           </g>
 
           {/* THE CHANNEL. A hard ink rule at the boundary, clipped to the

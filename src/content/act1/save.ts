@@ -75,6 +75,62 @@ import { createAct1 } from './reactions';
 export const ACT1_UNLOCK_FERMENT = 'ferment';
 
 /**
+ * Pyruvate decarboxylase and alcohol dehydrogenase. The second NAD+ recycling
+ * branch, added by UPDATELOGV10.md stage 2.
+ *
+ * `ferment` MEANS LACTATE, PERMANENTLY. V4 minted that id before there was a
+ * second branch to distinguish it from, and Part 3 makes an id that has shipped
+ * permanent, so renaming it to `ferment-lactate` costs a migration and buys
+ * nothing this comment does not buy. The new branch sits beside it instead.
+ *
+ * ADDITIVE, SO NO SCHEMA BUMP, on the same reading V5 used for the glycolytic
+ * ladder. docs/SAVE_SCHEMA.md Part 1: a change new code can handle by defaulting
+ * a missing field is not breaking. A V4 to V9 save simply has no id with this
+ * value and derives the branch as unbought, which is what it was. The two new
+ * POOLS are the same case seen from the other side: `restoreAct1` defaults a
+ * pool the save did not carry to its ACT1_INITIAL amount and reports it in
+ * `missingPools`, and both new pools start at zero, so an older save restores to
+ * a cell that has never fermented to ethanol. Which is true of it.
+ */
+export const ACT1_UNLOCK_FERMENT_ETHANOL = 'ferment-ethanol';
+
+/**
+ * Glycogen storage. One purchase turning on BOTH `store` and `mobilise`, added
+ * by UPDATELOGV10.md stage 3.
+ *
+ * ONE ID FOR TWO REACTIONS, on the precedent V5 set for the glycolytic ladder
+ * and for the same kind of reason. A cell that can charge a reserve and not draw
+ * it down has bought a permanent tax on its own throughput and nothing else,
+ * which is a purchasable configuration that makes the cell worse, and V5's rule
+ * is that one does not ship. A cell that can draw down a reserve it can never
+ * charge has bought a reaction that never runs. Neither half is a thing on its
+ * own.
+ *
+ * ADDITIVE, SO NO SCHEMA BUMP, on the same reading as `ferment-ethanol` above.
+ */
+export const ACT1_UNLOCK_GLYCOGEN = 'glycogen-storage';
+
+/**
+ * Phosphofructokinase-1 and pyruvate kinase, one purchase.
+ *
+ * TWO ENZYMES AND ONE ID, AND STAGE 4 MEASURED WHY. PFK-1 raises the
+ * preparatory phase and pyruvate kinase raises the payoff phase, and V5's
+ * stability condition is that payoff Vmax strictly exceeds twice prep Vmax. Sold
+ * alone, PFK-1 spends that margin and the cell dies: 42.2175 ATP per second to
+ * zero, measured. Sold alone, pyruvate kinase buys exactly nothing, because the
+ * payoff phase is not the bottleneck in any configuration act 1 reaches. One
+ * purchase is the only shape where both are true and neither is a lie.
+ *
+ * **STAGE 1 NAMED THREE IDS AND STAGE 4 SHIPS ONE.** That list was declared
+ * permanent from stage 1, and an id is permanent from the moment something SHIPS
+ * with it rather than from the moment it is written down. Nothing ever wrote
+ * `enzyme-hexokinase`, `enzyme-pfk1` or `enzyme-pyruvate-kinase` into a save,
+ * because none of them existed in a build. Recorded rather than quietly
+ * corrected. Hexokinase is not shipped at all and stage 4's report says why.
+ */
+export const ACT1_UNLOCK_PFK1_PK = 'enzyme-pfk1-pk';
+
+/**
  * One id per rung of the uptake capacity ladder, numbered by its index into
  * `UPTAKE_VMAX_STEPS`. Step 0 is the shipped default and is not purchasable, so
  * the first id a save can carry is `uptake-capacity-1`.
@@ -132,8 +188,24 @@ function parseStepId(id: string, prefix: string): number | null {
 }
 
 export interface Act1Unlocks {
-  /** Whether `ferment` runs. The one reaction flag act 1 derives. */
+  /** Whether `ferment`, the lactate branch, runs. */
   readonly fermentEnabled: boolean;
+  /**
+   * Whether `ferment_ethanol` runs. Independent of `fermentEnabled` in both
+   * directions: a cell may run either branch, both, or neither, and buying one
+   * never removes the other.
+   */
+  readonly ethanolEnabled: boolean;
+  /**
+   * Whether `store` and `mobilise` run. One flag, because one purchase turns on
+   * both. See ACT1_UNLOCK_GLYCOGEN.
+   */
+  readonly glycogenEnabled: boolean;
+  /**
+   * Phosphofructokinase-1 and pyruvate kinase, one purchase. A capacity factor
+   * rather than a flag, so the runtime applies it the way it applies a rung.
+   */
+  readonly pfk1PkBought: boolean;
   /** Index into the interface's capacity ladder. 0 is the shipped default. */
   readonly uptakeStep: number;
   /**
@@ -159,6 +231,9 @@ export interface Act1Unlocks {
  */
 export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
   let fermentEnabled = false;
+  let ethanolEnabled = false;
+  let glycogenEnabled = false;
+  let pfk1PkBought = false;
   let uptakeStep = 0;
   let glycolysisStep = 0;
   const unknown: string[] = [];
@@ -166,6 +241,18 @@ export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
   for (const id of unlocked) {
     if (id === ACT1_UNLOCK_FERMENT) {
       fermentEnabled = true;
+      continue;
+    }
+    if (id === ACT1_UNLOCK_FERMENT_ETHANOL) {
+      ethanolEnabled = true;
+      continue;
+    }
+    if (id === ACT1_UNLOCK_GLYCOGEN) {
+      glycogenEnabled = true;
+      continue;
+    }
+    if (id === ACT1_UNLOCK_PFK1_PK) {
+      pfk1PkBought = true;
       continue;
     }
     const uptake = parseAct1UptakeUnlockId(id);
@@ -181,7 +268,15 @@ export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
     unknown.push(id);
   }
 
-  return { fermentEnabled, uptakeStep, glycolysisStep, unknown };
+  return {
+    fermentEnabled,
+    ethanolEnabled,
+    glycogenEnabled,
+    pfk1PkBought,
+    uptakeStep,
+    glycolysisStep,
+    unknown,
+  };
 }
 
 /* ===========================================================================
@@ -383,15 +478,21 @@ export function restoreAct1(save: SaveV1): Act1RestoreResult {
   const unlocks = deriveAct1Unlocks(save.progression.unlocked);
 
   /**
-   * `ferment` is switched from the unlock list and nothing else is. Every other
-   * reaction's flag comes from ACT1_ENABLED, which is the shipped pathway, so a
-   * save cannot turn on a reaction the build does not ship enabled or off one it
-   * does. The uptake capacity step is a Vmax rather than a flag and belongs to
-   * the interface's ladder, so it is reported here and applied by the runtime.
+   * The two fermentation branches and the two glycogen reactions are switched
+   * from the unlock list and nothing else is. Every other reaction's flag comes from ACT1_ENABLED, which is the
+   * shipped pathway, so a save cannot turn on a reaction the build does not ship
+   * enabled or off one it does. The uptake capacity step is a Vmax rather than a
+   * flag and belongs to the interface's ladder, so it is reported here and
+   * applied by the runtime.
    */
   const state = createAct1({
     initial,
-    enabled: { ferment: unlocks.fermentEnabled },
+    enabled: {
+      ferment: unlocks.fermentEnabled,
+      ferment_ethanol: unlocks.ethanolEnabled,
+      store: unlocks.glycogenEnabled,
+      mobilise: unlocks.glycogenEnabled,
+    },
     seed: save.rng.seed,
   });
 

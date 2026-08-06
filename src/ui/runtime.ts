@@ -31,7 +31,11 @@ import { createLoop, elapsedMs, type Loop } from '../sim/loop';
 import { hill, michaelisMenten, type Kinetics } from '../sim/reactions';
 import type { SimulationState } from '../sim/state';
 import {
+  ETHANOL_ATP_THRESHOLD,
   FERMENT_ATP_THRESHOLD,
+  GLYCOGEN_ATP_THRESHOLD,
+  PFK1_PK_ATP_THRESHOLD,
+  PFK1_PK_VMAX_FACTOR,
   GLYCOLYSIS_ATP_THRESHOLDS,
   GLYCOLYSIS_STEPS,
   UPTAKE_ATP_THRESHOLDS,
@@ -58,6 +62,9 @@ import {
 import {
   ACT1_NO_CARRIED_COUNTERS,
   ACT1_UNLOCK_FERMENT,
+  ACT1_UNLOCK_FERMENT_ETHANOL,
+  ACT1_UNLOCK_GLYCOGEN,
+  ACT1_UNLOCK_PFK1_PK,
   act1GlycolysisUnlockId,
   act1UptakeUnlockId,
   captureAct1,
@@ -162,6 +169,20 @@ export interface Act1Snapshot {
 
   /** Whether lactate dehydrogenase has been bought. */
   fermentUnlocked: boolean;
+  /**
+   * Whether the ethanol branch has been bought. Independent of `fermentUnlocked`
+   * in the data, gated behind it in the shelf: a player meeting the NAD+ wall
+   * for the first time is offered one answer and not a fork.
+   */
+  ethanolUnlocked: boolean;
+  /**
+   * Whether glycogen storage has been bought. One flag for two reactions: a
+   * reserve that can only be charged is a permanent tax and a reserve that can
+   * only be drawn down never fills, so neither half is sold on its own.
+   */
+  glycogenUnlocked: boolean;
+  /** Phosphofructokinase-1 and pyruvate kinase bought. One purchase, two enzymes. */
+  pfk1PkBought: boolean;
   /** Index into UPTAKE_VMAX_STEPS. 0 is the shipped default and is not bought. */
   uptakeStep: number;
   /**
@@ -331,6 +352,30 @@ export interface Act1Runtime {
    * produces it at a rate. Do not "fix" this into a purchase.
    */
   buyFerment(): boolean;
+  /**
+   * Buy the ethanol branch, under the same rules plus one more: it refuses
+   * until the lactate branch has been bought. See `canBuyEthanol`.
+   *
+   * It does not remove the lactate branch and nothing ever does. A cell with
+   * both runs both against the same pyruvate, so what the player bought is an
+   * option rather than an upgrade.
+   */
+  buyEthanol(): boolean;
+  /**
+   * Buy glycogen storage, which turns on both `store` and `mobilise`.
+   *
+   * It refuses until the glycolytic ladder is finished, because the reserve is
+   * charged out of the intracellular glucose the top of that ladder is what
+   * produces, and because a buffer against the food running out is only a beat
+   * once the food running out is in sight.
+   */
+  buyGlycogen(): boolean;
+  /**
+   * Buy phosphofructokinase-1 and pyruvate kinase, one purchase. Refuses until
+   * the uptake ladder is finished. See ACT1_UNLOCK_PFK1_PK for why two enzymes
+   * are one id and why neither can be sold alone.
+   */
+  buyPfk1Pk(): boolean;
   /** Buy the next uptake capacity step, under the same rules. */
   buyUptakeStep(): boolean;
   /**
@@ -340,6 +385,9 @@ export interface Act1Runtime {
   buyGlycolysisStep(): boolean;
   /** Whether the meter has reached each threshold. Display only. */
   canBuyFerment(): boolean;
+  canBuyEthanol(): boolean;
+  canBuyGlycogen(): boolean;
+  canBuyPfk1Pk(): boolean;
   canBuyUptakeStep(): boolean;
   canBuyGlycolysisStep(): boolean;
 
@@ -548,6 +596,9 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     lastTickCount: 0,
     frameCount: 0,
     fermentUnlocked: state.reactions[reactionIndex('ferment')]?.enabled ?? false,
+    ethanolUnlocked: state.reactions[reactionIndex('ferment_ethanol')]?.enabled ?? false,
+    glycogenUnlocked: state.reactions[reactionIndex('store')]?.enabled ?? false,
+    pfk1PkBought: false,
     uptakeStep: 0,
     glycolysisStep: 0,
     walled: false,
@@ -585,10 +636,27 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * reason they are sold together: the intermediate configurations are lethal.
    * See GLYCOLYSIS_STEPS in src/ui/tuning.ts.
    */
+  /**
+   * Re-apply the enzyme purchase, before the glycolytic rung so the rung's own
+   * re-application below carries the factor.
+   *
+   * Without these lines a reload silently refunds it, exactly as it would for a
+   * capacity rung and for exactly the same reason: a kinetics descriptor is not
+   * hashed state, so every determinism test in the project would still pass.
+   */
+  if (restoredOk !== null && restoredOk.unlocks.pfk1PkBought) {
+    snapshot.pfk1PkBought = true;
+  }
+
   if (restoredOk !== null && restoredOk.unlocks.glycolysisStep > 0) {
     const step = Math.min(restoredOk.unlocks.glycolysisStep, GLYCOLYSIS_STEPS.length - 1);
-    applyGlycolysisStep(state, step);
+    applyGlycolysisStep(state, step, restoredOk.unlocks.pfk1PkBought);
     snapshot.glycolysisStep = step;
+  } else if (restoredOk !== null && restoredOk.unlocks.pfk1PkBought) {
+    // Bought the enzymes and no rung yet. The factor still has to be applied,
+    // and rung 0 is the configuration at the top of the uptake ladder, which is
+    // where this purchase lives.
+    applyGlycolysisStep(state, 0, true);
   }
 
   /* =========================================================================
@@ -938,6 +1006,89 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       return true;
     },
 
+    canBuyEthanol(): boolean {
+      // GATED BEHIND THE LACTATE BRANCH, and the gate is a teaching decision
+      // rather than a balance one. The NAD+ wall arrives about three seconds in
+      // and its answer has to be one thing the player can act on. Offering two
+      // branches at that moment turns the act's central beat into a choice
+      // between two options the player has no way to tell apart yet, and the
+      // thing they have to learn first is that either of them recycles NAD+ and
+      // neither makes ATP. docs/PROGRESSION.md lists lactate at 7 and ethanol
+      // at 8 for the same reason.
+      if (!snapshot.fermentUnlocked) return false;
+      if (snapshot.ethanolUnlocked) return false;
+      return meter.atpProduced >= ETHANOL_ATP_THRESHOLD;
+    },
+
+    buyEthanol(): boolean {
+      if (!snapshot.fermentUnlocked) return false;
+      if (snapshot.ethanolUnlocked) return false;
+      if (meter.atpProduced < ETHANOL_ATP_THRESHOLD) return false;
+      setReactionEnabled(state, 'ferment_ethanol', true);
+      snapshot.ethanolUnlocked = true;
+      unlocked.push(ACT1_UNLOCK_FERMENT_ETHANOL);
+      autosave?.saveNow('unlock');
+      return true;
+    },
+
+    canBuyGlycogen(): boolean {
+      // GATED ON THE UPTAKE LADDER, AND STAGE 5 MOVED IT THERE FROM THE
+      // GLYCOLYTIC ONE.
+      //
+      // Stage 3 gated this behind the glycolytic ladder on the reasoning that
+      // the reserve is charged out of the spare intracellular glucose the top of
+      // that ladder produces. **Stage 5 instrumented the whole act and that
+      // reasoning is backwards.** The spare glucose is at the top of the UPTAKE
+      // ladder, where transport over-delivers by about 87 units a minute; the
+      // glycolytic ladder and the enzyme purchase exist to consume it, so by the
+      // top of that ladder there is nothing spare left to store. Offered last,
+      // the reserve peaked at 462 units and bought 7m35s of tail. Offered here it
+      // charges from the pile it was designed for.
+      if (snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1) return false;
+      if (snapshot.glycogenUnlocked) return false;
+      return meter.atpProduced >= GLYCOGEN_ATP_THRESHOLD;
+    },
+
+    buyGlycogen(): boolean {
+      if (snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1) return false;
+      if (snapshot.glycogenUnlocked) return false;
+      if (meter.atpProduced < GLYCOGEN_ATP_THRESHOLD) return false;
+      // Both, always. See ACT1_UNLOCK_GLYCOGEN.
+      setReactionEnabled(state, 'store', true);
+      setReactionEnabled(state, 'mobilise', true);
+      snapshot.glycogenUnlocked = true;
+      unlocked.push(ACT1_UNLOCK_GLYCOGEN);
+      autosave?.saveNow('unlock');
+      return true;
+    },
+
+    canBuyPfk1Pk(): boolean {
+      // THE ENZYMES SIT BETWEEN THE TWO LADDERS AND THE MEASUREMENT PUT THEM
+      // THERE. The purchase is worth 17.6 percent at glycolytic rung 0 and
+      // nothing at all at rung 4, because it raises the preparatory phase and
+      // the preparatory phase is only the bottleneck while transport is
+      // over-delivering, which is exactly the state the top of the uptake ladder
+      // leaves the cell in. Sold before that ladder is finished it buys nothing;
+      // sold after the glycolytic ladder it buys nothing.
+      if (snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1) return false;
+      if (snapshot.pfk1PkBought) return false;
+      return meter.atpProduced >= PFK1_PK_ATP_THRESHOLD;
+    },
+
+    buyPfk1Pk(): boolean {
+      if (snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1) return false;
+      if (snapshot.pfk1PkBought) return false;
+      if (meter.atpProduced < PFK1_PK_ATP_THRESHOLD) return false;
+      snapshot.pfk1PkBought = true;
+      // Re-applied through the same function the ladder uses, at the rung the
+      // player is on, so there is exactly one place that knows how a rung and
+      // the enzymes compose. A second code path here is how the two drift.
+      applyGlycolysisStep(state, snapshot.glycolysisStep, true);
+      unlocked.push(ACT1_UNLOCK_PFK1_PK);
+      autosave?.saveNow('unlock');
+      return true;
+    },
+
     canBuyUptakeStep(): boolean {
       const next = snapshot.uptakeStep + 1;
       if (next >= UPTAKE_VMAX_STEPS.length) return false;
@@ -962,7 +1113,14 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       // ladders raise `uptake` and this one always raises it further, so
       // offering them at once would let a player buy a rung that immediately
       // undoes a purchase they can still see on the shelf.
+      //
+      // AND BEHIND THE TWO ENZYMES SINCE UPDATELOGV10.md STAGE 4, for a related
+      // reason measured rather than assumed: this ladder raises `uptake` too, so
+      // the first rung of it makes transport the bottleneck again and drops the
+      // enzymes from 12.96 percent to 2.37. Offering them at the same time
+      // lets a player spend on two upgrades in the order that wastes one.
       if (snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1) return false;
+      if (!snapshot.pfk1PkBought) return false;
       const next = snapshot.glycolysisStep + 1;
       if (next >= GLYCOLYSIS_STEPS.length) return false;
       const threshold = GLYCOLYSIS_ATP_THRESHOLDS[snapshot.glycolysisStep];
@@ -971,11 +1129,12 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
 
     buyGlycolysisStep(): boolean {
       if (snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1) return false;
+      if (!snapshot.pfk1PkBought) return false;
       const next = snapshot.glycolysisStep + 1;
       if (next >= GLYCOLYSIS_STEPS.length) return false;
       const threshold = GLYCOLYSIS_ATP_THRESHOLDS[snapshot.glycolysisStep];
       if (threshold === undefined || meter.atpProduced < threshold) return false;
-      applyGlycolysisStep(state, next);
+      applyGlycolysisStep(state, next, snapshot.pfk1PkBought);
       snapshot.glycolysisStep = next;
       unlocked.push(act1GlycolysisUnlockId(next));
       autosave?.saveNow('unlock');
@@ -1115,14 +1274,37 @@ function setReactionVmaxPreservingShape(
  * Both were measured in UPDATELOGV5.md stage 3 and both are why this is one
  * function rather than four calls a caller could make three of.
  */
-function applyGlycolysisStep(state: SimulationState, step: number): void {
+function applyGlycolysisStep(
+  state: SimulationState,
+  step: number,
+  /**
+   * Whether PFK-1 and pyruvate kinase have been bought.
+   *
+   * THE ENZYMES MULTIPLY ON TOP OF THE RUNG RATHER THAN BEING SUPERSEDED BY IT,
+   * so a player who bought them and then climbs the ladder keeps them. That is
+   * what an enzyme upgrade means: more of that enzyme, whatever the cell's
+   * capacity is. It also keeps V5's condition satisfied at every rung, because
+   * scaling `prep` and `payoff` by the SAME factor cannot change their ratio.
+   * See PFK1_PK_VMAX_FACTOR, which tabulates the margin at all five rungs.
+   */
+  pfk1Pk: boolean,
+): void {
   const rung = GLYCOLYSIS_STEPS[step];
   if (rung === undefined) throw new Error(`runtime: no glycolysis rung ${step}`);
+  const factor = pfk1Pk ? PFK1_PK_VMAX_FACTOR : 1;
+  const payoff = rung.payoff * factor;
   setReactionVmaxPreservingShape(state, 'uptake', rung.uptake);
-  setReactionVmaxPreservingShape(state, 'prep', rung.prep);
-  setReactionVmaxPreservingShape(state, 'payoff', rung.payoff);
-  setReactionVmaxPreservingShape(state, 'ferment', rung.payoff);
+  setReactionVmaxPreservingShape(state, 'prep', rung.prep * factor);
+  setReactionVmaxPreservingShape(state, 'payoff', payoff);
+  setReactionVmaxPreservingShape(state, 'ferment', payoff);
+  // The ethanol branch climbs with the lactate branch, at the same value, for
+  // the reason the two ship at the same value: the choice between them is about
+  // what the cell keeps and a ladder that raised only one would turn it into a
+  // choice about speed. It is raised whether or not it has been bought, exactly
+  // as `ferment` is, because a Vmax on a disabled reaction does nothing.
+  setReactionVmaxPreservingShape(state, 'ferment_ethanol', payoff);
 }
+
 
 /** Pool index by id, for a display that knows what it is looking at. */
 export function poolIndex(id: Act1PoolId): number {

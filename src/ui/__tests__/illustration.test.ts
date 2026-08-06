@@ -27,7 +27,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
-import { Blob, redoxExtent, redoxLevelY } from '../components/Blob';
+import { Blob, MIN_POLYGON_SIDES, redoxExtent, redoxLevelY } from '../components/Blob';
 import { act1PoolDefinitions, ACT1_POOL_IDS, type Act1PoolId } from '../../content/act1/pools';
 import { carbonOf, phosphateOf } from '../poolCards';
 
@@ -75,12 +75,51 @@ function hasCarrier(markup: string): boolean {
 }
 
 describe('illustration rule 1: sides equal carbons', () => {
-  it.each(ACT1_POOL_IDS.filter((id) => carbonOf(id) > 0))(
+  it.each(ACT1_POOL_IDS.filter((id) => carbonOf(id) >= MIN_POLYGON_SIDES))(
     '%s draws one edge per conserved carbon',
     (id) => {
       expect(countEdges(render(id))).toBe(carbonOf(id));
     },
   );
+
+  /**
+   * BELOW THREE CARBONS THE COUNT IS BEADS, AND IT IS STILL A COUNT.
+   * UPDATELOGV10.md stage 2, DESIGN.md rule 1's amendment.
+   *
+   * The rule reached the edge of its domain when the ethanol branch added a
+   * two-carbon molecule and a one-carbon one. A straight-edged polygon needs
+   * three sides to enclose anything, so those two are drawn as one round bead
+   * per carbon. What is asserted is unchanged in kind: the number of countable
+   * things equals the conserved carbon weight, read off the geometry.
+   */
+  it.each(
+    ACT1_POOL_IDS.filter((id) => carbonOf(id) > 0 && carbonOf(id) < MIN_POLYGON_SIDES),
+  )('%s draws one bead per conserved carbon, because a polygon needs three sides', (id) => {
+    const markup = render(id);
+    expect(countDots(markup, 'skeleton-bead')).toBe(carbonOf(id));
+    // And it is not ALSO drawing a polygon or a carrier, which would mean two
+    // shapes claiming to be the same molecule.
+    expect(hasSilhouette(markup)).toBe(false);
+    expect(hasCarrier(markup)).toBe(false);
+    // Each bead has real extent rather than being a stub.
+    expect((markup.match(/data-role="skeleton-bead" d="M [\d.]+ [\d.]+ C/g) ?? []).length).toBe(
+      carbonOf(id),
+    );
+  });
+
+  it('never puts beads and phosphate dots on the same blob', () => {
+    // THE ONE COLLISION IN THE SCHEME, ASSERTED RATHER THAN NOTED. Beads and
+    // phosphate dots are both countable circles. They do not co-occur today
+    // because neither ethanol nor carbon dioxide carries phosphate, and the day
+    // an act adds a phosphorylated molecule below three carbons this fails,
+    // which is the day the encoding needs designing again rather than
+    // extending. DESIGN.md, rule 1 below three carbons.
+    for (const id of ACT1_POOL_IDS) {
+      if (carbonOf(id) > 0 && carbonOf(id) < MIN_POLYGON_SIDES) {
+        expect(phosphateOf(id)).toBe(0);
+      }
+    }
+  });
 
   it('draws no polygon at all for a pool with no carbon skeleton', () => {
     // The specific failure this guards: a zero-sided polygon, which is either
@@ -94,12 +133,25 @@ describe('illustration rule 1: sides equal carbons', () => {
     }
   });
 
-  it('covers every act 1 pool, so neither branch above is vacuous', () => {
-    const polygons = ACT1_POOL_IDS.filter((id) => carbonOf(id) > 0);
+  it('covers every act 1 pool, so none of the branches above is vacuous', () => {
+    const polygons = ACT1_POOL_IDS.filter((id) => carbonOf(id) >= MIN_POLYGON_SIDES);
+    const beaded = ACT1_POOL_IDS.filter(
+      (id) => carbonOf(id) > 0 && carbonOf(id) < MIN_POLYGON_SIDES,
+    );
     const carriers = ACT1_POOL_IDS.filter((id) => carbonOf(id) === 0);
-    expect(polygons.length + carriers.length).toBe(ACT1_POOL_IDS.length);
+    expect(polygons.length + beaded.length + carriers.length).toBe(ACT1_POOL_IDS.length);
     expect(polygons.length).toBeGreaterThan(0);
+    expect(beaded.length).toBeGreaterThan(0);
     expect(carriers.length).toBeGreaterThan(0);
+  });
+
+  it('keeps the branch arithmetic readable across the two shape families', () => {
+    // 3 = 2 + 1, which is the whole reason rule 1 exists, and it now spans a
+    // polygon on one side and beads on the other. Read off the weight table.
+    expect(carbonOf('pyruvate')).toBe(carbonOf('ethanol') + carbonOf('co2'));
+    expect(countEdges(render('pyruvate'))).toBe(
+      countDots(render('ethanol'), 'skeleton-bead') + countDots(render('co2'), 'skeleton-bead'),
+    );
   });
 });
 

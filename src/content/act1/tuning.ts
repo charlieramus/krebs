@@ -55,12 +55,57 @@ import type { Act1ReactionId } from './reactions';
  * pathway without ATP piling up against the fixed adenylate total. If it could
  * not, ADP would run out and glycolysis would stall on the adenylate ceiling
  * instead of on NAD+, which would put the wrong wall in front of the player.
+ *
+ * `store` AND `mobilise` ARE THE BUFFER, AND THE PAIR IS ONE DECISION WITH TWO
+ * NUMBERS. UPDATELOGV10.md stage 3. `store` sets how fast the reserve charges
+ * and therefore what the throughput costs; `mobilise` sets how fast it
+ * discharges and, with `ACT1_KM.mobilise`, where the pool stops growing. Moving
+ * one without the other changes the buffer's whole character, which is why the
+ * sweep below varied them together.
+ *
+ * Measured at the top glycolytic rung over a full 80000 environment, run to the
+ * end of the food and past it. The tail is how long the cell kept producing
+ * after the environment emptied:
+ *
+ *     Vs   Ks   Vm    Km     throughput   stored at    tail
+ *                             cost        food out
+ *      -    -    -     -           0.00%          0     0.00 min
+ *      8   12    4   900           4.39%       2836    29.03 min
+ *      8   12    6   900           ----        1101    13.21 min
+ *      8   12    8   900           ----        283      6.20 min
+ *      8   12    6  1800           ----        2119    25.97 min
+ *      4   12    4  3000           2.81%       2041    46.29 min
+ *      8   12    4  3000           6.15%       4466    66.35 min
+ *      8   12    2  3000           8.56%       6455   139.38 min
+ *
+ * **Without the buffer the tail is zero.** The cell drops under half an ATP per
+ * second on the tick the food runs out and produces 5 more ATP in total. That is
+ * the number the row exists against.
+ *
+ * The shipped values buy about half an hour of running on reserves for about
+ * four percent of throughput across the act. The larger buffers were rejected on
+ * the same grounds NOW.md uses against the act's existing empty tail: 66 or 139
+ * minutes of a cell trickling along is a new dead zone rather than a rescue from
+ * one, and the cost is paid for the whole act rather than at the end of it.
+ *
+ * `ferment_ethanol` EQUALS `ferment`, AND THE EQUALITY IS THE DECISION.
+ * UPDATELOGV10.md stage 2. docs/SCIENCE.md Part 1 refuses literature rates, so
+ * there is no sourced reason to make either branch faster than the other, and
+ * inventing one would decide the game's first real choice on a number nobody can
+ * check. Identical constants make the choice about what the cell keeps rather
+ * than about which branch is quicker, which is what docs/PROGRESSION.md act 1
+ * item 8 says the choice is. It also means neither branch is ever strictly worse
+ * than the other, which UPDATELOGV5.md's rule about purchasable configurations
+ * requires: a purchase that makes the cell worse does not ship.
  */
 export const ACT1_VMAX: Readonly<Record<Act1ReactionId, number>> = {
   uptake: 8,
   prep: 12,
   payoff: 26,
   ferment: 26,
+  ferment_ethanol: 26,
+  store: 8,
+  mobilise: 4,
   maintain: 50,
 };
 
@@ -82,12 +127,30 @@ export const ACT1_VMAX: Readonly<Record<Act1ReactionId, number>> = {
  * rather than 20 for a derived reason. See ACT1_MAINTAIN_HILL_N below, which is
  * the change this number came in with. Lowered from 20 by UPDATELOGV5.md stage
  * 2.
+ *
+ * `store` at 12 is a Hill K too, for the same reason and by the same repair. See
+ * ACT1_STORE_HILL_N. It is shared across glucose and ATP, so a cell short of
+ * either stops storing sharply rather than gradually, which is the closest this
+ * engine gets to the allosteric regulation a real cell uses here. Swept from 8
+ * to 16 against the throughput cost and the buffer size; 8 costs 9 percent of
+ * throughput and 16 stores too little to matter.
+ *
+ * `mobilise` at 900 IS THE SIZE OF THE BUFFER, which is the least obvious entry
+ * in this table. Storage grows until mobilisation matches it and then stops, and
+ * mobilisation is `Vmax * g / (900 + g)`, so this constant is what decides where
+ * that balance lands. **A pool that would otherwise grow forever is bounded by
+ * arithmetic rather than by a cap**, which matters because CLAUDE.md hard rule 3
+ * forbids infinite scaling and a reserve with no ceiling is infinite scaling
+ * wearing a useful name.
  */
 export const ACT1_KM: Readonly<Record<Act1ReactionId, number>> = {
   uptake: 500,
   prep: 4,
   payoff: 2,
   ferment: 2,
+  ferment_ethanol: 2,
+  store: 12,
+  mobilise: 900,
   maintain: 12,
 };
 
@@ -163,6 +226,47 @@ export const ACT1_HILL_N = 2;
  * in docs/ECONOMY.md rather than a biological claim. Do not cite it as one.
  */
 export const ACT1_MAINTAIN_HILL_N = 3;
+
+/**
+ * Hill coefficient for glycogen synthesis. THE SAME REPAIR AS
+ * ACT1_MAINTAIN_HILL_N, APPLIED TO THE SECOND REACTION THAT SPENDS ATP AND
+ * PRODUCES NONE. UPDATELOGV10.md stage 3.
+ *
+ * WHAT WAS BROKEN, MEASURED BEFORE IT WAS FIXED. `bootstrap.test.ts` says in as
+ * many words that "`maintain` is the only thing spending ATP that produces
+ * none". Storage breaks that premise. Built first as Michaelis-Menten, which is
+ * first order in ATP at low ATP while `prep` is order ACT1_HILL_N of 2, and the
+ * trap came straight back. From a starting ATP of 0.01, over 600 game-seconds
+ * with fermentation running:
+ *
+ *     without storage    ATP settles at 9.304, 19048 ATP produced
+ *     with storage       ATP falls to 8.937e-29, 0 ATP produced
+ *
+ * **That is NOW.md blocking item 1, reopened by an unlock.** Every higher
+ * starting level recovered in both, so it is the same absorbing tail V5 found
+ * rather than a new failure.
+ *
+ * WHAT THE REPAIR IS, AND IT IS NOT A RETUNE. `bootstrap.test.ts` says "Do not
+ * retune around it: raise the order." Sweeping the store Vmax or its K moves
+ * where the collapse starts and never removes it, for the reason V5 proved for
+ * maintenance: a lower-order consumer beats a higher-order producer below some
+ * level for every choice of constants. 3 is the smallest integer that strictly
+ * dominates ACT1_HILL_N's 2, and it matches ACT1_MAINTAIN_HILL_N because the two
+ * reactions are in exactly the same position with respect to the trap.
+ *
+ * ONE SIDE EFFECT, AND IT IS THE ONE WORTH HAVING. The kinetics descriptor is
+ * shared across a reaction's substrates, so this is order 3 in glucose as well
+ * as in ATP. A cell short of either stops storing sharply rather than gradually,
+ * which is what a regulated cell does and which this engine has no inhibition
+ * term to express directly. See the `mobilise` comment in reactions.ts.
+ *
+ * DISCLOSED, NOT SOURCED. Real ADP-glucose pyrophosphorylase is allosterically
+ * regulated and cooperative, so a sigmoid here is not implausible. **That is not
+ * why this number is 3.** It is 3 because 2 is what `prep` is, and citing the
+ * enzyme would be dressing a repair up as biology. docs/ECONOMY.md row C24 says
+ * the same thing.
+ */
+export const ACT1_STORE_HILL_N = 3;
 
 /**
  * Size of the nicotinamide pool, NAD+ plus NADH. Act 1's ceiling on everything.

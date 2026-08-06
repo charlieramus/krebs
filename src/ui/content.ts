@@ -35,6 +35,7 @@
  */
 
 import { sourced, tuned, type BadgeSpec } from './components/Badge';
+import { MIN_POLYGON_SIDES } from './components/Blob';
 import type { Act1PoolId } from '../content/act1/pools';
 import type { Act1ReactionId } from '../content/act1/reactions';
 
@@ -76,6 +77,9 @@ export const MOLECULES: Readonly<Record<Act1PoolId, Entry>> = {
   g3p: { text: 'Glyceraldehyde 3-phosphate', badge: sourced(PART2) },
   pyruvate: { text: 'Pyruvate', badge: sourced(PART2) },
   lactate: { text: 'Lactate', badge: sourced(PART2) },
+  ethanol: { text: 'Ethanol', badge: sourced(`${PART2}, ethanol fermentation`) },
+  co2: { text: 'Carbon dioxide', badge: sourced(`${PART2}, ethanol fermentation`) },
+  glycogen: { text: 'Glycogen', badge: sourced(`${PART2}, glycogen and what storage costs`) },
   nad: { text: 'NAD+', badge: sourced(PART2) },
   nadh: { text: 'NADH', badge: sourced(PART2) },
   atp: { text: 'ATP', badge: sourced(PART2) },
@@ -94,6 +98,15 @@ export const CARRIER_PAIRS: Readonly<Record<'nicotinamide' | 'adenylate', Entry>
   adenylate: { text: 'ATP / ADP', badge: sourced(PART2) },
 };
 
+/**
+ * The ethanol branch makes both of these at once, one apiece, so they share a
+ * card for the same reason the carrier pairs do. Two of pyruvate's carbons stay
+ * and one leaves, and the pair is what says so.
+ */
+export const BRANCH_PRODUCTS: Readonly<Record<'ethanol', Entry>> = {
+  ethanol: { text: 'Ethanol / CO2', badge: sourced(`${PART2}, ethanol fermentation`) },
+};
+
 /* ===========================================================================
    REACTIONS
    =========================================================================== */
@@ -109,6 +122,27 @@ export const REACTIONS: Readonly<Record<Act1ReactionId, Entry>> = {
   prep: { text: 'Preparatory phase', badge: sourced(`${PART2}, steps 1 to 5`) },
   payoff: { text: 'Payoff phase', badge: sourced(`${PART2}, steps 6 to 10`) },
   ferment: { text: 'Lactate fermentation', badge: sourced(`${PART2}, fermentation`) },
+  ferment_ethanol: {
+    text: 'Ethanol fermentation',
+    // One arrow standing for two enzymes, which is the same posture `prep` and
+    // `payoff` take for five each. The badge names the pathway rather than an
+    // enzyme, because naming one of the two would say the other is not there.
+    badge: sourced(`${PART2}, ethanol fermentation`),
+  },
+  store: {
+    text: 'Glycogen synthesis',
+    // The stoichiometry is sourced and the placement of the cost is not. See
+    // the `store` comment in src/content/act1/reactions.ts and the structural departure in docs/ECONOMY.md: the
+    // real cycle costs 2 ATP in and refunds 1 on the way out, this charges the
+    // net of 1 at the front, and the badge says which half is which.
+    badge: tuned(
+      'Storing and retrieving a glucose really costs 1 ATP equivalent, which is sourced. Charging all of it at the storing end is not',
+    ),
+  },
+  mobilise: {
+    text: 'Glycogen breakdown',
+    badge: sourced(`${PART2}, glycogen phosphorylase spends no ATP`),
+  },
   maintain: {
     text: 'Maintenance',
     // The stoichiometry is real: ATP hydrolyses to ADP and inorganic phosphate.
@@ -174,6 +208,36 @@ export const UNLOCKS = {
     // from an "oxidises" on the same shelf.
     badge: sourced(`${PART2}, lactate dehydrogenase reduces pyruvate to lactate, oxidising NADH`),
   },
+  ethanolFerment: {
+    text: 'Pyruvate decarboxylase',
+    // Named for the enzyme that makes this branch a different branch. Alcohol
+    // dehydrogenase is the step that touches NADH and it is the step the lactate
+    // branch already has an equivalent of, so the decarboxylation is what the
+    // player is actually buying. The detail line names the other one.
+    badge: sourced(
+      `${PART2}, pyruvate decarboxylase removes CO2 to give acetaldehyde and alcohol dehydrogenase reduces it to ethanol`,
+    ),
+  },
+  pfk1Pk: {
+    text: 'PFK-1 and pyruvate kinase',
+    // Two enzymes in one slot, and the badge says which claim is sourced: that
+    // these are two of the three regulated steps. That they have to be bought
+    // together is a fact about this model's stability, not about a cell, and it
+    // is in the detail line rather than dressed up as biology here.
+    badge: sourced(
+      `${PART2}, phosphofructokinase-1 is the committed step and pyruvate kinase is the third regulated step`,
+    ),
+  },
+  glycogenStorage: {
+    text: 'Glycogen synthase',
+    // Named for the enzyme that builds the chain. ADP-glucose pyrophosphorylase
+    // is the committed and regulated step and is the harder name; glycogen
+    // phosphorylase is the other half of the purchase and is in the detail
+    // line. docs/CONTENT_STYLE.md Part 5 gives a card title four words.
+    badge: sourced(
+      `${PART2}, glycogen synthase transfers a glucosyl unit onto the chain and glycogen phosphorylase takes it back off`,
+    ),
+  },
   uptakeCapacity: {
     text: 'Uptake capacity',
     badge: tuned('A finite ladder of transport steps. Neither the steps nor their number is sourced'),
@@ -236,6 +300,74 @@ export const SHELF = {
     badge: tuned(ABOUT_THE_BUILD),
   },
 
+  ethanolDetail: {
+    // THREE CLAIMS IN TWO SENTENCES, AND THE ORDER IS THE POINT. What differs
+    // comes first, because that is what the player is choosing between. What is
+    // the same comes second, because that is the beat: both branches recycle
+    // NAD+ and neither makes ATP, so the choice is about what the cell keeps
+    // rather than about which is better. docs/PROGRESSION.md act 1 item 8.
+    //
+    // "exactly like lactate" rather than "unlike" anything. The sentence must
+    // not read as this branch being the upgrade, because it is not one, and a
+    // comparative would put a thumb on a scale that is level.
+    text: 'The other way out of pyruvate: two carbons stay as ethanol and one leaves as gas. Recycles NAD+ and makes no ATP, exactly like lactate.',
+    badge: sourced(`${PART2}, ethanol fermentation yields no ATP and releases one CO2 per pyruvate`),
+  },
+  ethanolLocked: {
+    text: 'Opens once the cell has a way to recycle NAD+ at all.',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  ethanolBuy: {
+    // NOT "Express it", which is the slot to the left. Two buttons reading the
+    // same two words side by side is the defect V3 stage 4 found on the two
+    // capacity slots, and it is worse read aloud than on screen.
+    text: 'Open the other route',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+
+  pfk1PkDetail: {
+    // THE ACT'S CENTRAL CLAIM, ARRIVING FOR THE THIRD TIME. Fermentation made
+    // it, the two capacity ladders made it, and a named enzyme is the version a
+    // player is most likely to expect to be false: an enzyme upgrade sounds like
+    // it should make the cell better at extracting energy, and it makes it
+    // faster at moving the same amount.
+    //
+    // The first sentence is why the two are one purchase. It is a statement
+    // about this pathway rather than about this build: two trioses per glucose
+    // means the payoff phase runs twice per preparatory turn, so it has to have
+    // room before the preparatory phase is given more.
+    text: 'Both at once, because the exit has to widen before the entrance can. More throughput, and what one glucose is worth does not move.',
+    badge: tuned(
+      'That these are two of the three regulated steps is sourced. That raising one without the other kills this cell is measured, not biology',
+    ),
+  },
+  pfk1PkLocked: {
+    text: 'Opens once uptake is at the top of its ladder.',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  pfk1PkBuy: {
+    text: 'Express both',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+
+  glycogenDetail: {
+    // A BUFFER IS NOT A YIELD, and the second sentence is the whole of it: it
+    // says what the purchase does not do, which is the only thing every other
+    // slot on this shelf says it does. It is also the one purchase in act 1
+    // whose ATP per second goes DOWN when it is bought, measured at 42.217 to
+    // 41.187, so the sentence has to be true about that rather than soften it.
+    text: 'Stores glucose while there is spare and gives it back when there is not. Costs ATP, makes none, and buys no yield.',
+    badge: sourced(`${PART2}, a store and retrieve cycle costs 1 ATP equivalent and yields nothing`),
+  },
+  glycogenLocked: {
+    text: 'Opens once glycolysis is at the top of its ladder.',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  glycogenBuy: {
+    text: 'Build a reserve',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+
   uptakeDetail: {
     text: 'More transport across the membrane. A fixed number of steps, and this is not the last.',
     badge: tuned('A finite ladder. Neither the steps nor their number is sourced'),
@@ -258,8 +390,12 @@ export const SHELF = {
     badge: sourced(`${PART2}, the payoff phase runs twice per preparatory turn`),
   },
   glycolysisLocked: {
-    text: 'Opens once uptake is at the top of its ladder.',
-    badge: tuned(`${ABOUT_THE_BUILD}. The two ladders are sequential by design`),
+    // WAS "Opens once uptake is at the top of its ladder". Correct until
+    // UPDATELOGV10.md stage 4 put the two enzyme purchases between the ladders
+    // and gated this one behind them, because this ladder raises transport and
+    // drops the enzymes from 12.96 percent to 2.37 the moment it does.
+    text: 'Opens once the named enzymes are running.',
+    badge: tuned(`${ABOUT_THE_BUILD}. The ladders and the enzymes are sequential by design`),
   },
   glycolysisDone: {
     text: 'At the top of the ladder. Both phases are running as fast as act 1 allows.',
@@ -668,7 +804,14 @@ export const CARRIER_READOUT: Entry = {
 
 export function blobReadout(name: string, carbon: number, phosphate: number): Entry {
   const parts = [name];
-  if (carbon > 0) parts.push(`${carbon} sides, ${carbon} carbons`);
+  // BELOW THREE CARBONS THE SHAPE IS BEADS AND THE SENTENCE HAS TO SAY SO.
+  // UPDATELOGV10.md stage 2. A polygon needs three sides, so ethanol and carbon
+  // dioxide are drawn as one round bead per carbon, and a readout that said
+  // "1 sides, 1 carbons" would be describing a shape that is not on the screen
+  // as well as being ungrammatical. The count is still the whole of the claim.
+  if (carbon >= MIN_POLYGON_SIDES) parts.push(`${carbon} sides, ${carbon} carbons`);
+  else if (carbon === 1) parts.push('1 bead, 1 carbon');
+  else if (carbon > 0) parts.push(`${carbon} beads, ${carbon} carbons`);
   if (phosphate > 0) parts.push(`${phosphate} phosphate`);
   return { text: parts.join('. '), badge: sourced(`${PART2}, stoichiometry`) };
 }
