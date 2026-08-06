@@ -88,6 +88,26 @@ export const MOLECULES: Readonly<Record<Act1PoolId, Entry>> = {
 };
 
 /**
+ * A molecule's name by pool id, for a caller that holds a `string` rather than
+ * an `Act1PoolId`.
+ *
+ * The card layout in src/ui/poolCards.ts stopped being typed against act 1's
+ * pool union in UPDATELOGV11.md stage 2, because a union of act 1 molecule names
+ * in a shared type is exactly what stopped a second act being drawable. The
+ * table above keeps its exhaustive act 1 typing, which is what makes a missing
+ * name a compile error while act 1 is the act; this is the door for everything
+ * that no longer knows which act's id it is holding.
+ *
+ * Throws on an unknown id. A card naming a pool the act does not have is a build
+ * mistake, and a blank label is the most confusing possible way to report one.
+ */
+export function moleculeName(id: string): Entry {
+  const entry = (MOLECULES as Readonly<Record<string, Entry | undefined>>)[id];
+  if (entry === undefined) throw new Error(`content: no molecule name for pool "${id}"`);
+  return entry;
+}
+
+/**
  * The two carrier pairs share a card each, because their sum is the conserved
  * quantity and the sum is what teaches. Watching NAD+ drain while NADH fills on
  * one card is the wall arriving; watching them on two cards is two unrelated

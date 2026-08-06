@@ -35,7 +35,7 @@ import {
   blobReadout,
   type CoachMark,
 } from '../content';
-import { carbonOf, phosphateOf, POOL_CARDS } from '../poolCards';
+import { ACT1_POOL_CARDS, carbonOf, phosphateOf } from '../poolCards';
 
 const SCIENCE = join(import.meta.dirname, '..', '..', '..', 'docs', 'SCIENCE.md');
 
@@ -89,7 +89,7 @@ describe('every coach mark honours the contract DESIGN.md sets', () => {
   });
 
   it('puts each mark on the card that shows the thing it is about', () => {
-    const carrying = POOL_CARDS.filter((card) => card.coach !== undefined).map((card) => card.id);
+    const carrying = ACT1_POOL_CARDS.filter((card) => card.coach !== undefined).map((card) => card.id);
     expect(carrying).toEqual(['g3p', 'nicotinamide', 'adenylate']);
   });
 });

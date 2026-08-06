@@ -13,7 +13,8 @@
  * the illustration describing an older pathway.
  */
 
-import { act1PoolDefinitions, type Act1PoolId } from '../content/act1/pools';
+import { act1PoolDefinitions } from '../content/act1/pools';
+import type { ActDescriptor } from '../content/acts';
 import type { Surface } from './components/Card';
 import {
   ATP_COACH_MARK,
@@ -38,17 +39,17 @@ const WEIGHTS: Readonly<Record<string, { carbon: number; phosphate: number }>> =
 );
 
 /** Sides for this pool's blob. DESIGN.md illustration rule 1. */
-export function carbonOf(id: Act1PoolId): number {
+export function carbonOf(id: string): number {
   return WEIGHTS[id]?.carbon ?? 0;
 }
 
 /** Countable dots for this pool's blob. DESIGN.md illustration rule 2. */
-export function phosphateOf(id: Act1PoolId): number {
+export function phosphateOf(id: string): number {
   return WEIGHTS[id]?.phosphate ?? 0;
 }
 
 export interface BlobSpec {
-  readonly poolId: Act1PoolId;
+  readonly poolId: string;
   /** Semantic colour. Never a surface: fill carries state, surfaces do not. */
   readonly fill: string;
   /** Fixes the wobble. Shared between NAD+ and NADH so they are one silhouette. */
@@ -56,24 +57,51 @@ export interface BlobSpec {
   readonly electrons?: number;
 }
 
+/**
+ * WHAT A CARD IS, NOT WHAT IT CONTAINS. UPDATELOGV11.md stage 2.
+ *
+ * These four were `'simple' | 'nicotinamide' | 'adenylate' | 'branch-products'`,
+ * which put act 1 chemistry into a TypeScript type: a component switching on
+ * `'nicotinamide'` cannot draw act 3's proton gradient however the card is
+ * declared, and act 2 could not add a card kind without teaching this union the
+ * name of a molecule. Each name below says what the card DOES with the pools it
+ * is given, so the same four kinds are available to every act and a fifth is
+ * added when a fifth arrangement exists rather than when a fifth molecule does.
+ *
+ * The card table under each kind is unchanged: `nicotinamide` became `mix`,
+ * `adenylate` became `pair`, `branch-products` became `products`, and nothing
+ * that reads them behaves differently.
+ */
 export type CardKind =
   /** One pool, one blob. */
   | 'simple'
-  /** NAD+ and NADH. One silhouette whose saturation is the redox state. */
-  | 'nicotinamide'
-  /** ATP and ADP. Two blobs differing only in how many phosphate dots they carry. */
-  | 'adenylate'
+  /**
+   * Two pools that are one conserved quantity in two states, drawn as ONE
+   * silhouette whose level is the proportion between them.
+   *
+   * Act 1's is NAD+ and NADH. Rule 3: the two are the same molecule reduced or
+   * oxidised, so drawing two shapes would be drawing one shape twice and
+   * throwing away the encoding.
+   */
+  | 'mix'
+  /**
+   * Two pools that differ by a countable thing, drawn as TWO blobs side by side.
+   *
+   * Act 1's is ATP and ADP, which differ by one phosphate dot, and putting them
+   * next to each other is what makes "spending energy removes a dot" visible.
+   */
+  | 'pair'
   /**
    * Two pools produced together in a fixed ratio by one reaction, on one card.
    * Ethanol and carbon dioxide, added by UPDATELOGV10.md stage 2.
    *
-   * One card rather than two for the reason the carrier pairs get one: the pair
-   * is what teaches. Pyruvate has three carbons, two of them stay as ethanol and
-   * one leaves as gas, and putting those two counts side by side is the whole of
+   * One card rather than two for the reason the mix gets one: the pair is what
+   * teaches. Pyruvate has three carbons, two of them stay as ethanol and one
+   * leaves as gas, and putting those two counts side by side is the whole of
    * what distinguishes this branch from the lactate branch. On two cards they
    * are two numbers going up together and the player does the joining up.
    */
-  | 'branch-products';
+  | 'products';
 
 export interface PoolCardSpec {
   readonly id: string;
@@ -81,9 +109,9 @@ export interface PoolCardSpec {
   readonly title: Entry;
   readonly surface: Surface;
   /** Pools whose stock is shown under the headline, in order. */
-  readonly stocks: readonly Act1PoolId[];
+  readonly stocks: readonly string[];
   /** The pool whose net rate is the headline figure. */
-  readonly headline: Act1PoolId;
+  readonly headline: string;
   readonly blobs: readonly BlobSpec[];
   /**
    * The coach mark this card teaches, if it teaches one.
@@ -108,7 +136,7 @@ const OXIDIZED = 'var(--color-oxidized)';
  * The five carbon pools are substrates and take sky. The three carrier and
  * store cards take pink.
  */
-export const POOL_CARDS: readonly PoolCardSpec[] = [
+const ACT1_POOL_CARDS: readonly PoolCardSpec[] = [
   {
     id: 'glucose_env',
     kind: 'simple',
@@ -161,7 +189,7 @@ export const POOL_CARDS: readonly PoolCardSpec[] = [
   },
   {
     id: 'ethanol',
-    kind: 'branch-products',
+    kind: 'products',
     title: BRANCH_PRODUCTS.ethanol,
     surface: 'sky',
     stocks: ['ethanol', 'co2'],
@@ -195,7 +223,7 @@ export const POOL_CARDS: readonly PoolCardSpec[] = [
   },
   {
     id: 'nicotinamide',
-    kind: 'nicotinamide',
+    kind: 'mix',
     title: CARRIER_PAIRS.nicotinamide,
     surface: 'pink',
     stocks: ['nad', 'nadh'],
@@ -210,7 +238,7 @@ export const POOL_CARDS: readonly PoolCardSpec[] = [
   },
   {
     id: 'adenylate',
-    kind: 'adenylate',
+    kind: 'pair',
     title: CARRIER_PAIRS.adenylate,
     surface: 'pink',
     stocks: ['atp', 'adp'],
@@ -237,3 +265,40 @@ export const POOL_CARDS: readonly PoolCardSpec[] = [
     blobs: [{ poolId: 'pi', fill: 'var(--color-white)', seed: 83 }],
   },
 ];
+
+/**
+ * The card layout for each act this build knows.
+ *
+ * ONE ENTRY, KEYED BY ACT NUMBER, AND IT LIVES IN src/ui/ RATHER THAN IN THE
+ * DESCRIPTOR. `src/content/acts.ts` cannot hold this: content may not import the
+ * interface, and a card carries a `Surface`, a `CoachMark` and player-facing
+ * `Entry` strings, all of which are interface things. So the descriptor answers
+ * what the act IS and this table answers what it LOOKS like, keyed by the same
+ * number.
+ *
+ * The grouping is the part that is not derived. Geometry already comes from the
+ * conserved-weight table, so a blob's sides and dots cannot drift from the
+ * pathway. WHICH pools share a card is a teaching decision and stays written
+ * down.
+ */
+const CARDS_BY_ACT: ReadonlyMap<number, readonly PoolCardSpec[]> = new Map([
+  [1, ACT1_POOL_CARDS],
+]);
+
+/**
+ * The running act's cards.
+ *
+ * Throws rather than returning an empty rail, because an act with no cards is a
+ * build mistake and a blank left column is the most confusing possible way to
+ * report one. Stage 5 refuses an act this build does not know at load, so this
+ * is unreachable from a save and reachable only from a new act added without
+ * its layout.
+ */
+export function poolCardsFor(act: ActDescriptor): readonly PoolCardSpec[] {
+  const cards = CARDS_BY_ACT.get(act.act);
+  if (cards === undefined) throw new Error(`poolCards: act ${act.act} has no card layout`);
+  return cards;
+}
+
+/** Act 1's cards, for the tests and reports that are about act 1 specifically. */
+export { ACT1_POOL_CARDS };
