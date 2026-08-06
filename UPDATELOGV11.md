@@ -112,7 +112,67 @@ absences from step 3, and the import direction check.
 
 ## Stage 1 Report
 
-_Pending._
+`src/content/acts.ts` exists, `src/content/__tests__/acts.test.ts` tests it, and nothing consumes it. The runtime is byte-identical.
+
+**The reach-ins found in `src/ui/runtime.ts`, which is the list the descriptor's shape came from.** Read top to bottom rather than grepped, because four of the eleven are not the word "act1".
+
+```
+  line   what the runtime reaches into act 1 for
+  ----   ------------------------------------------------------------------
+   476   createAct1(options.act1 ?? {})            construction
+   477   createAct1MeterProbes(state)              the meter's probes
+   478   createAct1Meter()                         the meter
+   528   state.pools.indexOf('g3p')                literal, yield baseline
+   531   reactionIndex('payoff')                   literal, walled condition 1
+   532   reactionIndex('uptake')                   literal, walled condition 2
+   533   state.pools.indexOf('nad')                literal, walled condition 3
+   228   const WALLED_NAD = 0.05                   the threshold itself
+   556   recordAct1Tick(ticked, probes, meter)     metering, per tick
+   720   createAct1OfflineObserver(probes, meter)  metering, across a jump
+   807   atpPerCompletedGlucose(meter, delta)      yield readout
+   808   netAtpPerCompletedGlucose(meter, delta)   yield readout
+   713   ACT1_POOL_IDS                             offline report pool naming
+   874   captureAct1(...)                          the save mapping, out
+   465   restoreAct1(save)                         the save mapping, in
+   504   ACT1_NO_CARRIED_COUNTERS                  carried-counter default
+  1311   ACT1_POOL_IDS.indexOf(id)                 poolIndex, per render
+  1316   ACT1_REACTION_IDS.indexOf(id)             reactionIndex
+```
+
+Plus, outside `runtime.ts` and named by the log's Context: `poolCards.ts:59`'s `CardKind` union, which puts act 1 chemistry (`'nicotinamide'`, `'adenylate'`) into a TypeScript type, and the ten-card literal below it written against `Act1PoolId`. Both are interface-side and cannot move into `src/content/`, because content may not import the interface. Stage 2 handles them where they live.
+
+**The descriptor's fields, with the caller each one exists for.** Eighteen members, no field without a caller above.
+
+```
+  act                        registry key; progression.act, which stage 5 reads
+  poolIds                    snapshot layout, offline report pool naming
+  reactionIds                snapshot layout
+  poolIndex, reactionIndex   runtime.ts:1311 and :1316, map-backed
+  create                     runtime.ts:476
+  createMeter                runtime.ts:478
+  createMeterProbes          runtime.ts:477
+  recordTick                 runtime.ts:556, the loop's tick observer
+  createOfflineObserver      runtime.ts:720
+  yieldBaselinePoolId        runtime.ts:528, the 'g3p' literal
+  atpPerCompletedGlucose     runtime.ts:807
+  netAtpPerCompletedGlucose  runtime.ts:808
+  isWalled                   runtime.ts:828 to :831, and WALLED_NAD with it
+  capture                    runtime.ts:874
+  restore                    runtime.ts:465
+  noCarriedCounters          runtime.ts:504
+```
+
+**`isWalled` is a predicate rather than a threshold and that is the design decision in this stage.** The log calls `WALLED_NAD` the test case for the whole refactor and it is. A field named `walledNad` keeps act 1's chemistry in a general interface. A field named `walledPoolId` plus a number is worse, because it also asserts that every act's wall is one pool crossing one level, which act 2's is not. So the act answers the question: `isWalled(amounts, appliedFlux, stoppedFlux)`, closing over three indices resolved at module load, allocating nothing, callable from the per-frame path. `ACT1_WALLED_NAD = 0.05` now lives beside act 1's descriptor and nowhere else.
+
+**The deliberate absences, listed because they are the point of the stage.** No oxygen schedule. No damage model. No compartments. No act boundary condition, which is stage 4's and would have been a guess here. No unlock model: act 1's ladders, thresholds and purchase gates stay on the runtime, because a generic unlock descriptor designed against one act's two sequential ladders is exactly the abstraction over n=1 that this log's Context forbids. `src/sim/jump.ts` refuses the same temptation about act 2's oxygen seam and says so in its header; the same paragraph is now in `acts.ts`.
+
+**Four type aliases point at act 1 and the file says so rather than hiding it.** `ActMeter`, `ActMeterProbes`, `ActRestoreResult` and `ActCarriedCounters` are act 1's shapes under act-neutral names. Widening them into structural interfaces now would be inventing act 2's requirements out of act 1's. When act 2 brings a meter of its own they become whatever it actually needs.
+
+**The import direction check, run rather than asserted in prose.** `src/content/acts.ts` imports `src/sim/` for types, `src/content/act1/` for the act it registers, and `src/save/schema` for the save shape the mapping returns, which is a path `src/content/act1/save.ts` has already taken since V4. Nothing in `src/sim/` imports it. Four tests in `acts.test.ts` walk both trees and check it: no source file under `src/sim/` imports anything matching `content`, no file under `src/sim/` or `src/content/` imports the interface, and a guard-the-guard asserts both walks found files, so a silent zero cannot pass.
+
+**Verify.** `npm run typecheck` clean, `npm run lint` clean, **559 tests across 43 files, up from V10's 540 across 42**, all green. Regression bar: both canonical hashes unchanged, `172f83fb` and `65b43d27`, asserted by the two determinism tests that were already there. `git diff` empty across `src/content/act1/tuning.ts`, `src/ui/tuning.ts`, `src/save/tuning.ts`, `docs/SCIENCE.md` and `docs/ECONOMY.md`. `npm run offline:validate` green, 47 cases, 0 fallbacks, 0 budget exhaustions, worst ATP disagreement 3.903e-3 against a 2e-2 tolerance, identical to V10.
+
+One test asserts the thing that matters most for stage 2: a simulation built through `ACT1.create()` and one built through `createAct1()` hash identically at construction and again after 200 ticks.
 
 ---
 
