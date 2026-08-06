@@ -42,6 +42,7 @@ import {
   UPTAKE_VMAX_STEPS,
   ZERO_FLUX_THRESHOLD,
 } from './tuning';
+import { knowsAct, KNOWN_ACT_NUMBERS } from '../content/acts';
 import type {
   ActCarriedCounters,
   ActCreateOptions,
@@ -256,7 +257,14 @@ export interface ActPersistenceOptions {
  * `new-game` says nothing at all.
  */
 export interface ActSession {
-  readonly kind: 'loaded' | 'new-game' | 'recoverable' | 'future' | 'unreadable' | 'disabled';
+  readonly kind:
+    | 'loaded'
+    | 'new-game'
+    | 'recoverable'
+    | 'future'
+    | 'future-act'
+    | 'unreadable'
+    | 'disabled';
   /**
    * Real milliseconds between the last save and this load, capped at
    * MAX_OFFLINE_HOURS. ACCUMULATED AND NOT CREDITED: V4 simulates none of it.
@@ -275,6 +283,22 @@ export interface ActSession {
   readonly reason: string | null;
   /** The version found, when the save came from a newer build. */
   readonly futureVersion: number | null;
+  /**
+   * The act found, when the save names an act this build does not have.
+   *
+   * THE SAME POSTURE AS `futureVersion` AND FOR THE SAME REASON.
+   * `migrations.ts` refuses a save from a newer schema and refuses to migrate
+   * downward, ever, because this build cannot know what the fields mean. A save
+   * naming act 3 against a build that knows one act is that case exactly, one
+   * level up: the shape is valid, the content is from a future this build has
+   * not been written for, and interpreting it would be guessing.
+   *
+   * It is not hypothetical. Acts ship one log at a time and builds knowing
+   * different numbers of acts will exist at once, in a cached bundle in
+   * somebody's browser or after a deploy is rolled back. There is no backend, no
+   * accounts and no way to push a fix to one player.
+   */
+  readonly futureAct: number | null;
   /** What the offline path did with `awayMs` plus anything already pending. */
   readonly offline: ActOfflineReport;
 }
@@ -501,7 +525,36 @@ export function createActRuntime(
    * all. And an unreadable pair is exactly the case where the corrupt bytes have
    * to stay on disk untouched while the player decides what to do.
    */
-  const restoredSave: SaveV1 | null = loaded?.kind === 'loaded' ? loaded.save : null;
+  const rawSave: SaveV1 | null = loaded?.kind === 'loaded' ? loaded.save : null;
+
+  /**
+   * THE ACT REFUSAL. UPDATELOGV11.md stage 5.
+   *
+   * `progression.act` has been written by every save since V4 and read by
+   * nothing. It is load-bearing from this log on, so a save naming an act this
+   * build does not have stops being inert and becomes a lookup with no answer,
+   * surfacing wherever the first property access happens rather than at load.
+   *
+   * NOT CLAMPED TO THE HIGHEST KNOWN ACT. That would load successfully and
+   * silently rewrite somebody's progress, which is worse than refusing. The
+   * project's posture is already settled elsewhere and this matches it: recovery
+   * from a backup is an offer rather than an action, and a corrupt save starts a
+   * new game in memory while both slots stay untouched.
+   *
+   * The codec has already rejected an act that is not a positive integer, so
+   * anything reaching here is a well-formed number naming an act that does not
+   * exist in this build.
+   */
+  const declaredAct = rawSave === null ? descriptor.act : rawSave.progression.act;
+  const actRefused = rawSave !== null && !knowsAct(declaredAct);
+  if (actRefused) {
+    console.warn(
+      `krebs: this save is from act ${declaredAct} and this build knows ` +
+        `${KNOWN_ACT_NUMBERS.join(', ')}. It has been left on disk untouched.`,
+    );
+  }
+
+  const restoredSave: SaveV1 | null = actRefused ? null : rawSave;
   const restored = restoredSave === null ? null : descriptor.restore(restoredSave);
 
   if (restored !== null && restored.kind !== 'ok') {
@@ -872,7 +925,12 @@ export function createActRuntime(
   }
 
   const session: ActSession = {
-    kind: store === null ? 'disabled' : (loaded?.kind ?? 'new-game'),
+    kind:
+      store === null
+        ? 'disabled'
+        : actRefused
+          ? 'future-act'
+          : (loaded?.kind ?? 'new-game'),
     awayMs: offline.awayMs,
     offlineCapped: offline.capped,
     clockWentBackwards: offline.clockWentBackwards,
@@ -884,6 +942,7 @@ export function createActRuntime(
     reason:
       loaded?.kind === 'recoverable' || loaded?.kind === 'unreadable' ? loaded.reason : null,
     futureVersion: loaded?.kind === 'future' ? loaded.version : null,
+    futureAct: actRefused ? declaredAct : null,
     offline: offlineReport,
   };
 
@@ -1031,6 +1090,21 @@ export function createActRuntime(
    */
   let sealed = false;
 
+  /**
+   * SEALED BEFORE THE FIRST FRAME WHEN THE ACT WAS REFUSED.
+   *
+   * V4 found this class the hard way: `beforeunload` fired during a post-import
+   * reload and autosaved a stale session over the file that had just been
+   * imported. A half-initialised session that writes is how a refusal turns into
+   * data loss, and this one is worse than the import case, because the file it
+   * would overwrite came from a build that knows more than this one does.
+   *
+   * Sealing here tears down nothing, because nothing has been armed yet: the
+   * autosave timer is armed by `start`, and `start` refuses while sealed. Every
+   * remaining write path already refuses. Both slots stay exactly as they were.
+   */
+  if (actRefused) sealed = true;
+
   function save(reason: SaveReason = 'manual'): WriteOutcome {
     if (autosave === null) {
       return { kind: 'failed', reason: 'persistence is disabled for this runtime', durable: false };
@@ -1039,6 +1113,22 @@ export function createActRuntime(
       return { kind: 'failed', reason: 'this session has been replaced by an imported save', durable: false };
     }
     return autosave.saveNow(reason);
+  }
+
+  /**
+   * Every direct write in this file goes through here rather than through
+   * `autosave.saveNow`, so `sealed` cannot be bypassed.
+   *
+   * IT WAS BYPASSABLE UNTIL UPDATELOGV11.md STAGE 5. `save()` checked the flag
+   * and the eight purchase paths, the two settings writes and the first run all
+   * called `autosave?.saveNow` directly, so a sealed session that bought an
+   * unlock wrote anyway. Harmless while sealing only happened after an import,
+   * because an imported session reloads immediately; not harmless once a refused
+   * act seals a session the player can keep clicking in.
+   */
+  function writeNow(reason: SaveReason): void {
+    if (sealed) return;
+    autosave?.saveNow(reason);
   }
 
   /** Tear down every write path. Called once, and never undone. */
@@ -1079,7 +1169,7 @@ export function createActRuntime(
     // Written now for the reason the first run is: a player who reads the act's
     // ending and closes the tab inside the autosave interval should not be shown
     // it again.
-    autosave?.saveNow('setting');
+    writeNow('setting');
   }
 
   function markFirstRunSeen(): void {
@@ -1088,7 +1178,7 @@ export function createActRuntime(
     // Written now rather than at the next interval. A player who reads the card,
     // dismisses it and closes the tab inside thirty seconds should not be shown
     // it again, and thirty seconds is the autosave interval.
-    autosave?.saveNow('setting');
+    writeNow('setting');
   }
 
   return {
@@ -1107,7 +1197,11 @@ export function createActRuntime(
       running = true;
       lastNowMs = null;
       handle = schedule(pump);
-      autosave?.start();
+      // NOT WHEN SEALED. `save` and `saveNow` already refuse, but the autosave
+      // timer and the visibilitychange listener are armed here, and an armed
+      // timer on a sealed session is a write path waiting for a tab to be
+      // hidden. See `seal`.
+      if (!sealed) autosave?.start();
     },
 
     stop(): void {
@@ -1140,7 +1234,7 @@ export function createActRuntime(
       // Immediately, and not on the next timer tick. Losing a purchase is the
       // loss a player notices, and it is the one thing autosave should never be
       // thirty seconds late for.
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1165,7 +1259,7 @@ export function createActRuntime(
       setReactionEnabled(descriptor, state, 'ferment_ethanol', true);
       snapshot.ethanolUnlocked = true;
       unlocked.push(ACT1_UNLOCK_FERMENT_ETHANOL);
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1196,7 +1290,7 @@ export function createActRuntime(
       setReactionEnabled(descriptor, state, 'mobilise', true);
       snapshot.glycogenUnlocked = true;
       unlocked.push(ACT1_UNLOCK_GLYCOGEN);
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1223,7 +1317,7 @@ export function createActRuntime(
       // the enzymes compose. A second code path here is how the two drift.
       applyGlycolysisStep(descriptor, state, snapshot.glycolysisStep, true);
       unlocked.push(ACT1_UNLOCK_PFK1_PK);
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1242,7 +1336,7 @@ export function createActRuntime(
       setReactionVmax(descriptor, state, 'uptake', UPTAKE_VMAX_STEPS[next] as number);
       snapshot.uptakeStep = next;
       unlocked.push(act1UptakeUnlockId(next));
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1275,7 +1369,7 @@ export function createActRuntime(
       applyGlycolysisStep(descriptor, state, next, snapshot.pfk1PkBought);
       snapshot.glycolysisStep = next;
       unlocked.push(act1GlycolysisUnlockId(next));
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 

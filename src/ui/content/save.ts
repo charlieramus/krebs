@@ -57,6 +57,19 @@ export const SAVE = {
     text: 'This save was written by a newer version of the game. It has not been loaded and it has not been changed.',
     badge: tuned(`${ABOUT_THE_BUILD}. Guessing at a newer format is how saves get destroyed`),
   },
+  /*
+   * The act refusal, alongside the schema one, because they are the same
+   * posture. UPDATELOGV11.md stage 5.
+   *
+   * It says what happened and what was not done, in that order, and it does not
+   * offer to fix anything, because there is nothing this build can do with a
+   * save from an act it does not have. Naming the act number would be a figure
+   * in prose with nowhere to put a badge, so it does not.
+   */
+  futureAct: {
+    text: 'This save is further into the game than this version goes. It has not been loaded and it has not been changed.',
+    badge: tuned(`${ABOUT_THE_BUILD}. Clamping the act would silently rewrite somebody's progress`),
+  },
 
   /* The offline delta. Honest in both directions: no reward is implied and no
      loss is implied, because neither is true. */

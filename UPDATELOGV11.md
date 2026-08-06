@@ -695,7 +695,61 @@ confirmation.
 
 ## Stage 5 Report
 
-_Pending._
+**A save naming an act this build does not have is refused, both slots are left untouched, and nothing in the refused session can write.**
+
+**The refusal outcome's shape, and it mirrors the one already in the codebase.**
+
+```
+  ActSession.kind      gains 'future-act', beside 'future'
+  ActSession.futureAct number | null, beside futureVersion
+```
+
+`migrations.ts` returns `{ kind: 'future' }` for a save from a newer schema and refuses to migrate downward, ever, because this build cannot know what the fields mean. A save naming act 3 against a build that knows one act is that case one level up: the shape is valid, the content is from a future this build was not written for, and interpreting it would be guessing. Same outcome shape, same posture, same words in the message.
+
+**What the player sees.** One line in the save panel, alongside the future-version line:
+
+```
+  This save is further into the game than this version goes. It has not been
+  loaded and it has not been changed.
+```
+
+What happened, then what was not done. It offers to fix nothing, because there is nothing this build can do with a save from an act it does not have, and it does not name the act number, because a figure in prose has nowhere to put a badge. The console carries the diagnostic version with both numbers in it, for whoever is looking at a bug report.
+
+**Not clamped, and the reason is that clamping is the worse failure.** Loading at the highest known act would succeed and silently rewrite somebody's progress. The project's posture is already settled everywhere else this comes up: recovery from a backup is an offer rather than an action, and a corrupt save starts a new game in memory while both slots stay on disk. This does the same. The player gets a running cell rather than a blank page, and their file is exactly where they left it.
+
+**Two different failures, kept apart, and the split is the part worth getting right.**
+
+```
+  progression.act = 2.5   MALFORMED.  Rejected by the codec as corrupt
+  progression.act = 0     MALFORMED.  Same
+  progression.act = 2     WELL FORMED. Refused by the runtime, not rejected
+```
+
+`codec.ts` validated the field with `finite()` and nothing else, which was correct while nothing read it. It is `positiveInteger()` now, so 0, -1, 2.5, NaN and Infinity are malformed alongside every other malformed field. **The codec has no opinion about which acts exist and must not acquire one**: a well-formed act 2 save deserializes fine and is refused one layer up, which is asserted directly so a later log does not "tidy" the check into the codec and turn a refusal into a corruption.
+
+**The autosave interaction, which is where the damage would have been, and it found a real hole.** The stage asked that the session not start and the timer never arm. Implementing it surfaced that `sealed` was bypassable: `save()` checked the flag, and **eight purchase paths, both settings writes and the first run all called `autosave?.saveNow` directly**. That was harmless while sealing only ever happened after an import, because an imported session reloads immediately. It is not harmless once a refused act seals a session the player can keep clicking in: buying fermentation would have written a fresh act 1 save straight over the act 2 file the refusal exists to protect.
+
+Two repairs. Every direct write goes through one `writeNow(reason)` that checks the flag, and `start()` no longer arms the autosave timer or its listeners while sealed. Four tests hold it: nothing armed after `start`, nothing listening, nothing written after a purchase, nothing written after an explicit `save()`.
+
+**All four test cases from step 4, plus five more.**
+
+```
+  a save at act N+1 refuses without throwing        session.kind 'future-act',
+                                                    futureAct 2, new game in memory
+  neither slot is written after a refusal           both slots byte-identical
+                                                    after start, 1000ms and a purchase
+  a save at a known act is unaffected               'loaded', timer armed,
+                                                    purchase still autosaves
+  a non-positive-integer act is rejected            0, -1, 2.5, NaN, Infinity and
+                                                    missing, all corrupt
+  a well-formed unknown act is NOT corrupt          deserialize returns ok
+```
+
+**Step 5, confirmed rather than rebuilt.** Unknown unlock ids are already safe and V5's finding still holds. `Act1Unlocks.unknown` carries ids this build does not recognise through capture untouched, so a build loading a save with newer unlock ids keeps the purchase in the file rather than deleting it. Asserted end to end here with a save carrying `oxygen-tolerance-1`: the session loads normally, `session.unknownUnlocks` reports it, `runtime.unlocked` contains it, and `capture()` writes it straight back out. Nothing was needed and nothing was added. Said so, so the next person does not rebuild it.
+
+**One thing this stage does not do, said plainly.** `progression.act` is now validated and refused, and it does not yet SELECT anything, because the registry holds one act and selecting from a list of one is not a mechanism. What exists is the failure path that selection creates, built before the selection so it is not built during it. Act 2 is what makes the lookup meaningful, and the refusal is already waiting for it.
+
+**Verify.** `npm run typecheck` clean, `npm run lint` clean, **612 tests across 46 files**, all green, up from stage 4's 597. `npm run offline:validate` green with the same figures. Both canonical hashes unchanged. `git diff` empty across the three tuning files, docs/SCIENCE.md and docs/ECONOMY.md. Bundle 290.65 kB, 89.92 kB gzipped.
 
 ---
 
