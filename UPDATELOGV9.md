@@ -28,6 +28,10 @@ And `CLAUDE.md` says the project is "Deployed to Cloudflare Pages". There is no 
 
 This log builds CI, measures determinism across real engines, and deploys. It does **not** change the simulation, the economy, the content or the interface. If a cross-engine measurement finds a real divergence, that is a finding and it is reported rather than repaired here, because repairing it is a kernel change and a kernel change deserves its own log.
 
+**One thing was added to this log after it was written, and it is a debt inherited from V8.** `docs/designs/game-spine-and-four-acts.md` scheduled a constraint on act 2's oxygen schedule to be written into `docs/SIMULATION.md` "while V8 is live", so that the steady-state engine survives a varying environment. V8 closed without it. The window has passed and the constraint still needs writing, so it lands here, in stage 5, as documentation rather than as code. It is the cheapest thing in the log and it is the only thing in the log that act 2 depends on.
+
+**This is no longer the last planned log.** It was written when it was. `docs/designs/game-spine-and-four-acts.md` now carries a roadmap through V18, and an engineering review moved this log ahead of the two largest content logs in the project's history specifically so that the guards below are running before those diffs land. That reordering is the reason this log matters more than it did when it was written, and stage 5's closing instructions are amended to match.
+
 ## Decisions
 
 - **CI runs everything, on every push, and the six guards are the point.** A guard that fires only when someone remembers to invoke it is documentation with a failure mode. Six of them accumulated over five logs, each carefully built and each currently optional. This log is what converts them.
@@ -38,6 +42,8 @@ This log builds CI, measures determinism across real engines, and deploys. It do
 - **A maximally strict CSP is achievable and is worth having as a statement.** `docs/PILLARS.md` rule 7 is offline-first, no account, no backend, no network dependency for core play, and V3 self-hosted the fonts specifically so first paint has no network dependency. The game makes zero network requests. A content security policy that permits none is therefore not a compromise, it is rule 7 written where a browser can enforce it, and any future change that adds a request will fail against it rather than sliding in.
 - **The build artifact gets a size budget, checked in CI.** The bundle has gone from 193.37 kB at V2 to 251.29 kB at V4 and has grown in every log since. Nothing tracks it and nothing would notice a dependency that doubled it. A budget makes growth a decision.
 - **`CLAUDE.md` gets corrected in the final stage.** It states the project is deployed to Cloudflare Pages as though it were a fact. Until stage 3 it is not one. Correcting a root instruction file is a deliberate act and it happens once, at the end, when it has become true.
+- **The act 2 oxygen constraint is written here because its intended window closed.** It is a `docs/SIMULATION.md` edit and nothing else. It belongs in this log rather than in act 2's own log for the reason every ordering note in `NOW.md` has given and been right about: a foundation gets laid before something is built on it, and a constraint written by the log that has to satisfy it is not a constraint.
+- **This log now runs before the spine work rather than after it, and that is the whole reason it is worth doing well.** Six guards and a 200-case offline sweep currently run when somebody types a command. The next two logs are the largest diffs the project has ever taken. A guard that exists but does not run is worth nothing on the day it is needed most.
 - Medium feature, and the cross-engine measurement is the risk: five stages.
 
 ## What CI has to run, and why each one
@@ -359,21 +365,59 @@ Close the log out, and correct the root instruction file.
    - The freeze list from stage 3, as its own short section. What deploying
      made binding, with the date. This is the entry a future maintainer will
      need most and will look for least.
-   - "Next, in order": this is the last planned log. Say what act 2 would need
-     before a V10 row could be written without being fiction, using NOW.md's
-     own standard from line 30 rather than a new one. docs/PROGRESSION.md lists
-     act 2's shape as an open question for the prototype and the prototype now
-     exists, is balanced, is comprehensible, is accessible, persists, credits
-     offline time and is deployed. State whether that is enough.
+   - "Next, in order": this is no longer the last planned log and the entry
+     that says so has to go. docs/designs/game-spine-and-four-acts.md carries a
+     roadmap through V18 and V10 is act 1 completion, which is the log that
+     closes blocking item 2. Point at the design doc rather than restating it,
+     because a roadmap in two places drifts in one of them.
 
-5. Do not change the simulation, the economy, the content or the interface.
+     One thing does still belong here rather than there, and it is the same
+     standard NOW.md has applied since V3. The design doc schedules act 3 ahead
+     of act 2 and the engineering review found a reason that may not survive:
+     act 3's payoff needs oxygen as the terminal electron acceptor and act 2 is
+     what supplies it. That decision is open, it does not block anything before
+     V14, and NOW.md should carry it as open rather than let a roadmap entry
+     imply it is settled.
+
+5. The act 2 oxygen constraint, written into docs/SIMULATION.md. This is a
+   documentation edit and it is the only thing in this log that a later log
+   depends on.
+
+   The problem it exists to prevent: Part 3 builds offline progress on the
+   system reaching steady state, and act 2 raises oxygen on a schedule
+   independent of the player. An environment that changes continuously never
+   settles, so the detector never declares, so every absence in act 2 falls
+   back to coarse replay. Blocking item 6 says what coarse replay does to a
+   cell, which is destroy it. V5 already chose more unlocks over a varying
+   environment for exactly this reason and said so at the time.
+
+   Write the constraint rather than the solution: act 2's oxygen level moves in
+   discrete steps with a settling interval between them long enough for the
+   detector to declare, and the schedule is state rather than a function of
+   wall-clock time. Give it the numbers it needs from the constants that exist:
+   STEADY_WINDOW is 250 and a walled act 1 cell settles at 1120 against a
+   SETTLE_MAX_TICKS of 1200, so the interval has a floor and the floor is
+   measurable rather than guessed.
+
+   Say plainly what is NOT decided here. The step size, the number of steps and
+   the total duration are act 2's balance decisions and belong in
+   docs/ECONOMY.md when act 2 has one. Hard rule 2 applies: this stage does not
+   put a number in docs/SCIENCE.md.
+
+   Also record what this constraint does not solve. Act 2's second damage
+   mechanism degrades enzyme Vmax continuously, which is a separate reason the
+   steady test may never pass, and quantising the environment does not touch
+   it. Name it so act 2's log inherits it rather than discovers it.
+
+6. Do not change the simulation, the economy, the content or the interface.
    This log is infrastructure and a diff touching src/sim/, src/content/ or the
-   three tuning files is out of scope. Report the diff scope as evidence.
+   three tuning files is out of scope. docs/SIMULATION.md is a document rather
+   than code and step 5 is the one exception, so report it separately.
 
 Verify: everything above clean, locally and in CI. Report the CLAUDE.md diff
 with its new line count, the eight-guard table, the test count, the bundle
-size, unchanged canonical hashes, the diff scope from step 5 and the NOW.md
-diff summary.
+size, unchanged canonical hashes, the docs/SIMULATION.md constraint as written,
+the diff scope from step 6 and the NOW.md diff summary.
 ```
 
 ## Stage 5 Report
@@ -388,4 +432,5 @@ _Pending._
 - The cross-engine determinism claim is measured. Hard rule 5 has been the most confidently asserted and least tested thing in the project since V1, because the reason for it is a fact about the ECMAScript specification and nobody had checked what the engines actually do. Now somebody has.
 - The game is deployed, it makes no network request at all, and a content security policy enforces that rather than a document asserting it. `docs/PILLARS.md` rule 7 is mechanism.
 - Deploying converted several statements into obligations. `TICK_RATE_HZ` is frozen, the origin is permanent for the same reason the storage keys are, and schema version 1 is a released version whose fixture V4 committed specifically for this moment.
-- This is the last planned log. Act 2 is the highest-risk beat in the game, `docs/PROGRESSION.md` lists its shape as an open question for the prototype, and the prototype now exists in full. Whether that licenses a V10 row is a decision `NOW.md` should make on its own terms, with the standard it has applied since V3: anything written before the answers are in is fiction.
+- Act 2's oxygen constraint is written down before act 2 exists, which is the only way a constraint constrains anything. It was supposed to land in V8 and did not, and the pattern this project keeps re-proving is that a foundation laid after the thing built on it is not a foundation.
+- **This is no longer the last planned log and that is the largest change to the project's shape since V1.** `docs/designs/game-spine-and-four-acts.md` runs to V18: act 1 completion, two spine logs, an act jump, three more acts, teacher mode and an endgame. What this log does for that roadmap is make the guards run before the two biggest diffs in it, which is why it moved from last to fourth.
