@@ -13,6 +13,7 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ACT1 } from '../../content/acts';
 
 import { TICK_MS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
@@ -107,7 +108,7 @@ function makeRuntime(
   h: ReturnType<typeof harness>,
   extra: Partial<ActPersistenceOptions> = {},
 ): ActRuntime {
-  return createActRuntime({
+  return createActRuntime(ACT1, {
     schedule: () => 0,
     cancel: () => {},
     persistence: h.persistence(extra),
@@ -407,7 +408,7 @@ describe('autosave', () => {
   });
 
   it('does nothing at all when persistence is disabled', () => {
-    const runtime = createActRuntime({
+    const runtime = createActRuntime(ACT1, {
       schedule: () => 0,
       cancel: () => {},
       persistence: { enabled: false },
@@ -605,7 +606,7 @@ describe('reloading a session', () => {
       },
       removeItem: () => {},
     };
-    const runtime = createActRuntime({
+    const runtime = createActRuntime(ACT1, {
       schedule: () => 0,
       cancel: () => {},
       persistence: { store: createSaveStore({ store: throwing }), epochClock: () => 1 },

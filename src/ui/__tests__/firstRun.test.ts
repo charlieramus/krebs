@@ -16,6 +16,7 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ACT1 } from '../../content/acts';
 
 import { TICK_MS } from '../../sim/constants';
 import { hashState } from '../../sim/hash';
@@ -45,7 +46,7 @@ function harness(seed: Readonly<Record<string, string>> = {}) {
 }
 
 function makeRuntime(h: ReturnType<typeof harness>): ActRuntime {
-  return createActRuntime({ schedule: () => 0, cancel: () => {}, persistence: h.persistence() });
+  return createActRuntime(ACT1, { schedule: () => 0, cancel: () => {}, persistence: h.persistence() });
 }
 
 function play(runtime: ActRuntime, ticks: number): void {

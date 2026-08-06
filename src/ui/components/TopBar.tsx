@@ -17,18 +17,13 @@
  * screen is written at the call site.
  */
 
+import { useCallback } from 'react';
 import { Figure } from './Figure';
 import { Badge, type BadgeSpec } from './Badge';
 import { Button } from './Button';
 import { ABOUT, LANDMARKS, READOUTS, WORDMARK } from '../content';
-import { poolIndex, type ActSnapshot } from '../runtime';
-
-const ATP = poolIndex('atp');
-const GLUCOSE = poolIndex('glucose');
-
-const readAtpPerSecond = (snapshot: ActSnapshot): number => snapshot.production[ATP] as number;
-const readGlucosePerSecond = (snapshot: ActSnapshot): number =>
-  snapshot.production[GLUCOSE] as number;
+import { usePoolIndex } from '../RuntimeContext';
+import { type ActSnapshot } from '../runtime';
 
 /**
  * Elapsed game time in minutes, one decimal.
@@ -80,6 +75,23 @@ function Headline({
 }
 
 export function TopBar({ onOpenAbout }: { onOpenAbout: () => void }) {
+  /*
+   * THE TWO INDICES ARE RESOLVED ONCE, NOT PER RENDER. They were module-level
+   * constants calling a linear scan over act 1's pool ids at import time, which
+   * was fast and also the reason this file could only ever show act 1. They come
+   * from the running act now, through a memo keyed on the act.
+   */
+  const atp = usePoolIndex('atp');
+  const glucose = usePoolIndex('glucose');
+  const readAtpPerSecond = useCallback(
+    (snapshot: ActSnapshot): number => snapshot.production[atp] as number,
+    [atp],
+  );
+  const readGlucosePerSecond = useCallback(
+    (snapshot: ActSnapshot): number => snapshot.production[glucose] as number,
+    [glucose],
+  );
+
   return (
     <header className="flex flex-wrap items-end justify-between gap-6 px-8 py-4">
       {/* A div rather than a span, because an h1 inside a span is invalid

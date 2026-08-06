@@ -27,8 +27,8 @@
  */
 
 import { useState } from 'react';
-import { useLiveNode, useRuntime, useSnapshotEffect } from '../RuntimeContext';
-import { poolIndex, type ActSnapshot } from '../runtime';
+import { useLiveNode, usePoolIndex, useRuntime, useSnapshotEffect } from '../RuntimeContext';
+import { type ActSnapshot } from '../runtime';
 import type { Act1PoolId } from '../../content/act1/pools';
 import { Badge } from './Badge';
 import { Blob, setRedoxLevel } from './Blob';
@@ -106,7 +106,7 @@ function SignedRate({ read }: { read: (snapshot: ActSnapshot) => number }) {
 
 /** The stock, small, underneath. One line per pool the card covers. */
 function Stock({ poolId }: { poolId: Act1PoolId }) {
-  const index = poolIndex(poolId);
+  const index = usePoolIndex(poolId);
   return (
     <span className="flex items-baseline justify-between gap-2">
       <span className="text-micro font-body font-bold uppercase tracking-label text-ink2">
@@ -160,8 +160,8 @@ function Stock({ poolId }: { poolId: Act1PoolId }) {
  * to zero, one and two would put a species on the screen that does not exist.
  */
 function NicotinamideBlob({ seed }: { seed: number }) {
-  const nad = poolIndex('nad');
-  const nadh = poolIndex('nadh');
+  const nad = usePoolIndex('nad');
+  const nadh = usePoolIndex('nadh');
 
   const levelRef = useLiveNode<SVGGElement>((element, snapshot) => {
     const oxidized = snapshot.amounts[nad] as number;
@@ -242,7 +242,7 @@ function NicotinamideBlob({ seed }: { seed: number }) {
 }
 
 export function PoolCard({ spec }: { spec: PoolCardSpec }) {
-  const headline = poolIndex(spec.headline);
+  const headline = usePoolIndex(spec.headline);
   const runtime = useRuntime();
 
   /**

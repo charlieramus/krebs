@@ -130,10 +130,10 @@ function ActScreen() {
 export function App() {
   // Development affordance, see src/ui/scenario.ts. With no query string this is
   // an empty object and the player gets the real act.
-  const act1 = scenarioFromLocation(typeof window === 'undefined' ? '' : window.location.search);
+  const create = scenarioFromLocation(typeof window === 'undefined' ? '' : window.location.search);
 
   return (
-    <RuntimeProvider options={{ act1 }}>
+    <RuntimeProvider options={{ create }}>
       <ActScreen />
     </RuntimeProvider>
   );

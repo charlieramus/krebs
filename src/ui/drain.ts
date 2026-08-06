@@ -23,12 +23,12 @@
  */
 
 import process from 'node:process';
+import { ACT1 } from '../content/acts';
 import { TICK_MS } from '../sim/constants';
 import { setShortfallLogging } from '../sim/tick';
 import { ACT1_GLUCOSE_ENV_INITIAL } from '../content/act1/tuning';
 import { UPTAKE_VMAX_STEPS } from './tuning';
 import { createActRuntime } from './runtime';
-import { poolIndex } from './runtime';
 
 /**
  * The threshold NOW.md blocking item 1 used to name. Kept as a food-supply
@@ -60,12 +60,12 @@ interface DrainResult {
 }
 
 function measure(uptakeVmax: number, maxMinutes: number): DrainResult {
-  const runtime = createActRuntime({
-    act1: { enabled: { ferment: true }, vmax: { uptake: uptakeVmax } },
+  const runtime = createActRuntime(ACT1, {
+    create: { enabled: { ferment: true }, vmax: { uptake: uptakeVmax } },
   });
 
-  const envIndex = poolIndex('glucose_env');
-  const atpIndex = poolIndex('atp');
+  const envIndex = ACT1.poolIndex('glucose_env');
+  const atpIndex = ACT1.poolIndex('atp');
   const amounts = runtime.state.pools.amounts;
 
   const maxTicks = Math.round((maxMinutes * 60 * 1000) / TICK_MS);

@@ -42,34 +42,20 @@ import {
   UPTAKE_VMAX_STEPS,
   ZERO_FLUX_THRESHOLD,
 } from './tuning';
+import type {
+  ActCarriedCounters,
+  ActCreateOptions,
+  ActDescriptor,
+  ActMeter,
+  ActMeterProbes,
+} from '../content/acts';
 import {
-  atpPerCompletedGlucose,
-  createAct1Meter,
-  createAct1MeterProbes,
-  netAtpPerCompletedGlucose,
-  recordAct1Tick,
-  type Act1Meter,
-  type Act1MeterProbes,
-} from '../content/act1/meter';
-import { createAct1OfflineObserver } from '../content/act1/offline';
-import { ACT1_POOL_IDS, type Act1PoolId } from '../content/act1/pools';
-import {
-  ACT1_REACTION_IDS,
-  createAct1,
-  type Act1Options,
-  type Act1ReactionId,
-} from '../content/act1/reactions';
-import {
-  ACT1_NO_CARRIED_COUNTERS,
   ACT1_UNLOCK_FERMENT,
   ACT1_UNLOCK_FERMENT_ETHANOL,
   ACT1_UNLOCK_GLYCOGEN,
   ACT1_UNLOCK_PFK1_PK,
   act1GlycolysisUnlockId,
   act1UptakeUnlockId,
-  captureAct1,
-  restoreAct1,
-  type Act1CarriedCounters,
 } from '../content/act1/save';
 import { createAutosave, type Autosave, type AutosaveRecord, type SaveReason } from '../save/autosave';
 import { serializeReadable } from '../save/codec';
@@ -97,9 +83,9 @@ import {
  * that makes a flowing-dash animation stutter.
  */
 export interface ActSnapshot {
-  /** Pool amounts, ACT1_POOL_IDS order. */
+  /** Pool amounts, `descriptor.poolIds` order. */
   readonly amounts: Float64Array;
-  /** Intended flux per reaction, ACT1_REACTION_IDS order, units per game-second. */
+  /** Intended flux per reaction, `descriptor.reactionIds` order, units per game-second. */
   readonly flux: Float64Array;
   /**
    * Flux the tick actually applied, which is `flux * scale`. The two differ
@@ -108,12 +94,12 @@ export interface ActSnapshot {
    * that has already stopped the reaction.
    */
   readonly appliedFlux: Float64Array;
-  /** Ticks in which each pool ran short. Diagnostics, ACT1_POOL_IDS order. */
+  /** Ticks in which each pool ran short. Diagnostics, `descriptor.poolIds` order. */
   readonly shortfallTicks: Int32Array;
 
   /**
    * Units per game-second produced into each pool, summed across every
-   * reaction that makes it. ACT1_POOL_IDS order.
+   * reaction that makes it. `descriptor.poolIds` order.
    *
    * DERIVED FROM THE REACTION TABLE, not written down. "ATP per second" is
    * `production[atp]`, which is the payoff phase's coefficient of 2 read out of
@@ -131,8 +117,8 @@ export interface ActSnapshot {
    */
   readonly netRate: Float64Array;
 
-  /** The live meter. Same object every frame, filled in place by recordAct1Tick. */
-  readonly meter: Act1Meter;
+  /** The live meter. Same object every frame, filled in place by `descriptor.recordTick`. */
+  readonly meter: ActMeter;
   /** Gross ATP per glucose that finished the pathway. The sourced figure is 4. */
   atpPerGlucose: number;
   /** Net of the preparatory spend. The sourced figure is 2. */
@@ -218,14 +204,6 @@ export type ActSnapshotListener = (snapshot: ActSnapshot) => void;
  */
 const STOPPED_FLUX = ZERO_FLUX_THRESHOLD;
 
-/**
- * NAD+ remaining below which the carrier counts as exhausted.
- *
- * A fraction of a single unit against a nicotinamide total of 30. Not zero,
- * because the pool approaches zero asymptotically and never quite arrives, and
- * a detector that waits for exactly zero waits forever.
- */
-const WALLED_NAD = 0.05;
 
 /**
  * Persistence, added by UPDATELOGV4.md stage 5.
@@ -313,8 +291,8 @@ export type ImportOutcome =
   | { readonly kind: 'failed'; readonly reason: string };
 
 export interface ActRuntimeOptions {
-  /** Passed through to createAct1. Enabled flags, Vmax overrides, initial amounts. */
-  readonly act1?: Partial<Act1Options>;
+  /** Passed through to the descriptor's constructor. Enabled flags, Vmax overrides, initial amounts. */
+  readonly create?: ActCreateOptions;
   /** Monotonic milliseconds. Defaults to performance.now. */
   readonly clock?: () => number;
   /** Frame scheduler. Defaults to requestAnimationFrame. */
@@ -325,6 +303,15 @@ export interface ActRuntimeOptions {
 }
 
 export interface ActRuntime {
+  /**
+   * The act this runtime is running.
+   *
+   * Exposed rather than kept private because the interface needs it: a
+   * component resolving a pool id to an index asks the running act, and there
+   * is no longer a module-level function that answers for act 1 on everyone's
+   * behalf. `RuntimeContext` re-exports it as `useAct`.
+   */
+  readonly act: ActDescriptor;
   /** The one snapshot object. Read it, do not keep references to its arrays. */
   readonly snapshot: ActSnapshot;
   /** Escape hatch for tests and the drain measurement. Not for the display. */
@@ -432,7 +419,10 @@ export interface ActRuntime {
   markFirstRunSeen(): void;
 }
 
-export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
+export function createActRuntime(
+  descriptor: ActDescriptor,
+  options: ActRuntimeOptions = {},
+): ActRuntime {
   const clock = options.clock ?? (() => performance.now());
   const schedule =
     options.schedule ?? ((callback: () => void) => requestAnimationFrame(callback));
@@ -462,7 +452,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
    * to stay on disk untouched while the player decides what to do.
    */
   const restoredSave: SaveV1 | null = loaded?.kind === 'loaded' ? loaded.save : null;
-  const restored = restoredSave === null ? null : restoreAct1(restoredSave);
+  const restored = restoredSave === null ? null : descriptor.restore(restoredSave);
 
   if (restored !== null && restored.kind !== 'ok') {
     // The codec validated the shape and the content mapping still refused it,
@@ -473,9 +463,9 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
 
   const restoredOk = restored?.kind === 'ok' ? restored.restored : null;
 
-  const state = restoredOk === null ? createAct1(options.act1 ?? {}) : restoredOk.state;
-  const probes: Act1MeterProbes = createAct1MeterProbes(state);
-  const meter = restoredOk === null ? createAct1Meter() : restoredOk.meter;
+  const state = restoredOk === null ? descriptor.create(options.create) : restoredOk.state;
+  const probes: ActMeterProbes = descriptor.createMeterProbes(state);
+  const meter = restoredOk === null ? descriptor.createMeter() : restoredOk.meter;
 
   /** Unlock ids in purchase order. Persisted as `progression.unlocked`. */
   const unlocked: string[] = restoredOk === null ? [] : [...restoredOk.unlocked];
@@ -501,23 +491,25 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
    * the readonly half is the useful half. The offline credit is the only thing
    * that moves them.
    */
-  let carried: Act1CarriedCounters = restoredOk?.carried ?? ACT1_NO_CARRIED_COUNTERS;
+  let carried: ActCarriedCounters = restoredOk?.carried ?? descriptor.noCarriedCounters;
   const createdAt = restoredSave?.meta.createdAt ?? epochClock();
 
   const poolCount = state.pools.count;
   const reactionCount = state.reactions.length;
 
   /**
-   * The g3p level at the start of the METERED WINDOW, for the completed-glucose
-   * correction in meter.ts. Trioses sitting in the pool are glucose that has been
-   * paid for and has not paid out, and subtracting them is the difference between
-   * reporting the sourced yield of 4 and reporting a stall as a collapse in
-   * yield.
+   * The yield-correction baseline at the start of the METERED WINDOW.
+   *
+   * THE POOL IS THE ACT'S CHOICE AND NOT THIS FILE'S. Act 1 names `g3p`:
+   * trioses sitting in the pool are glucose that has been paid for and has not
+   * paid out, and subtracting them is the difference between reporting the
+   * sourced yield of 4 and reporting a stall as a collapse in yield. The runtime
+   * held that literal until UPDATELOGV11.md stage 2 and now asks the descriptor.
    *
    * A RESTORED SESSION USES ZERO, NOT THE RESTORED AMOUNT, and this is the one
    * thing persistence quietly broke before it was noticed. The meter is
-   * cumulative over the whole save, so its baseline is the g3p the run started
-   * with, which is `ACT1_INITIAL.g3p` and is zero. Taking the restored pool level
+   * cumulative over the whole save, so its baseline is the level the run started
+   * with, which for act 1 is `ACT1_INITIAL.g3p` and is zero. Taking the restored pool level
    * as the baseline would measure the correction from the reload rather than from
    * the beginning, and ATP per glucose would read wrong after every refresh. The
    * development scenario door can seed a non-zero starting g3p, and a save
@@ -525,17 +517,14 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
    * that is a known and deliberate limit of a door that only exists behind a
    * query string.
    */
-  const g3pIndex = state.pools.indexOf('g3p');
-  const g3pInitial = restoredOk === null ? (state.pools.amounts[g3pIndex] as number) : 0;
-
-  const payoffReaction = reactionIndex('payoff');
-  const uptakeReaction = reactionIndex('uptake');
-  const nadPool = state.pools.indexOf('nad');
+  const baselineIndex = descriptor.poolIndex(descriptor.yieldBaselinePoolId);
+  const baselineInitial =
+    restoredOk === null ? (state.pools.amounts[baselineIndex] as number) : 0;
 
   /**
    * THE ONCE-PER-TICK PROBLEM, AND HOW IT IS SOLVED.
    *
-   * `recordAct1Tick` reads `state.fluxes` and `state.scales`, which are scratch
+   * `descriptor.recordTick` reads `state.fluxes` and `state.scales`, which are scratch
    * arrays the next tick overwrites. One frame can run zero ticks, one tick, or
    * two hundred. Metering once per frame is therefore wrong in both directions:
    * a frame that ran three ticks and meters once counts the third tick three
@@ -553,7 +542,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
    * remembering to match it.
    */
   const loop = createLoop(state, (ticked) => {
-    recordAct1Tick(ticked, probes, meter);
+    descriptor.recordTick(ticked, probes, meter);
   });
 
   /**
@@ -595,9 +584,9 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
     pendingOfflineMs: 0,
     lastTickCount: 0,
     frameCount: 0,
-    fermentUnlocked: state.reactions[reactionIndex('ferment')]?.enabled ?? false,
-    ethanolUnlocked: state.reactions[reactionIndex('ferment_ethanol')]?.enabled ?? false,
-    glycogenUnlocked: state.reactions[reactionIndex('store')]?.enabled ?? false,
+    fermentUnlocked: state.reactions[descriptor.reactionIndex('ferment')]?.enabled ?? false,
+    ethanolUnlocked: state.reactions[descriptor.reactionIndex('ferment_ethanol')]?.enabled ?? false,
+    glycogenUnlocked: state.reactions[descriptor.reactionIndex('store')]?.enabled ?? false,
     pfk1PkBought: false,
     uptakeStep: 0,
     glycolysisStep: 0,
@@ -621,7 +610,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
    */
   if (restoredOk !== null && restoredOk.unlocks.uptakeStep > 0) {
     const step = Math.min(restoredOk.unlocks.uptakeStep, UPTAKE_VMAX_STEPS.length - 1);
-    setReactionVmax(state, 'uptake', UPTAKE_VMAX_STEPS[step] as number);
+    setReactionVmax(descriptor, state, 'uptake', UPTAKE_VMAX_STEPS[step] as number);
     snapshot.uptakeStep = step;
   }
 
@@ -650,13 +639,13 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
 
   if (restoredOk !== null && restoredOk.unlocks.glycolysisStep > 0) {
     const step = Math.min(restoredOk.unlocks.glycolysisStep, GLYCOLYSIS_STEPS.length - 1);
-    applyGlycolysisStep(state, step, restoredOk.unlocks.pfk1PkBought);
+    applyGlycolysisStep(descriptor, state, step, restoredOk.unlocks.pfk1PkBought);
     snapshot.glycolysisStep = step;
   } else if (restoredOk !== null && restoredOk.unlocks.pfk1PkBought) {
     // Bought the enzymes and no rung yet. The factor still has to be applied,
     // and rung 0 is the configuration at the top of the uptake ladder, which is
     // where this purchase lives.
-    applyGlycolysisStep(state, 0, true);
+    applyGlycolysisStep(descriptor, state, 0, true);
   }
 
   /* =========================================================================
@@ -710,14 +699,14 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
         uncreditedMs: 0,
         atpProduced: 0,
         events: [],
-        poolIds: ACT1_POOL_IDS,
+        poolIds: descriptor.poolIds,
         fellBack: false,
         budgetExhausted: false,
         elapsedRealMs: 0,
       };
     }
 
-    const observer = createAct1OfflineObserver(probes, meter);
+    const observer = descriptor.createOfflineObserver(probes, meter);
     const outcome = resolveOffline(
       state,
       createSteadyDetector(state.pools.count),
@@ -757,7 +746,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
       uncreditedMs: state.diagnostics.pendingOfflineMs,
       atpProduced: meter.atpProduced - atpBefore,
       events: outcome.events,
-      poolIds: ACT1_POOL_IDS,
+      poolIds: descriptor.poolIds,
       fellBack,
       budgetExhausted: outcome.budgetExhausted,
       elapsedRealMs: clock() - startedAt,
@@ -803,9 +792,9 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
       }
     }
 
-    const g3pDelta = (state.pools.amounts[g3pIndex] as number) - g3pInitial;
-    snapshot.atpPerGlucose = atpPerCompletedGlucose(meter, g3pDelta);
-    snapshot.netAtpPerGlucose = netAtpPerCompletedGlucose(meter, g3pDelta);
+    const baselineDelta = (state.pools.amounts[baselineIndex] as number) - baselineInitial;
+    snapshot.atpPerGlucose = descriptor.atpPerCompletedGlucose(meter, baselineDelta);
+    snapshot.netAtpPerGlucose = descriptor.netAtpPerCompletedGlucose(meter, baselineDelta);
 
     snapshot.tickCount = state.tickCount;
     snapshot.elapsedMs = elapsedMs(state);
@@ -815,20 +804,20 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
     snapshot.frameCount += 1;
 
     /**
-     * Walled, read off the state rather than flagged by it.
+     * Walled, read off the state rather than flagged by it, AND ASKED OF THE ACT
+     * RATHER THAN COMPUTED HERE.
      *
-     * Three conditions, and all three are needed. The payoff phase has stopped,
-     * so the pathway is not producing. Uptake has NOT stopped, which is what
-     * separates this from starvation: a starved cell has every flux low
-     * together, and a walled cell is importing at full rate. And the carrier is
-     * essentially all reduced, which is the cause rather than a symptom, so a
-     * pathway that stops for some other reason a later act invents does not get
-     * mislabelled as this one.
+     * This file used to hold `WALLED_NAD = 0.05` and three act 1 conditions
+     * inline. Act 2's wall is not a NAD+ level, so neither the number nor the
+     * conditions could stay, and neither could be generalised without asserting
+     * that every act's wall is one pool crossing one threshold. The act answers
+     * the question instead. See `isWalled` in src/content/acts.ts, which carries
+     * the three conditions and the reasoning for them unchanged.
+     *
+     * Called once per frame with the same two arrays every time and allocates
+     * nothing, which is why the predicate takes arrays rather than the snapshot.
      */
-    snapshot.walled =
-      (snapshot.appliedFlux[payoffReaction] as number) < STOPPED_FLUX &&
-      (snapshot.appliedFlux[uptakeReaction] as number) >= STOPPED_FLUX &&
-      (state.pools.amounts[nadPool] as number) < WALLED_NAD;
+    snapshot.walled = descriptor.isWalled(state.pools.amounts, snapshot.appliedFlux, STOPPED_FLUX);
   }
 
   function notify(): void {
@@ -871,7 +860,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
    * is given and what is already on disk.
    */
   function capture(): SaveV1 {
-    return captureAct1(state, meter, unlocked, settings, {
+    return descriptor.capture(state, meter, unlocked, settings, {
       meta: { createdAt, lastSavedAt: epochClock(), buildId: currentBuildId() },
       carried,
     });
@@ -958,6 +947,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
   }
 
   return {
+    act: descriptor,
     snapshot,
     state,
     loop,
@@ -996,7 +986,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
     buyFerment(): boolean {
       if (snapshot.fermentUnlocked) return false;
       if (meter.atpProduced < FERMENT_ATP_THRESHOLD) return false;
-      setReactionEnabled(state, 'ferment', true);
+      setReactionEnabled(descriptor, state, 'ferment', true);
       snapshot.fermentUnlocked = true;
       unlocked.push(ACT1_UNLOCK_FERMENT);
       // Immediately, and not on the next timer tick. Losing a purchase is the
@@ -1024,7 +1014,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
       if (!snapshot.fermentUnlocked) return false;
       if (snapshot.ethanolUnlocked) return false;
       if (meter.atpProduced < ETHANOL_ATP_THRESHOLD) return false;
-      setReactionEnabled(state, 'ferment_ethanol', true);
+      setReactionEnabled(descriptor, state, 'ferment_ethanol', true);
       snapshot.ethanolUnlocked = true;
       unlocked.push(ACT1_UNLOCK_FERMENT_ETHANOL);
       autosave?.saveNow('unlock');
@@ -1054,8 +1044,8 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
       if (snapshot.glycogenUnlocked) return false;
       if (meter.atpProduced < GLYCOGEN_ATP_THRESHOLD) return false;
       // Both, always. See ACT1_UNLOCK_GLYCOGEN.
-      setReactionEnabled(state, 'store', true);
-      setReactionEnabled(state, 'mobilise', true);
+      setReactionEnabled(descriptor, state, 'store', true);
+      setReactionEnabled(descriptor, state, 'mobilise', true);
       snapshot.glycogenUnlocked = true;
       unlocked.push(ACT1_UNLOCK_GLYCOGEN);
       autosave?.saveNow('unlock');
@@ -1083,7 +1073,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
       // Re-applied through the same function the ladder uses, at the rung the
       // player is on, so there is exactly one place that knows how a rung and
       // the enzymes compose. A second code path here is how the two drift.
-      applyGlycolysisStep(state, snapshot.glycolysisStep, true);
+      applyGlycolysisStep(descriptor, state, snapshot.glycolysisStep, true);
       unlocked.push(ACT1_UNLOCK_PFK1_PK);
       autosave?.saveNow('unlock');
       return true;
@@ -1101,7 +1091,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
       if (next >= UPTAKE_VMAX_STEPS.length) return false;
       const threshold = UPTAKE_ATP_THRESHOLDS[snapshot.uptakeStep];
       if (threshold === undefined || meter.atpProduced < threshold) return false;
-      setReactionVmax(state, 'uptake', UPTAKE_VMAX_STEPS[next] as number);
+      setReactionVmax(descriptor, state, 'uptake', UPTAKE_VMAX_STEPS[next] as number);
       snapshot.uptakeStep = next;
       unlocked.push(act1UptakeUnlockId(next));
       autosave?.saveNow('unlock');
@@ -1134,7 +1124,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
       if (next >= GLYCOLYSIS_STEPS.length) return false;
       const threshold = GLYCOLYSIS_ATP_THRESHOLDS[snapshot.glycolysisStep];
       if (threshold === undefined || meter.atpProduced < threshold) return false;
-      applyGlycolysisStep(state, next, snapshot.pfk1PkBought);
+      applyGlycolysisStep(descriptor, state, next, snapshot.pfk1PkBought);
       snapshot.glycolysisStep = next;
       unlocked.push(act1GlycolysisUnlockId(next));
       autosave?.saveNow('unlock');
@@ -1179,7 +1169,7 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
       if (parsed.kind === 'future') return { kind: 'future', version: parsed.version };
       if (parsed.kind !== 'ok') return { kind: 'corrupt', reason: parsed.reason };
 
-      const mapped = restoreAct1(parsed.save);
+      const mapped = descriptor.restore(parsed.save);
       if (mapped.kind !== 'ok') return { kind: 'corrupt', reason: mapped.reason };
 
       const outcome = store.write(parsed.save);
@@ -1205,11 +1195,12 @@ export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
  * `Reaction.enabled` is mutable precisely so a later log could do this.
  */
 function setReactionEnabled(
+  descriptor: ActDescriptor,
   state: SimulationState,
-  id: Act1ReactionId,
+  id: string,
   enabled: boolean,
 ): void {
-  const reaction = state.reactions[reactionIndex(id)];
+  const reaction = state.reactions[descriptor.reactionIndex(id)];
   if (reaction === undefined) throw new Error(`runtime: no reaction "${id}"`);
   reaction.enabled = enabled;
 }
@@ -1230,8 +1221,13 @@ function setReactionEnabled(
  * save schema has to persist the unlock state or a reload will silently refund
  * every purchase. Flagged here rather than left for V4 to discover.
  */
-function setReactionVmax(state: SimulationState, id: Act1ReactionId, vmax: number): void {
-  const index = reactionIndex(id);
+function setReactionVmax(
+  descriptor: ActDescriptor,
+  state: SimulationState,
+  id: string,
+  vmax: number,
+): void {
+  const index = descriptor.reactionIndex(id);
   const reaction = state.reactions[index];
   if (reaction === undefined) throw new Error(`runtime: no reaction "${id}"`);
   const kinetics = reaction.kinetics;
@@ -1252,11 +1248,12 @@ function setReactionVmax(state: SimulationState, id: Act1ReactionId, vmax: numbe
  * old descriptor except Vmax is preserved rather than re-guessed.
  */
 function setReactionVmaxPreservingShape(
+  descriptor: ActDescriptor,
   state: SimulationState,
-  id: Act1ReactionId,
+  id: string,
   vmax: number,
 ): void {
-  const reaction = state.reactions[reactionIndex(id)];
+  const reaction = state.reactions[descriptor.reactionIndex(id)];
   if (reaction === undefined) throw new Error(`runtime: no reaction "${id}"`);
   const kinetics = reaction.kinetics;
   (reaction as { kinetics: Kinetics }).kinetics =
@@ -1275,6 +1272,7 @@ function setReactionVmaxPreservingShape(
  * function rather than four calls a caller could make three of.
  */
 function applyGlycolysisStep(
+  descriptor: ActDescriptor,
   state: SimulationState,
   step: number,
   /**
@@ -1293,28 +1291,31 @@ function applyGlycolysisStep(
   if (rung === undefined) throw new Error(`runtime: no glycolysis rung ${step}`);
   const factor = pfk1Pk ? PFK1_PK_VMAX_FACTOR : 1;
   const payoff = rung.payoff * factor;
-  setReactionVmaxPreservingShape(state, 'uptake', rung.uptake);
-  setReactionVmaxPreservingShape(state, 'prep', rung.prep * factor);
-  setReactionVmaxPreservingShape(state, 'payoff', payoff);
-  setReactionVmaxPreservingShape(state, 'ferment', payoff);
+  setReactionVmaxPreservingShape(descriptor, state, 'uptake', rung.uptake);
+  setReactionVmaxPreservingShape(descriptor, state, 'prep', rung.prep * factor);
+  setReactionVmaxPreservingShape(descriptor, state, 'payoff', payoff);
+  setReactionVmaxPreservingShape(descriptor, state, 'ferment', payoff);
   // The ethanol branch climbs with the lactate branch, at the same value, for
   // the reason the two ship at the same value: the choice between them is about
   // what the cell keeps and a ladder that raised only one would turn it into a
   // choice about speed. It is raised whether or not it has been bought, exactly
   // as `ferment` is, because a Vmax on a disabled reaction does nothing.
-  setReactionVmaxPreservingShape(state, 'ferment_ethanol', payoff);
+  setReactionVmaxPreservingShape(descriptor, state, 'ferment_ethanol', payoff);
 }
 
 
-/** Pool index by id, for a display that knows what it is looking at. */
-export function poolIndex(id: Act1PoolId): number {
-  return ACT1_POOL_IDS.indexOf(id);
-}
-
-/** Reaction index by id, same reason. */
-export function reactionIndex(id: Act1ReactionId): number {
-  return ACT1_REACTION_IDS.indexOf(id);
-}
+/*
+ * `poolIndex` and `reactionIndex` USED TO LIVE HERE AS MODULE FUNCTIONS AND ARE
+ * GONE. Both were `ACT1_POOL_IDS.indexOf(id)`, a linear scan, and `PoolCard`
+ * called one of them once per render. They were also the last two places in this
+ * file that answered for act 1 on everybody else's behalf.
+ *
+ * The replacement is `descriptor.poolIndex`, backed by a map built once at
+ * module load in src/content/acts.ts, reached from a component through
+ * `useAct()` and resolved once per component instance rather than once per
+ * render. src/sim/pools.ts and src/sim/steady.ts have held that rule for the
+ * kernel since V1; the runtime holds it now too.
+ */
 
 /** Game seconds from the snapshot's game milliseconds. The one conversion. */
 export function gameSeconds(snapshot: ActSnapshot): number {
