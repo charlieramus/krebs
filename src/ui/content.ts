@@ -301,11 +301,16 @@ export const SHELF = {
   },
 
   ethanolDetail: {
-    // The sentence has to say what differs without saying which is better,
-    // because neither is. docs/PROGRESSION.md act 1 item 8, and the zero yield
-    // is stated for this branch on its own rather than borrowed from the slot
-    // to its left.
-    text: 'The other way out of pyruvate. One carbon leaves as gas and two stay as ethanol. Makes no ATP.',
+    // THREE CLAIMS IN TWO SENTENCES, AND THE ORDER IS THE POINT. What differs
+    // comes first, because that is what the player is choosing between. What is
+    // the same comes second, because that is the beat: both branches recycle
+    // NAD+ and neither makes ATP, so the choice is about what the cell keeps
+    // rather than about which is better. docs/PROGRESSION.md act 1 item 8.
+    //
+    // "exactly like lactate" rather than "unlike" anything. The sentence must
+    // not read as this branch being the upgrade, because it is not one, and a
+    // comparative would put a thumb on a scale that is level.
+    text: 'The other way out of pyruvate: two carbons stay as ethanol and one leaves as gas. Recycles NAD+ and makes no ATP, exactly like lactate.',
     badge: sourced(`${PART2}, ethanol fermentation yields no ATP and releases one CO2 per pyruvate`),
   },
   ethanolLocked: {
@@ -321,8 +326,17 @@ export const SHELF = {
   },
 
   pfk1PkDetail: {
-    // The teaching beat, and it is the third time the act makes this claim.
-    text: 'Both at once, because the exit has to widen before the entrance can. Drains the glucose the cell could not use.',
+    // THE ACT'S CENTRAL CLAIM, ARRIVING FOR THE THIRD TIME. Fermentation made
+    // it, the two capacity ladders made it, and a named enzyme is the version a
+    // player is most likely to expect to be false: an enzyme upgrade sounds like
+    // it should make the cell better at extracting energy, and it makes it
+    // faster at moving the same amount.
+    //
+    // The first sentence is why the two are one purchase. It is a statement
+    // about this pathway rather than about this build: two trioses per glucose
+    // means the payoff phase runs twice per preparatory turn, so it has to have
+    // room before the preparatory phase is given more.
+    text: 'Both at once, because the exit has to widen before the entrance can. More throughput, and what one glucose is worth does not move.',
     badge: tuned(
       'That these are two of the three regulated steps is sourced. That raising one without the other kills this cell is measured, not biology',
     ),
@@ -337,9 +351,12 @@ export const SHELF = {
   },
 
   glycogenDetail: {
-    // The beat is that a buffer is not a yield. Two sentences, and the second
-    // one is the whole point: it says what the purchase does not do.
-    text: 'Stores glucose while there is spare and gives it back when there is not. Costs ATP and makes none.',
+    // A BUFFER IS NOT A YIELD, and the second sentence is the whole of it: it
+    // says what the purchase does not do, which is the only thing every other
+    // slot on this shelf says it does. It is also the one purchase in act 1
+    // whose ATP per second goes DOWN when it is bought, measured at 42.217 to
+    // 41.187, so the sentence has to be true about that rather than soften it.
+    text: 'Stores glucose while there is spare and gives it back when there is not. Costs ATP, makes none, and buys no yield.',
     badge: sourced(`${PART2}, a store and retrieve cycle costs 1 ATP equivalent and yields nothing`),
   },
   glycogenLocked: {

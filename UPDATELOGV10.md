@@ -1135,7 +1135,126 @@ hashes, and the NOW.md diff summary including which of the three blocking item
 
 ## Stage 6 Report
 
-_Pending._
+### Step 1. docs/ECONOMY.md
+
+    src/content/act1/tuning.ts    17  ->  24
+    src/ui/tuning.ts              19  ->  23
+    src/save/tuning.ts             1  ->   1
+                                  --      --
+                                  37      48
+
+    DEPARTURE   25  ->  33
+    UNSOURCED   12  ->  15
+
+**Eleven rows added.** Two for the ethanol branch, five for glycogen storage including its Hill repair, two for the enzyme purchase, and one threshold each for ethanol and glycogen. `divergenceTable.test.ts` counts scalars in the three tuning files and compares them against the document's own stated counts, and it agrees: 48 rows, 48 scalars, and the per-file figures match.
+
+**Two rows were written and then deleted rather than shipped**, hexokinase's factor and its threshold. A row describes a number the game has. The measurements that killed those two are in the Structural departures section instead, which grew from three entries to six: the storage cost being charged at the wrong end of the cycle, the futile cycle act 1 cannot regulate away, and the three enzymes of which two cannot be sold alone and one cannot be modelled at all.
+
+### Step 2. docs/SCIENCE.md, the diff as evidence
+
+    $ git diff --stat stage1v10..HEAD -- docs/SCIENCE.md
+    (no output)
+
+**Empty.** Hard rule 2 permits the stage 1 edit and forbids every other one, and the file has not been touched since. `git log -- docs/SCIENCE.md` shows `stage1v10` as its most recent change with nothing after it.
+
+What stage 1 added, for the record: an expanded ethanol fermentation subsection, a carbon dioxide section answering the sink-or-reservoir question across all four acts, a glycogen section from nothing, a flux control subsection under Regulation, the three gluconeogenic bypasses by name in Part 5, and four source blocks with no guessed URLs.
+
+### Step 3. Player-facing text, and the three beats
+
+Every string is in `src/ui/content.ts` and every figure carries a badge. `contentStyle.test.ts` passes, which asserts no player-facing literal outside that file, no em dash, no en dash, no exclamation mark, no curly quote and no -ize spelling.
+
+**Beat one: neither branch is better.**
+
+> The other way out of pyruvate: two carbons stay as ethanol and one leaves as gas. Recycles NAD+ and makes no ATP, exactly like lactate.
+
+Two sentences, 134 characters, inside the 2-sentence 160-character slot ceiling. What differs comes first, because that is what the player is choosing between; what is the same comes second, because that is the beat. **"exactly like lactate" rather than "unlike" anything**: a comparative would put a thumb on a scale that is level.
+
+**Beat two: a buffer is not a yield.**
+
+> Stores glucose while there is spare and gives it back when there is not. Costs ATP, makes none, and buys no yield.
+
+The second sentence is the whole of it, and it is the only slot on the shelf whose sentence is about what the purchase does not do. It also has to be true about the measurement: glycogen is the one purchase in act 1 whose ATP per second goes down when it is bought, 42.217 to 41.187.
+
+**Beat three: throughput and never yield, arriving for the third time.**
+
+> Both at once, because the exit has to widen before the entrance can. More throughput, and what one glucose is worth does not move.
+
+The first sentence is why the two enzymes are one purchase and it is a statement about the pathway rather than about the build: two trioses per glucose means the payoff phase runs twice per preparatory turn. The second is docs/PILLARS.md success condition 2 in miniature, on the purchase a player is most likely to expect it to be false about, because an enzyme upgrade sounds like it should make the cell better at extracting energy and it makes it faster at moving the same amount.
+
+**The teaching panel was left alone and that is a decision.** Its heading is "What one glucose is worth" and its third paragraph already says "Nothing on the unlock shelf moves that 2", which covers ten purchases as well as it covered seven. Adding the branch choice would dilute a panel whose subject is the yield, and docs/CONTENT_STYLE.md's escalation rule says a concept that will not fit moves up a surface rather than being wedged into one that is already doing something else.
+
+**The blob readouts compose themselves and one of them is worth reading.** Glycogen renders as "Glycogen. 6 sides, 6 carbons", which is glucose's readout exactly, because a stored glucosyl residue is a glucose. **The encoding says storing changes where a glucose is and not what it is, without a sentence saying so.** Ethanol reads "2 beads, 2 carbons" and carbon dioxide "1 bead, 1 carbon", which is the below-three-carbons form and is why `blobReadout` gained a branch rather than printing "1 sides, 1 carbons".
+
+### Step 4. Full verify
+
+    npm run typecheck        clean
+    npm run lint             clean
+    npm run build            clean, 285.18 kB, 88.58 kB gzipped
+    npm test                 540 passed, 42 files
+    npm run sim              green, 0 scaling cap hits
+    npm run sim:act1         green, worst drift 1.819e-15 on carbon
+    npm run offline:validate green, 0 fallbacks, 0 budget exhaustions
+
+    tests    503 across 41 files  ->  540 across 42
+    bundle   278.31 kB            ->  285.18 kB
+             86.59 kB gzipped     ->  88.58 kB gzipped
+
+**37 tests added and one new file**, `src/ui/__tests__/enzymes.test.ts`. 6.87 kB of bundle for three pools, three reactions, four purchases, a pool card, three pathway rows and three shelf slots.
+
+**Act 1 conservation drift is 1.819e-15 worst on carbon**, against a 1e-9 tolerance and across a pathway that now releases carbon dioxide. The invariant survived the first content change that could have broken it, which is the strongest evidence yet that it is a property rather than a coincidence of a small pathway.
+
+### Step 5. NOW.md
+
+    Status                   V10's sentence first, then V8's, then the rest
+    Build state              V10 row added, V10+ replaced by V11+
+    What act 1 contains      NEW. Full pathway, all ten purchases with times,
+                             the permanent id list, both hashes
+    What V10 added           NEW. The three pools, the Hill repair, the futile
+                             cycle, the CO2 reservoir decision
+    What V10 did not do      NEW. No ending, no timeline, no beast, no act 2
+    Canonical hash           49ea08d3 -> 2b18a4bc -> 65b43d27, with the reason
+    The economy              37 rows -> 48, 25/12 -> 33/15, six structural
+    The interface            the bead extension to DESIGN.md rule 1
+    Blocking item 2          NARROWED AGAIN, left open, with the verdict written
+    Open, not blocking       three new entries, one closed
+    Settled 2026-08-06       ten entries
+    Next, in order           V11 is 1, V9 is 2, act 2 is 3
+
+**Blocking item 2 is left open and says why in the entry rather than in this log.** It halved, from 13m51s to 6m43s. Closing it needs a number for "short enough" that nobody here has the standing to invent. **The entry carries the sentence this log earned: content cannot close what is left, because all nine of act 1's unlocks are built and there is no tenth thing to sell.**
+
+**One entry closed.** "The top of the uptake ladder over-delivers, permanently" is struck. The purchase it predicted is `enzyme-pfk1-pk` and it closes the gap completely, because the ceiling is four times the uptake Vmax and the enzymes are how the cell reaches it.
+
+**Three entries opened.** The thin margin between the worst reachable ATP and the worst recoverable ATP at the top of the capacity ladder. The act's last 39 minutes. And the tension between the reserve and the enzymes, which want the same glucose and whose order decides who gets it.
+
+**docs/BRIEF.md line 110 question 2 is not upgraded.** The Status section says what changed and leaves the verdict where V3 put it, with the standing caveat intact.
+
+### Step 6. What this log did NOT do
+
+Written into NOW.md as its own section, because a reader should not be able to mistake a complete unlock list for a complete act.
+
+**Act 1 has no ending.** The last purchase lands at 54m03s, the food runs out at 93m07s, the cell stops at 104m05s, and the game says nothing about any of it.
+
+**There is no timeline, no beast and no act boundary.** DESIGN.md has specified the first two since 2026-07-28.
+
+**Act 2 is not closer to being decidable than V8 left it.**
+
+**Nobody who is not the author has still looked at this game.** Blocking items 0 and 0b are exactly where V6 and V7 left them, and **this log added four more things for a reader who does not exist to fail to understand.**
+
+### One thing needing the founder's sign-off
+
+**DESIGN.md illustration rule 1 was amended in stage 2** to say that below three carbons the count is beads rather than sides. It is built, tested, documented in the same form V7 used for rule 3, and it was forced rather than chosen: a straight-edged polygon needs three sides to enclose an area, and shipping the rule unchanged would have drawn carbon dioxide as nothing. **CLAUDE.md says not to deviate from DESIGN.md without explicit approval, and this is the deviation.**
+
+### Verify
+
+**docs/ECONOMY.md counts 48 rows against V5's 37, split 33 DEPARTURE and 15 UNSOURCED against 25 and 12**, with the guard agreeing.
+
+**The docs/SCIENCE.md diff across stages 2 to 6 is empty**, quoted in step 2 rather than asserted.
+
+**540 tests across 42 files, bundle 285.18 kB and 88.58 kB gzipped**, against V8's 503, 278.31 kB and 86.59 kB.
+
+**The canonical hashes are `172f83fb` and `65b43d27`**, the toy pathway's unmoved and act 1's moved twice, both times for a pool added rather than a number changed, both times verified against the previous code to seventeen significant figures.
+
+**NOW.md carries the NARROWED AGAIN verdict** with the reasoning, three new open entries, one closed, and a section saying what act 1 still does not have.
 
 ---
 
