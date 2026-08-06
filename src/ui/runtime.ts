@@ -1032,19 +1032,25 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     },
 
     canBuyGlycogen(): boolean {
-      // LAST IN THE ACT, AND GATED ON THE LADDER RATHER THAN ONLY ON A NUMBER.
-      // Storage charges out of intracellular glucose, and the amount of that a
-      // cell has to spare is what the two capacity ladders decide. Offered
-      // earlier it is a tax on a cell that has nothing spare, which is a
-      // purchase that makes the cell worse. Offered here it is the answer to a
-      // problem the player can already see coming.
-      if (snapshot.glycolysisStep < GLYCOLYSIS_STEPS.length - 1) return false;
+      // GATED ON THE UPTAKE LADDER, AND STAGE 5 MOVED IT THERE FROM THE
+      // GLYCOLYTIC ONE.
+      //
+      // Stage 3 gated this behind the glycolytic ladder on the reasoning that
+      // the reserve is charged out of the spare intracellular glucose the top of
+      // that ladder produces. **Stage 5 instrumented the whole act and that
+      // reasoning is backwards.** The spare glucose is at the top of the UPTAKE
+      // ladder, where transport over-delivers by about 87 units a minute; the
+      // glycolytic ladder and the enzyme purchase exist to consume it, so by the
+      // top of that ladder there is nothing spare left to store. Offered last,
+      // the reserve peaked at 462 units and bought 7m35s of tail. Offered here it
+      // charges from the pile it was designed for.
+      if (snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1) return false;
       if (snapshot.glycogenUnlocked) return false;
       return meter.atpProduced >= GLYCOGEN_ATP_THRESHOLD;
     },
 
     buyGlycogen(): boolean {
-      if (snapshot.glycolysisStep < GLYCOLYSIS_STEPS.length - 1) return false;
+      if (snapshot.uptakeStep < UPTAKE_VMAX_STEPS.length - 1) return false;
       if (snapshot.glycogenUnlocked) return false;
       if (meter.atpProduced < GLYCOGEN_ATP_THRESHOLD) return false;
       // Both, always. See ACT1_UNLOCK_GLYCOGEN.

@@ -971,7 +971,105 @@ line 110 statement with its caveat intact.
 
 ## Stage 5 Report
 
-_Pending._
+**The worst gap is 6m43s, it was 13m51s, and the one that is left belongs to V5 rather than to this log.** Ten purchases, last at 54m03s, act inside its target at both ends. Every gap this log placed is between 6m19s and 6m37s. **The longest wait in act 1 is now the one between uptake capacity 1 and uptake capacity 2, which V5 set and this log did not move.**
+
+**The verdict on blocking item 2 is NARROWED AGAIN, and this log adds the sentence the prompt reserved for the log with the standing to say it: content cannot close it from here.** All nine of docs/PROGRESSION.md's act 1 unlocks are built. There is nothing left to sell.
+
+### Step 1. The instrumented run, both players
+
+Instrumented end to end with every unlock available, and kept as a report test rather than as figures in a log nobody can re-run: `unlockPacing.report.test.ts`, "plays the whole act and reports every purchase, for two players".
+
+**A player who buys the instant it is affordable:**
+
+    time      gap    cumulative ATP    ATP/s before -> after   purchase
+    0m03s    0m03s               56     30.116 ->  31.799     lactate fermentation
+    2m07s    2m04s             4000     31.799 ->  39.745     uptake capacity 1
+    8m50s    6m43s            20001     39.735 ->  42.217     uptake capacity 2
+    15m09s   6m19s            36001     42.217 ->  41.187     glycogen storage
+    21m37s   6m28s            52001     41.187 ->  41.187     ethanol fermentation
+    28m06s   6m28s            68000     41.187 ->  48.482     PFK-1 and pyruvate kinase
+    34m38s   6m32s            87002     48.482 ->  52.979     glycolytic capacity 1
+    41m07s   6m29s           108000     52.845 ->  60.534     glycolytic capacity 2
+    47m27s   6m20s           131001     60.402 ->  68.095     glycolytic capacity 3
+    54m03s   6m37s           158003     67.947 ->  75.632     glycolytic capacity 4
+
+    purchases            10          V5: 7
+    last purchase        54m03s      V5: 61m57s
+    worst gap            6m43s       V5: 13m51s
+    environment empty    93m07s      V5: 92m42s
+    cell stops           104m05s     V5: at the tick the food ran out
+    total gross ATP      320000
+
+**A player who checks every five game-minutes:**
+
+    purchases            10
+    last purchase        60m00s      V5: 70m00s
+    worst gap            10m00s      V5: 13m51s
+    environment empty    97m14s
+    cell stops           110m28s
+
+**Two gaps of exactly 10m00s for the checking player, and they are two check intervals rather than a threshold.** That player cannot buy at the moment the meter crosses, so the floor on their worst gap is the interval itself and the ceiling is twice it. **The worst gap a five-minute checker can experience is 10 minutes and it always will be**, whatever the thresholds do, which is worth stating because it puts a floor under how much of blocking item 2 pacing can reach.
+
+**Two rows in that table are the log's own results arriving in the act.**
+
+**Ethanol changes ATP per second by nothing at all**, 41.187 to 41.187, which is stage 2's measurement showing up where a player would see it. The purchase is a choice about what the cell keeps and the screen says so by not moving.
+
+**Glycogen storage LOWERS ATP per second**, 42.217 to 41.187, a drop of 2.4 percent. **It is the only purchase in act 1 that costs something**, and it is not a defect: the reserve is charged out of throughput and the slot says "Costs ATP and makes none". V5's rule is that a purchase which makes the cell worse does not ship, and this one makes the cell slower and not worse: it is what keeps the cell alive for 10m58s after the food runs out, against a cell without it that stops on the tick.
+
+### Step 2. Blocking item 2, and the verdict is NARROWED AGAIN
+
+**What improved, and by how much.** The worst gap goes from 13m51s to **6m43s**, which is a reduction of 51.5 percent. Seven of the nine gaps in the act are within eighteen seconds of each other. The act gained three purchases and lost eight minutes off its longest silence.
+
+**What is left, precisely.** The worst gap is now `UPTAKE_ATP_THRESHOLDS[1]`, row U9, which lands uptake capacity 2 at 8m50s against uptake capacity 1 at 2m07s. **This log did not move it and could not have improved it by moving it**, because everything after it is already spaced at 6m19s to 6m37s and pulling U9 earlier would only move the longest gap somewhere else. The act's gaps are as even as ten purchases across 54 minutes can make them.
+
+**Why this is not CLOSED, stated as the prompt asks rather than asserted.** CLOSED requires saying what "short enough" means as a number and why. **There is no such number in this project and nobody has the standing to invent one.** Six minutes and forty-three seconds is shorter than thirteen minutes and fifty-one, and whether it is short enough to watch is a question about a person. NOW.md's standing caveat applies with full force: this was measured by the person who chose the spacing. Closing the item on that reading would be closing it on the least reliable possible reader.
+
+**And the sentence this log has the standing to add.** The prompt's third option says the remaining half is a display problem and that this is the log with the standing to say so, because it is the log that spent all the remaining act 1 content on it. It did. **docs/PROGRESSION.md's act 1 unlock list is nine items and all nine are now built.** There is no tenth thing to sell, no configuration left unpurchased, and the gaps are even. **Whatever remains of blocking item 2 after 6m43s cannot be reached by content, because there is no more content.** It is DESIGN.md open question 7 and the beast, which is V12.
+
+**One thing that has genuinely changed about the quiet, recorded rather than claimed as progress.** V6's entry under this item says the coach marks and the teaching panel are reading material rather than events and "none of it changes that every net rate reads 0.00 for fourteen minutes". That last part is no longer true. **With storage bought, the glycogen card's net rate is non-zero for most of the act**, charging while the environment is full and discharging as it drains, and the reserve visibly turns over. Whether a slowly moving number counts as something happening is exactly the question this item has never been able to answer without a reader, so it is recorded and not counted.
+
+### Step 3. The act against its target
+
+    target                     45 to 90 minutes
+    last purchase, greedy      54m03s     inside
+    last purchase, checker     60m00s     inside
+    environment empty          93m07s     outside, deliberately
+    cell stops                 104m05s
+
+**Inside at both ends and earlier than V5's**, which is a consequence of even spacing rather than of a decision to shorten the act. Ten purchases spaced at 6m30s finish sooner than seven spaced at 13m.
+
+**The trade was made deliberately and docs/ECONOMY.md had already decided it.** Its 2026-08-03 entry says an even gap between events is worth more than a last event near 90 minutes, because blocking item 2 is about the longest wait rather than about the end. Stretching the act to put the last purchase at 62 minutes was measured and would widen every gap to about 9 minutes. The shorter worst case wins, on the project's own recorded reasoning.
+
+**Every threshold from U16 to U21 and U23 was re-derived from a clock**, on V5's method: pick when the purchase should land, instrument a run, read cumulative gross ATP off it. The four glycolytic rungs came down because they were spaced across the back of a seven-purchase act and now share the act with three more. U20 and U21 replace the provisional values stages 2 and 3 shipped and flagged.
+
+### Step 4. The empty tail, and it is longer
+
+**The tail is worse and it belongs in the report.**
+
+    last purchase to food out    V5: 30m45s      V10: 39m03s
+    food out to the cell stopping V5: 0m00s      V10: 10m58s
+
+**Thirty-nine minutes between the last purchase and the food running out, against thirty-one.** The act finishes its content eight minutes earlier and the environment did not move, so the silence at the end grew by exactly the amount the content moved forward. Stage 5's own prompt predicted this shape: a bigger act with a bigger silence at the end has moved the problem rather than solved it.
+
+**Half of that is bought back by the reserve and half is not.** The last eleven minutes are no longer empty, because the cell is running on glycogen and visibly declining, which is the most eventful the end of act 1 has ever been. The thirty-nine minutes before the food runs out are as quiet as they were.
+
+**What would close it is not more content.** The environment could be smaller, which V5 measured and rejected on pacing grounds and which would now cut the tail directly, or the act could end when its content ends, which is what NOW.md means when it says act 1 has no ending and which is V11.
+
+### Step 5. docs/BRIEF.md line 110, question 2
+
+**The recorded answer is "no, not yet" and the recorded reason is that nothing was arriving. What changed is the second half.**
+
+Ten things arrive instead of seven, the longest wait between two of them halved, and three of the ten respond to the kinetics in ways the previous seven did not: **one that changes no rate at all** (ethanol), **one that lowers the rate on purpose** (glycogen), and **one whose benefit is consumed by the next purchase** (the enzymes, worth 17.6 percent at glycolytic rung 0 and nothing at rung 4). The act now contains a purchase that costs, a purchase that chooses, and a purchase that expires.
+
+**Whether any of that makes saturating kinetics feel like a game is not something this report can say, and the answer is not upgraded.** NOW.md's standing caveat has applied since V3 and applies here with more force than usual: **every one of these figures was produced by the person who chose the thresholds that produced them**, and the diminishing return in step 3 of stage 4 was designed before it was measured. The verdict stays where V3 left it. What this log can hand a reader is a screen with something arriving every six and a half minutes instead of every fourteen.
+
+### Verify
+
+**A full instrumented run for both player models**, kept as a report test so the figures can be re-run rather than quoted. It asserts ten purchases, a last purchase inside 90 minutes and a worst gap under 11 minutes for both players, so a later tuning change that undoes this fails rather than drifting.
+
+**The suite is 540 tests across 42 files.** `npm run typecheck`, `npm run lint` and `npm run build` clean, bundle 285.11 kB and 88.55 kB gzipped. `npm run offline:validate` green with 0 fallbacks.
+
+**One thing this stage changed that was not a threshold, and it is a repair rather than new content.** `canBuyGlycogen` was gated behind the glycolytic ladder by stage 3, on the stated reasoning that the reserve is charged out of the spare glucose the top of that ladder produces. **Instrumenting the act showed that reasoning is backwards.** The spare glucose is at the top of the uptake ladder; the glycolytic ladder and the enzyme purchase exist to consume it, so by the top of that ladder there is nothing spare left. Gated last, the reserve peaked at 462 units and bought 7m35s. Gated on the uptake ladder it peaks at 1548 and buys 10m58s. **Stage 3's gate had a reason and the reason was wrong**, which is the third time in this log that a sentence held until something was built on top of it.
 
 ---
 

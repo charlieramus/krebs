@@ -415,8 +415,8 @@ export function UnlockShelf() {
         <Slot
           title={UNLOCKS.glycogenStorage.text}
           badge={UNLOCKS.glycogenStorage.badge}
-          detail={atTopOfGlycolysis ? SHELF.glycogenDetail.text : SHELF.glycogenLocked.text}
-          threshold={glycogenBought || !atTopOfGlycolysis ? null : GLYCOGEN_ATP_THRESHOLD}
+          detail={atTopOfLadder ? SHELF.glycogenDetail.text : SHELF.glycogenLocked.text}
+          threshold={glycogenBought || !atTopOfLadder ? null : GLYCOGEN_ATP_THRESHOLD}
           bought={glycogenBought}
           affordable={affordable.glycogen}
           buyLabel={SHELF.glycogenBuy.text}

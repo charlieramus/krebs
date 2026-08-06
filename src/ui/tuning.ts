@@ -138,7 +138,7 @@ export const FERMENT_ATP_THRESHOLD = 55;
  * one answer, not a fork between two things a player has no way to tell apart
  * yet. docs/PROGRESSION.md lists lactate at 7 and ethanol at 8.
  */
-export const ETHANOL_ATP_THRESHOLD = 35000;
+export const ETHANOL_ATP_THRESHOLD = 52000;
 
 /**
  * Cumulative gross ATP before glycogen storage can be bought. Added by
@@ -154,7 +154,7 @@ export const ETHANOL_ATP_THRESHOLD = 35000;
  * PROVISIONAL, like ETHANOL_ATP_THRESHOLD, and for the same reason: stage 3 has
  * no instrumented run of the whole act to read it off. Stage 5 re-derives it.
  */
-export const GLYCOGEN_ATP_THRESHOLD = 230000;
+export const GLYCOGEN_ATP_THRESHOLD = 36000;
 
 /* ===========================================================================
    THE REGULATED GLYCOLYTIC ENZYMES. UPDATELOGV10.md stage 4.
@@ -256,7 +256,7 @@ export const PFK1_PK_VMAX_FACTOR = 1.15;
  * uptake ladder leaves the cell in. So it is gated to sit between the two
  * ladders, and the glycolytic ladder is gated behind it.
  */
-export const PFK1_PK_ATP_THRESHOLD = 34000;
+export const PFK1_PK_ATP_THRESHOLD = 68000;
 
 /**
  * Uptake Vmax by capacity step. ENUMERATED, NOT A MULTIPLIER.
@@ -406,7 +406,7 @@ export const GLYCOLYSIS_STEPS: readonly GlycolysisStep[] = [
  * NOW.md blocking item 2 is about. 62 minutes is inside the target and it keeps
  * the worst wait at 14.
  */
-export const GLYCOLYSIS_ATP_THRESHOLDS: readonly number[] = [53000, 93000, 139000, 195000];
+export const GLYCOLYSIS_ATP_THRESHOLDS: readonly number[] = [87000, 108000, 131000, 158000];
 
 /* ===========================================================================
    SAVE MANAGEMENT. UPDATELOGV4.md stage 5.
