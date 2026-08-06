@@ -115,11 +115,14 @@ The ordering changes twice more, both from the independent review. **Unverifiabl
                                    largest diffs in the project's history
                                    are next
                                    deploy on any origin, named or not
-                                   + post-deploy smoke check
-                                   + bundle size guard, baseline 278.31 kB
-                                     and 86.59 kB gzipped, measured at V8
+                                   already in UPDATELOGV9.md and NOT additions:
+                                     bundle size budget with a three-way
+                                       breakdown, stage 4 step 1
+                                     post-deploy smoke test against the live
+                                       URL, stage 4 step 5
                                    + quantised oxygen schedule, inherited
-                                     from V8's closed window
+                                     from V8's closed window. The only thing
+                                     in this log a later log depends on
 
   --   SPINE A, STRUCTURAL         act registry, src/content/acts.ts.
                                    MINIMUM SHAPE ONLY: exactly the fields
