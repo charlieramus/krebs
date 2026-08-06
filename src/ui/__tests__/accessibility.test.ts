@@ -33,14 +33,38 @@
  * one for the same reason. It needs a reader. See NOW.md.
  */
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const CSS = readFileSync(new URL('../../index.css', import.meta.url), 'utf8');
-const UI_FILES = ['components/PoolCard.tsx', 'components/UnlockShelf.tsx', 'components/TopBar.tsx',
-  'components/PathwayArrow.tsx', 'components/Button.tsx', 'components/Card.tsx', 'components/Badge.tsx',
-  'components/Pill.tsx', 'components/Figure.tsx', 'components/SavePanel.tsx']
-  .map((name) => readFileSync(new URL(`../${name}`, import.meta.url), 'utf8'))
+
+/**
+ * EVERY COMPONENT, WALKED. UPDATELOGV11.md stage 3.
+ *
+ * This was an array of ten paths written out by hand while
+ * `src/ui/components/` held twenty. About.tsx, Announcer.tsx, Blob.tsx,
+ * CoachMark.tsx, FirstRunCard.tsx, OfflineReturn.tsx, Overlay.tsx,
+ * PathwayCard.tsx, PoolRail.tsx and TeachingPanel.tsx were outside the
+ * semantic-colour-as-text rule entirely, and NINE OF THE TEN SHIPPED AFTER THIS
+ * GUARD WAS WRITTEN. The hole widened every log, and it widened silently,
+ * because a list that does not include a file cannot report that it does not.
+ *
+ * V7's own rule is what this is: a guard that agrees with its own list is not a
+ * guard.
+ */
+const COMPONENTS_DIR = fileURLToPath(new URL('../components', import.meta.url));
+
+function componentPaths(): string[] {
+  return readdirSync(COMPONENTS_DIR)
+    .filter((entry) => entry.endsWith('.tsx'))
+    .sort()
+    .map((entry) => join(COMPONENTS_DIR, entry));
+}
+
+const UI_FILES = componentPaths()
+  .map((path) => readFileSync(path, 'utf8'))
   .join('\n');
 
 /** The tokens, read out of index.css so this cannot drift from what ships. */
@@ -261,11 +285,52 @@ describe('nothing is encoded in colour alone', () => {
   ] as const;
 
   it.each(TABLE)('%s survives the loss of colour, through %s', (_meaning, _channel, marker) => {
-    const sources = [UI_FILES, readFileSync(new URL('../components/Blob.tsx', import.meta.url), 'utf8')].join('\n');
-    expect(sources).toContain(marker);
+    // Blob.tsx is inside UI_FILES since the walk landed. It used to be read
+    // separately here, which is the shape of the same defect: the one component
+    // the list did not have was pulled in by hand at the one call site that
+    // needed it, and nothing else in the file could see it.
+    expect(UI_FILES).toContain(marker);
   });
 
   it('covers every meaning the log enumerated, so the table cannot shrink', () => {
     expect(TABLE.length).toBe(7);
+  });
+});
+
+/**
+ * GUARD THE GUARD, ON THE WALK ITSELF.
+ *
+ * A hand-written list fails loudly when a path is wrong and silently when a path
+ * is missing, which is how this one lost half the component tree. A walk fails
+ * the same silent way if the directory moves or the extension filter stops
+ * matching, so the walk is asserted against the directory listing rather than
+ * trusted.
+ */
+describe('the guard looks at everything it should', () => {
+  it('reads every .tsx in src/ui/components, by listing rather than by memory', () => {
+    const onDisk = readdirSync(COMPONENTS_DIR).filter((entry) => entry.endsWith('.tsx'));
+    const read = componentPaths().map((path) => path.slice(COMPONENTS_DIR.length + 1));
+    expect([...read].sort()).toEqual([...onDisk].sort());
+    expect(onDisk.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('names the ten components that were outside it until this log', () => {
+    // Recorded as an assertion rather than as a comment, because the point of
+    // the widening is that these ten are now covered and a future narrowing
+    // should have to delete this line on purpose.
+    const wereMissing = [
+      'About.tsx', 'Announcer.tsx', 'Blob.tsx', 'CoachMark.tsx', 'FirstRunCard.tsx',
+      'OfflineReturn.tsx', 'Overlay.tsx', 'PathwayCard.tsx', 'PoolRail.tsx', 'TeachingPanel.tsx',
+    ];
+    const read = componentPaths().map((path) => path.slice(COMPONENTS_DIR.length + 1));
+    for (const name of wereMissing) expect(read).toContain(name);
+  });
+
+  it('actually has their contents in the string it scans', () => {
+    // The walk could find the paths and read nothing. One string only these
+    // files contain proves the contents are in UI_FILES rather than just the
+    // filenames being in an array.
+    expect(UI_FILES).toContain('redox-level');
+    expect(UI_FILES).toContain('aria-live');
   });
 });

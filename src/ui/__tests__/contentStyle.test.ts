@@ -23,13 +23,32 @@
  * ---------------------------------------------------------------------------
  *
  * src/ui/components/Badge.tsx renders the four words "Sourced", "Tuned",
- * "Contested" and "Needs source". They cannot come from src/ui/content.ts,
- * because content.ts imports Badge in order to build every badge in the game,
- * and the import would be circular. They are also not authored copy: they are
- * the badge vocabulary DESIGN.md defines, and DESIGN.md is their document of
- * record the way it is for the colour tokens. An exemption with a reason in it
- * is a rule; an allowlist that grows is not, so this list has one entry and any
+ * "Contested" and "Needs source". They cannot come from src/ui/content/, because
+ * every file in that directory imports Badge in order to build its badges, and
+ * the import would be circular. They are also not authored copy: they are the
+ * badge vocabulary DESIGN.md defines, and DESIGN.md is their document of record
+ * the way it is for the colour tokens. An exemption with a reason in it is a
+ * rule; an allowlist that grows is not, so this list has one entry and any
  * addition to it should be argued in a log.
+ *
+ * THE SPLIT DID NOT REMOVE IT, WHICH UPDATELOGV11.md STAGE 3 ASKED ABOUT. The
+ * cycle moved one level down rather than going away: `common.ts` holds the
+ * `Entry` type and imports `BadgeSpec` from Badge, so Badge would still have to
+ * import its own four words back out of the directory that types itself against
+ * Badge. Removing it properly means moving `BadgeSpec` out of the component,
+ * which is a change to the badge contract rather than to where strings live.
+ * Kept, with the reasoning updated to say where the cycle now sits.
+ *
+ * ---------------------------------------------------------------------------
+ * BOTH HALVES WALK, AND BOTH HAVE A GUARD-THE-GUARD
+ * ---------------------------------------------------------------------------
+ *
+ * The .tsx half has walked `src/` since V6 and had a guard-the-guard on the
+ * walk. The content half pointed at exactly one path, `src/ui/content.ts`, and
+ * had neither. That was survivable while the strings were in one file and it is
+ * the silent failure mode as soon as they are not: a content file the guard does
+ * not reach is a file whose strings are never style-checked, and nothing says
+ * so. It walks `src/ui/content/` now and asserts it reached everything in it.
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -37,7 +56,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const ROOT = join(import.meta.dirname, '..', '..', '..');
-const CONTENT = join(ROOT, 'src', 'ui', 'content.ts');
+const CONTENT_DIR = join(ROOT, 'src', 'ui', 'content');
 
 /** See the header. One entry, structural, argued. */
 const EXEMPT = ['src/ui/components/Badge.tsx'];
@@ -95,7 +114,7 @@ function isProse(candidate: string): boolean {
   return true;
 }
 
-describe('every player-facing string lives in src/ui/content.ts', () => {
+describe('every player-facing string lives in src/ui/content/', () => {
   it('renders no literal text node from a component file', () => {
     const offenders: string[] = [];
     for (const { path, source } of renderingFiles()) {
@@ -134,16 +153,53 @@ describe('every player-facing string lives in src/ui/content.ts', () => {
 });
 
 describe("CLAUDE.md's prose rules hold in player-facing text", () => {
-  /** Every quoted string in content.ts. Comments are stripped first. */
+  /** Every .ts under src/ui/content/, walked rather than listed. */
+  function contentFiles(): string[] {
+    return readdirSync(CONTENT_DIR)
+      .filter((entry) => entry.endsWith('.ts'))
+      .map((entry) => join(CONTENT_DIR, entry));
+  }
+
+  /** Every quoted string in the content directory. Comments are stripped first. */
   function strings(): string[] {
-    const source = stripComments(readFileSync(CONTENT, 'utf8'));
-    return [...source.matchAll(/'([^'\\]*(?:\\.[^'\\]*)*)'|`([^`\\]*(?:\\.[^`\\]*)*)`/g)]
-      .map((match) => (match[1] ?? match[2] ?? '') as string)
-      .filter((text) => text.length > 0);
+    const found: string[] = [];
+    for (const file of contentFiles()) {
+      const source = stripComments(readFileSync(file, 'utf8'));
+      for (const match of source.matchAll(
+        /'([^'\\]*(?:\\.[^'\\]*)*)'|`([^`\\]*(?:\\.[^`\\]*)*)`/g,
+      )) {
+        const text = (match[1] ?? match[2] ?? '') as string;
+        if (text.length > 0) found.push(text);
+      }
+    }
+    return found;
   }
 
   it('found the strings, so the assertions below are not vacuous', () => {
     expect(strings().length).toBeGreaterThanOrEqual(60);
+  });
+
+  /**
+   * GUARD THE GUARD, AND IT IS THE HALF THAT WAS MISSING.
+   *
+   * The .tsx walk above has had one since V6. This one did not, because it
+   * pointed at a single path, and a single path either exists or throws. A walk
+   * fails the other way: it reaches fewer files and every assertion under it
+   * passes.
+   *
+   * Asserted against the directory listing rather than against a count, so a
+   * surface file the walk somehow misses fails here rather than passing quietly.
+   * `index.ts` is scanned too, and deliberately: a string smuggled into the
+   * barrel file is exactly what a walk keyed on "the files that hold strings"
+   * would let through.
+   */
+  it('reaches every file in the content directory', () => {
+    const onDisk = readdirSync(CONTENT_DIR).filter((entry) => entry.endsWith('.ts'));
+    const reached = contentFiles().map((path) => path.slice(CONTENT_DIR.length + 1));
+    expect([...reached].sort()).toEqual([...onDisk].sort());
+    expect(onDisk.length).toBeGreaterThanOrEqual(10);
+    expect(onDisk).toContain('index.ts');
+    expect(onDisk).toContain('common.ts');
   });
 
   it('uses no em dash and no en dash, including inside ranges', () => {
