@@ -366,7 +366,161 @@ measurements, and the routing decision from step 4.
 
 ## Stage 2 Report
 
-_Pending._
+**The two branches are indistinguishable in every number except the one they exist to differ in, and that is the result rather than a failure to find one.** Measured from a sixty-second stall, recovery is 2 ticks and ATP per second is 31.7867 on the lactate branch, on the ethanol branch and with both running. Identical, not close. What differs is what the cell is left holding, which is what docs/PROGRESSION.md act 1 item 8 says the choice is about.
+
+**The act 1 canonical hash moves to `2b18a4bc` and it is the first time it has moved without the simulation behaving differently.** Both earlier moves changed a number. This one changed the shape of the hashed state. **Verified rather than argued**: the same fixture run against the pre-change code gives all ten legacy pool amounts identical to seventeen significant figures, the same tick count and the same PRNG state.
+
+**And the log's own assumption that "the illustration geometry follows for free" is wrong.** DESIGN.md rule 1 does not extend below three carbons. See step 1b, which is the one part of this stage that is a design decision rather than a build.
+
+### Step 1. The pools and the reaction
+
+Two pools and one reaction, in `src/content/act1/`.
+
+    ethanol   carbon 2, redox 1     inserted after `lactate` in ACT1_POOL_IDS
+    co2       carbon 1, redox 0
+
+    ferment_ethanol   pyruvate + nadh  ->  ethanol + co2 + nad
+
+**The redox weights are not free choices and stage 1 had already fixed them.** Carbon dioxide is the most oxidised form carbon takes and carries no reducing power, so it is 0, which leaves ethanol at 1 as the only value that balances the branch. Both weights are read from the same table the conservation test asserts against, so the illustration follows from them without anybody drawing anything.
+
+**One lumped step, and here is what that loses.** The real branch is two reactions: pyruvate decarboxylase removes the CO2 to give acetaldehyde, then alcohol dehydrogenase reduces it and reoxidises NADH. Only the second touches the carrier. Lumping loses that separation and loses acetaldehyde entirely.
+
+**What it buys is that the branch is the same SHAPE as the lactate branch**, one arrow off pyruvate, so the two read as a choice rather than as a short route and a long one. The stage prompt guessed this would be the answer and gave the reason: the beat is about what the branch produces rather than how it gets there. An acetaldehyde pool would be a card, a blob, two kinetic constants and two divergence rows for a molecule the player meets once and never reads. It is the same posture `prep` and `payoff` already take for five enzymatic steps each, and it is disclosed in the reaction comment the way theirs are.
+
+### Step 1b. DESIGN.md rule 1 does not reach below three carbons. NOT ANTICIPATED BY THIS LOG
+
+The stage prompt says the conserved weights mean "the illustration geometry follows for free and nobody draws anything". **It does not, and this is flagged rather than worked around.**
+
+Rule 1 is "sides equal carbons". Act 1 has never had a molecule under three carbons, because glycolysis never cleaves below a triose. Ethanol is 2 and carbon dioxide is 1. **At two sides a straight-edged polygon is a line and at one side it is a point.** Neither encloses an area and neither can be stroked into a shape. SVG makes the same point independently: a curve or arc whose endpoints are identical is defined as omitted entirely, so a closed one-edged path does not exist in path syntax at all. Shipping it unchanged would have drawn carbon dioxide as nothing.
+
+**What was built: the count moves channel and stays a count.** Below three carbons a molecule is drawn as one round bead per carbon, using the same wobbled four-curve shape the carriers already use, at a different size and offset. Carbon dioxide is one bead. Ethanol is two, overlapping slightly so the pair reads as one molecule with a seam rather than as two molecules side by side.
+
+**Pyruvate's three sides against two beads and one bead still reads as 3 = 2 + 1**, which is the arithmetic rule 1 exists to make visible and the only thing it actually promises. `illustration.test.ts` asserts that equality across the two shape families rather than within one.
+
+**The threshold has a reason rather than a taste.** Three is the smallest number of straight sides that encloses an area. Same kind of reason as `ACT1_HILL_N` being 2 and `ACT1_MAINTAIN_HILL_N` being 3: the smallest integer for which the thing is true at all.
+
+**One collision, asserted rather than noted.** Beads and phosphate dots are both countable circles. They do not co-occur today because neither new pool carries phosphate, and the test fails the build if a molecule below three carbons ever does, which is the point at which this needs designing again rather than extending.
+
+**DESIGN.md is amended, in the same form V7 used for rule 3**, with the original wording kept and the extension argued underneath. **This is a change to the visual contract and CLAUDE.md says not to deviate from DESIGN.md without explicit approval.** It is recorded here as needing the founder's sign-off. The alternative available was to leave both molecules invisible, which is worse and is not a smaller decision, only a quieter one.
+
+### Step 2. Conservation, and the violation written deliberately
+
+The property test that asserts all five quantities over the reaction list needed no change to cover the new reaction, which is what it was written to do in V2 stage 5, and the balance grid now prints six rows. Carbon closes at 3 in and 3 out across the ethanol branch with the CO2 in place.
+
+**The violation, written and quoted.** `stoichiometry.test.ts` removes the `co2` term from the reaction's product side and recomputes all five quantities:
+
+    broken: ['carbon: 3 in, 2 out']
+
+**Exactly one quantity, and it is carbon.** Redox, nicotinamide, phosphate and adenylate all still close, which is what makes it a clean probe rather than a general failure, and the test asserts the whole list rather than just that something broke. It then puts the term back and asserts every quantity closes again, so the probe is measuring the CO2 and not some other difference.
+
+**The mutilation is the one a modeller would actually make.** Carbon dioxide is a gas, it leaves the cell, and the tempting shortcut is to let it leave the model with it. That shortcut deletes matter. V7's rule applies and was followed: probe every guard by breaking the thing it guards, not by reading it.
+
+### Step 3. The ledger, unchanged, on both branches
+
+Computed from the reaction table on both sides rather than compared against a constant, so a coefficient change in one branch and not the other surfaces as two derivations disagreeing.
+
+    branch             turns   gross          net
+    ferment              2     4.000000000    2.000000000
+    ferment_ethanol      2     4.000000000    2.000000000
+
+**And asserted as float equality as well as to nine places**, which is the stronger statement: `ethanol.gross === lactate.gross` and `ethanol.net === lactate.net`. Nine decimal places would pass a branch that yielded a billionth of an ATP. Identity does not.
+
+Both branches are also asserted individually to have no ATP term on either side, and to consume one pyruvate and one NADH and produce one NAD+. The ethanol branch's zero yield is asserted on its own rather than by family resemblance, for the reason docs/SCIENCE.md now states it under that branch's own heading: a decarboxylation looks like it ought to cost or release something and it does neither.
+
+**NAD+ now has one consumer and two regenerators, and every regenerator ships disabled.** The test asserts the whole producer list rather than the first entry, so a third branch that shipped enabled would fail here. A regenerator that shipped on would remove the wall entirely, which is the act.
+
+### Step 4. The unlock, and the routing decision
+
+`ferment-ethanol`, minted in `src/content/act1/save.ts` beside `ferment`. **`ferment` means lactate permanently**, since V4 shipped it before there was a second branch to distinguish it from and Part 3 makes a shipped id permanent.
+
+**No schema bump, and the additive claim was checked against the committed fixture rather than asserted.** Loading `src/save/__tests__/fixtures/v1.json`, which is a real four-game-minute act 1 run from V4:
+
+    missingPools:      ethanol, co2
+    ethanol, co2:      0, 0
+    ethanolEnabled:    false
+    fermentEnabled:    true
+    unknown unlocks:   (none)
+
+That is docs/SAVE_SCHEMA.md Part 1's additive case in both directions at once: two pool ids this build knows and the save does not, defaulted to their `ACT1_INITIAL` of zero and **reported in `missingPools` rather than silently filled**, and no unlock id the save carries that this build fails to recognise. A cell that has never fermented to ethanol restores as a cell that has never fermented to ethanol.
+
+**The routing decision, and it is the simplest true answer rather than a mechanic.** Both reactions run against the same pyruvate and the same NADH under their own kinetics, and the split falls out of the constants. Nothing routes anything. The stage prompt named this as the likely answer and it is what a real cell does and what this engine already does everywhere else.
+
+**The constants are identical, and the equality is the decision rather than laziness.** `ACT1_VMAX.ferment_ethanol` is 26 and `ACT1_KM.ferment_ethanol` is 2, matching the lactate branch exactly. docs/SCIENCE.md Part 1 refuses literature rates, so nothing sources a reason to make either faster, and inventing one would settle the game's first real choice on a number nobody can check. Equal constants make the choice about what the cell keeps rather than about which branch is quicker. The glycolytic capacity ladder raises both branches together at the same value, for the same reason: a ladder that raised only one would turn the choice into a choice about speed.
+
+**Buying it does not remove the lactate branch and nothing ever does.** It is gated behind the lactate branch though, and that gate is a teaching decision rather than a balance one: the NAD+ wall arrives at 3.00 game-seconds and its answer has to be one thing the player can act on. A fork at that moment is a choice between two options a player has no way to tell apart yet, and what they have to learn first is that either one recycles NAD+ and neither makes ATP. docs/PROGRESSION.md lists lactate at 7 and ethanol at 8.
+
+### Step 5. What the branch actually changes, which is very little
+
+Measured on a cell walled for sixty game-seconds and then given each branch. The wall itself is unchanged, at **3.00 game-seconds and 59.989 cumulative gross ATP**, against the documented ceiling of exactly 60.
+
+    branch     recovery   ATP/s     lactate/s   ethanol/s   CO2/s     pyruvate   shortfall
+    lactate      2 ticks   31.7867    15.8934      0.0000    0.0000     3.14497        0
+    ethanol      2 ticks   31.7867     0.0000     15.8934   15.8934     3.14497        0
+    both         2 ticks   31.7867     7.9467      7.9467    7.9467     0.88033        0
+
+**Identical, not similar.** ATP per second, recovery time and total NAD+ regeneration flux agree exactly across all three configurations. The stage said to be willing to report that the branch changes little. It changes nothing measurable about the cell's output, and that is the design: the branch is not an upgrade and a branch that produced more would be one.
+
+**With both running the split is exactly half each and it falls out of the kinetics rather than out of a rule.** 7.9467 and 7.9467, summing to the 15.8934 either branch runs at alone. Two identical Michaelis-Menten reactions on the same substrate divide it evenly because they are identical, which is the whole of the mechanism.
+
+**The one thing that does move is the pyruvate pool, and it is a real and honest effect.** 3.14497 with one branch, **0.88033 with both**. Two enzymes drawing on one substrate settle at a lower substrate level than one does, because the flux each needs is half as much and half the flux needs less than half the saturation. More enzyme means less substrate at steady state. That is a true statement about enzymes and it was not designed in.
+
+**Zero shortfall ticks in all three**, including the both-branches case, which was the one worth checking: doubling the demand on a small pool is exactly the shape that makes the tick's proportional scaling fire, and it does not.
+
+**Ethanol is not strictly worse than lactate at any constant, so V5's rule is satisfied.** They are equal at every constant by construction, and the only configuration that differs from either is the one with both, which is not worse either.
+
+**The CO2 rate equals the ethanol rate**, 1 per branch turn, which is the stoichiometry rendered as a measurement.
+
+### Step 6. Determinism and the hash
+
+**`49ea08d3` becomes `2b18a4bc`**, and the reason is written into the assertion rather than into a commit message, as V3 and V5 did.
+
+**It moved for a reason neither earlier move had.** V3's move raised a starting amount and V5's changed a kinetic form. This one changed no number at all: act 1 gained two pools, both starting at zero, and the canonical form is a function of the pool set and its order. The two ids sit between `lactate` and `nad`, which is where the pathway puts them, and the canonical script never enables the new branch.
+
+**Verified rather than argued, by running the same fixture against the pre-change code.** Both runs, end state at 1200 ticks:
+
+    hash          49ea08d3        ->  2b18a4bc
+    tickCount     1200                1200
+    rng.state     3491568764          3491568764
+    glucose_env   7.95229902273339394e+4   identical
+    glucose       1.68837212259052421e+2   identical
+    g3p           5.32145730586083516e+1   identical
+    pyruvate      2.99999999999999751e+1   identical
+    lactate       5.33130547755704583e+2   identical
+    nad           1.31684984695961131e-39  identical
+    nadh          2.99999999999999751e+1   identical
+    atp           1.55795654634501679e-1   identical
+    adp           3.98442043453654406e+1   identical
+    pi            6.62963128675684121e+0   identical
+    ethanol       n/a                 ->  0
+    co2           n/a                 ->  0
+
+**Every legacy pool agrees to seventeen significant figures.** The assertion comment says so and says why a maintainer comparing act 1 before and after V10 should not go looking for an economy change that is not there.
+
+The toy pathway's `172f83fb` is untouched, as it must be: nothing in `src/sim/` changed.
+
+### What else this stage had to touch, listed rather than buried
+
+**The offline validation sweep gained two configurations.** `ethanol` and `both-branches`, because a shipped code path the sweep never enters is a path nobody has checked can be jumped over. Twelve configurations now. The sweep is green with **0 fallbacks and 0 budget exhaustions**, and every case inside tolerance. The headline worst figures moved from V8's, to 1.108e-3 on ATP and 6.201e-3 misplaced against 7.038e-3 and 2.509e-2, and **that is the case draw moving rather than the accuracy improving**: the configuration list is longer so the seeded sampler picks different cases. It is not a result and should not be read as one.
+
+**The interface gained one pool card, one pathway row and one shelf slot.** The card carries ethanol and carbon dioxide together, for the reason the carrier pairs share cards: the pair is what teaches, and two of pyruvate's carbons staying while one leaves is the entire difference between the branches. The pathway row starts from pyruvate again rather than wrapping, so the branch point stays visible, and it draws both products in one group the way the maintenance row does, because drawing only the ethanol would make the missing carbon look like a rounding error rather than a molecule.
+
+**Player-facing strings were written now rather than deferred to stage 6**, because `MOLECULES` is typed as a total record over `Act1PoolId` and a new pool does not compile without one. They are written to the contract rather than as placeholders and stage 6 reviews them.
+
+**No meter counter was added and that is deliberate.** Nothing in act 1 consumes ethanol or carbon dioxide, so each pool amount is already exactly its own cumulative production. A counter would be a second copy of a number the save already carries, and it would need a new `stats` field, which is a schema change this stage has no reason to make.
+
+### Verify
+
+**Conservation holds across all five quantities with the CO2 in place and fails without it**, on carbon alone, quoted in step 2.
+
+**The ledger is unchanged to nine decimal places on both branches** and identical as floats.
+
+**The suite is green: 517 tests across 41 files**, up from the 504 this log started at. `npm run typecheck`, `npm run lint` and `npm run build` are clean, the bundle is 281.24 kB and 87.47 kB gzipped. `npm run sim` and `npm run sim:act1` are green with conservation drift at 3.251e-14 and 2.001e-15 worst. `npm run offline:validate` is green across twelve configurations.
+
+**docs/ECONOMY.md gained three rows**, C18, C19 and U20, and the counts moved from 37 to 40 and from 25 and 12 to 27 and 13. `divergenceTable.test.ts` is what forced them into this stage rather than stage 6.
+
+**docs/SCIENCE.md is untouched in this stage.** Hard rule 2 permitted the stage 1 edit and forbids every other one. Stage 6 reports the diff as evidence.
+
+**One thing needs the founder's sign-off before this log closes: the DESIGN.md rule 1 amendment in step 1b.** It is built, tested and documented, and it is a change to the visual contract rather than an implementation detail.
 
 ---
 

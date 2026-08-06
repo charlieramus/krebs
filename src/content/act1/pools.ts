@@ -1,10 +1,12 @@
 /**
  * Act 1 pools. The first content in this repository that is not synthetic.
  *
- * Ten pools covering glucose uptake, both phases of glycolysis, the
- * nicotinamide carrier pair, the adenylate pair and free phosphate. Every
- * conserved weight below traces to docs/SCIENCE.md Part 2. UPDATELOGV2.md
- * settles the balance sheet these are transcribed from.
+ * Twelve pools covering glucose uptake, both phases of glycolysis, the two
+ * fermentation branches and what each of them leaves behind, the nicotinamide
+ * carrier pair, the adenylate pair and free phosphate. Every conserved weight
+ * below traces to docs/SCIENCE.md Part 2. UPDATELOGV2.md settles the balance
+ * sheet the first ten are transcribed from and UPDATELOGV10.md stage 2 adds the
+ * ethanol branch's two products.
  *
  * ---------------------------------------------------------------------------
  * THE REDOX COUNTING CONVENTION
@@ -57,6 +59,8 @@ export type Act1PoolId =
   | 'g3p'
   | 'pyruvate'
   | 'lactate'
+  | 'ethanol'
+  | 'co2'
   | 'nad'
   | 'nadh'
   | 'atp'
@@ -78,6 +82,8 @@ export const ACT1_POOL_IDS: readonly Act1PoolId[] = [
   'g3p',
   'pyruvate',
   'lactate',
+  'ethanol',
+  'co2',
   'nad',
   'nadh',
   'atp',
@@ -107,6 +113,8 @@ const LABELS: Readonly<Record<Act1PoolId, string>> = {
   g3p: 'Glyceraldehyde 3-phosphate',
   pyruvate: 'Pyruvate',
   lactate: 'Lactate',
+  ethanol: 'Ethanol',
+  co2: 'Carbon dioxide',
   nad: 'NAD+',
   nadh: 'NADH',
   atp: 'ATP',
@@ -126,6 +134,32 @@ const LABELS: Readonly<Record<Act1PoolId, string>> = {
  * phase hands to the payoff phase, and the second phosphate the payoff phase
  * needs comes from the `pi` pool at the sourced GAPDH step, not from the
  * carbon skeleton it arrives on.
+ *
+ * ---------------------------------------------------------------------------
+ * THE TWO ETHANOL-BRANCH PRODUCTS, AND THE FIRST CARBON WEIGHTS BELOW THREE
+ * ---------------------------------------------------------------------------
+ *
+ * Added by UPDATELOGV10.md stage 2. docs/SCIENCE.md Part 2, "Ethanol
+ * fermentation": pyruvate decarboxylase removes one carbon as carbon dioxide to
+ * give acetaldehyde, and alcohol dehydrogenase reduces that to ethanol while
+ * reoxidising NADH.
+ *
+ *   ethanol   carbon 2, redox 1     two of pyruvate's three carbons, carrying
+ *                                   the electron pair taken off NADH
+ *   co2       carbon 1, redox 0     the third carbon. Fully oxidised, so it
+ *                                   carries no reducing power at all
+ *
+ * The redox weights are not free choices. Under the convention above, the
+ * branch has to balance: pyruvate at 0 plus NADH at 1 must equal ethanol plus
+ * co2 plus NAD+ at 0. Carbon dioxide is the most oxidised form carbon takes and
+ * is the natural zero, which leaves ethanol at 1 and no other pair works.
+ *
+ * CARBON DIOXIDE IS A RESERVOIR AND NOT A SINK, which was established in stage 1
+ * rather than assumed here. Act 3 produces far more of it at pyruvate
+ * dehydrogenase and around the TCA cycle, and act 4's pyruvate carboxylase
+ * consumes it, so a later act reads this pool. It must not be capped, discarded,
+ * or treated as write-only accounting. docs/SCIENCE.md Part 2, "Carbon dioxide,
+ * and whether anything in this game consumes it".
  */
 const CONSERVED: Readonly<Record<Act1PoolId, Readonly<Record<string, number>>>> = {
   glucose_env: { carbon: 6, redox: 2 },
@@ -133,6 +167,8 @@ const CONSERVED: Readonly<Record<Act1PoolId, Readonly<Record<string, number>>>> 
   g3p: { carbon: 3, phosphate: 1, redox: 1 },
   pyruvate: { carbon: 3 },
   lactate: { carbon: 3, redox: 1 },
+  ethanol: { carbon: 2, redox: 1 },
+  co2: { carbon: 1 },
   nad: { nicotinamide: 1 },
   nadh: { nicotinamide: 1, redox: 1 },
   atp: { phosphate: 3, adenylate: 1 },
@@ -173,6 +209,8 @@ export const ACT1_INITIAL: Readonly<Record<Act1PoolId, number>> = {
   g3p: 0,
   pyruvate: 0,
   lactate: 0,
+  ethanol: 0,
+  co2: 0,
   nad: ACT1_NICOTINAMIDE_TOTAL,
   nadh: 0,
   atp: ACT1_ATP_INITIAL,
@@ -181,7 +219,7 @@ export const ACT1_INITIAL: Readonly<Record<Act1PoolId, number>> = {
 };
 
 /**
- * The ten pool definitions, in ACT1_POOL_IDS order.
+ * The twelve pool definitions, in ACT1_POOL_IDS order.
  *
  * `initial` overrides let a test or a harness scenario start from anywhere
  * without a second definition table. The conservation property test in stage 5

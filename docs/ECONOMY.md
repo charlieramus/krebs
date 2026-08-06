@@ -1,6 +1,6 @@
 # Economy
 
-Last updated: 2026-08-03
+Last updated: 2026-08-06
 
 Tuned game numbers and the divergence table.
 
@@ -10,11 +10,11 @@ This is the record required by docs/PILLARS.md rule 5: where the game departs fr
 
 Every tuned number in the project has a row below. A tuned number is a number nobody sourced, that the game needs anyway, and that a balance pass may move. They live in exactly three files and nowhere else:
 
-    src/content/act1/tuning.ts    17
-    src/ui/tuning.ts              19
+    src/content/act1/tuning.ts    19
+    src/ui/tuning.ts              20
     src/save/tuning.ts             1
                                   --
-                                  37
+                                  40
 
 ## What this document is not
 
@@ -33,7 +33,7 @@ It is not a design document. It says what the numbers are and why they are what 
 
 The distinction matters and it is the reason the table has a column that is sometimes empty. Rule 5 says departures get recorded. It does not say invent a departure for a number that never departed from anything, and a plausible sentence in the real behaviour column of an UNSOURCED row would be the exact failure this table exists to prevent.
 
-Of the 37 rows, **25 are DEPARTURE and 12 are UNSOURCED**.
+Of the 40 rows, **27 are DEPARTURE and 13 are UNSOURCED**.
 
 ## How to read a row
 
@@ -51,9 +51,9 @@ The table is split by file. The file is the unit the debt was tracked in, and re
 
 ## src/content/act1/tuning.ts
 
-Seventeen numbers, all DEPARTURE. Every one of them is a rate, a pool size, a starting amount or a kinetic exponent, which is to say every one of them stands where a real quantity could have stood.
+Nineteen numbers, all DEPARTURE. Every one of them is a rate, a pool size, a starting amount or a kinetic exponent, which is to say every one of them stands where a real quantity could have stood.
 
-Two facts from docs/SCIENCE.md Part 1 apply to all thirteen and are not repeated in every row. First, literature Km and Vmax values are deliberately not used, because they vary by an order of magnitude across organism, tissue, pH, temperature and assay method, and presenting one as authoritative would be less honest than using none. Second, game time does not map to any real timescale, so no absolute rate below has a real counterpart to be compared against. **What is being claimed by these numbers is their ordering, not their magnitude.**
+Two facts from docs/SCIENCE.md Part 1 apply to all of them and are not repeated in every row. First, literature Km and Vmax values are deliberately not used, because they vary by an order of magnitude across organism, tissue, pH, temperature and assay method, and presenting one as authoritative would be less honest than using none. Second, game time does not map to any real timescale, so no absolute rate below has a real counterpart to be compared against. **What is being claimed by these numbers is their ordering, not their magnitude.**
 
 | Id | Value | Where | The real behaviour | What the game does instead | Why | Introduced |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -74,6 +74,9 @@ Two facts from docs/SCIENCE.md Part 1 apply to all thirteen and are not repeated
 
 | C15 | 20 | `ACT1_ATP_INITIAL` | Cells hold a real adenylate pool at a real ATP to ADP ratio, and both vary with energy state. Nothing about either is in docs/SCIENCE.md | 20 units of ATP at t=0, half of a fixed adenylate total of 40 | Neither half can be zero. No ATP and the pathway cannot pay the preparatory phase's entry cost, which is NOW.md blocking item 1 seen from t=0; no ADP and the payoff phase has no acceptor. Half and half is the choice that commits to neither | V2 stage 3 in `pools.ts`, moved into the tuning file in V5 stage 5 |
 | C16 | 20 | `ACT1_ADP_INITIAL` | As C15 | 20 units of ADP at t=0 | With C15 this is what fixes the adenylate total at 40, and that total being fixed and closed is the reason ATP is a flux and not a score | V2 stage 3 in `pools.ts`, moved in V5 stage 5 |
+| C18 | 26 | `ACT1_VMAX.ferment_ethanol` | Pyruvate decarboxylase and alcohol dehydrogenase, two steps. docs/SCIENCE.md Part 2, "Ethanol fermentation" | One rate for the lumped branch, equal to C4 | **The equality is the row.** docs/SCIENCE.md Part 1 refuses literature rates, so nothing sources a reason to make either branch faster, and inventing one would settle the game's first real choice on a number nobody can check. Equal constants make the choice about what the cell keeps rather than about which branch is quicker, which is what docs/PROGRESSION.md act 1 item 8 says it is, and they mean neither branch is ever strictly worse than the other, which is what UPDATELOGV5.md's rule about purchasable configurations requires. It climbs the glycolytic ladder with C4, at the same value, for the same reason | V10 stage 2 |
+| C19 | 2 | `ACT1_KM.ferment_ethanol` | As C6, over the lumped two-step branch | 2, equal to C9 | Mirrors C9 against the same pyruvate and the same NADH. If it did not, the split between the two branches when both are running would fall out of a half-saturation constant rather than out of the design, and the player would be choosing a speed | V10 stage 2 |
+
 | C17 | 40 | `ACT1_PI_INITIAL` | Cells hold a real free phosphate concentration. Not in docs/SCIENCE.md | 40 units of free phosphate at t=0 | A buffer rather than a supply: phosphate is conserved across the whole pathway and `maintain` returns one unit per turn, so the pool only has to be large enough that the payoff phase is never short of it. Settles around 48 | V2 stage 3 in `pools.ts`, moved in V5 stage 5 |
 
 **C15, C16 and C17 lived outside the three tuning files for three logs.** They were literals in `src/content/act1/pools.ts`, in a file whose own header said they owed a row here, and every count of the debt omitted them. V5 stage 5 moved them at unchanged values, which is why the canonical hash did not move with them.
@@ -82,7 +85,7 @@ C13 moved the act 1 canonical hash from `e9b720a8` to `657594cb`. Starting amoun
 
 ## src/ui/tuning.ts
 
-Nineteen numbers. Eight are DEPARTURE and eleven are UNSOURCED, and the split falls exactly where you would expect: the two capacity ladders hold Vmax values, which are the same kind of number as C1 to C5, and everything else in the file is a perception threshold or a purchase gate.
+Twenty numbers. Eight are DEPARTURE and twelve are UNSOURCED, and the split falls exactly where you would expect: the two capacity ladders hold Vmax values, which are the same kind of number as C1 to C5, and everything else in the file is a perception threshold or a purchase gate.
 
 | Id | Value | Where | The real behaviour | What the game does instead | Why | Introduced |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -95,6 +98,7 @@ Nineteen numbers. Eight are DEPARTURE and eleven are UNSOURCED, and the split fa
 | U7 | 12 | `UPTAKE_VMAX_STEPS[2]` | As C1 | Last rung. There is no fourth and adding one means editing this array | **The ladder stops at 12 because measurement says it must**, and this replaced a planned 8, 12, 18, 26. Re-measured 2026-08-03 at the current environment size and after the C14 repair, time to 30000 cumulative ATP is 15m44.6s at Vmax 8, 12m36.1s at 10, 11m51.7s at 12, 11m51.6s at 14, 11m51.5s at 18 and 11m51.4s at 26. Everything above 12 sells the player three tenths of a second, because C2 runs at 12 and uptake above that delivers glucose the preparatory phase cannot consume. **The gap at this rung is wide and growing**: uptake delivers 11.922 while the preparatory phase runs at 10.554, so intracellular glucose climbs by about 82 a minute and stood at 417.89 at five game-minutes. Selling preparatory-phase capacity is what closes it | V3 stage 6 |
 | U8 | 4000, was 1500 | `UPTAKE_ATP_THRESHOLDS[0]` | | Cumulative gross ATP before the first capacity step is buyable | **Derived from a clock rather than chosen.** A target of 2 game-minutes was picked first and a run recorded cumulative ATP standing at 3787 when it got there. Lands at 2m07s | V3 stage 6 at 1500, derived in V5 stage 4 |
 | U9 | 20000, was 12000 | `UPTAKE_ATP_THRESHOLDS[1]` | | Cumulative gross ATP before the second capacity step is buyable | Target 9 game-minutes, reading 20459, lands at 8m50s. Both were spaced against V3's own play session rather than the act's target, on the argument that a two-unlock slice paced to a full act leaves eighty-eight minutes empty. Act 1 has seven purchases now, so that argument has expired | V3 stage 6 at 12000, derived in V5 stage 4 |
+| U20 | 35000, provisional | `ETHANOL_ATP_THRESHOLD` | | Cumulative gross ATP before the ethanol branch is buyable | **A spacing decision, unlike U4, and the contrast is the point.** U4 is trapped in a one second window between the NAD+ wall and an unbuyable ceiling of 60, because it is the answer to a wall. This branch answers nothing: the cell is already running when it is offered, so the number is free and is derived from a clock the way U8, U9 and U16 to U19 are. **Provisional, and it says so, because stage 2 had no instrumented run to read it off.** Target 15 game-minutes, interpolated between U9 landing at 8m50s on 20000 and U16 landing at 21m52s on 53000, which gives about 35600. V10 stage 5 instruments the act end to end with all nine unlocks and re-derives this the way U8, U9 and U16 to U19 were derived, from a clock rather than from two other rows. **The gate that matters is not this number.** `canBuyEthanol` refuses until the lactate branch has been bought, whatever the meter says, because the NAD+ wall gets one answer rather than a fork between two things a player has no way to tell apart yet | V10 stage 2 |
 | U10 | 60000 | `OFFLINE_REPORT_THRESHOLD_MS` | | Real milliseconds away below which the return line is not shown at all | Found by reloading the real page. A refresh takes a second or two, which is a positive offline delta, so the panel rendered "Away for 0 min" every single time. The number was true and the sentence was noise, and a save panel that announces a nothing-event on every reload teaches the player to stop reading the one panel that has to be believed when it says something went wrong. One minute because the readout's own resolution is minutes | V4 stage 5 |
 | U11 | 12, 12, 26 | `GLYCOLYSIS_STEPS[0]` | As C1 | Rung 0, the state at the top of the uptake ladder. Not purchasable | Inherited rather than chosen, and it is the configuration the ladder exists to grow out of. Uptake equals prep's nameplate Vmax while prep only ever reaches 10.554, so intracellular glucose grows by about 87 a minute forever at this rung | V5 stage 3 |
 | U12 | 13, 14, 30 | `GLYCOLYSIS_STEPS[1]` | As C1 | First purchasable rung. 42.217 to 50.462 ATP per second, plus 19.5 percent | Glucose accumulation falls from 87 a minute to 23.0 | V5 stage 3 |

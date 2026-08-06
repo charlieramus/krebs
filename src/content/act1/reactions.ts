@@ -7,22 +7,29 @@
  * and it is the sourcing posture of the whole project: stoichiometry is
  * accurate, rates are tuned, and the game never implies otherwise.
  *
- *   uptake     glucose_env                   ->  glucose
- *   prep       glucose + 2 atp               ->  2 g3p + 2 adp
- *   payoff     g3p + nad + 2 adp + pi        ->  pyruvate + nadh + 2 atp
- *   ferment    pyruvate + nadh               ->  lactate + nad          disabled
- *   maintain   atp                           ->  adp + pi
+ *   uptake           glucose_env             ->  glucose
+ *   prep             glucose + 2 atp         ->  2 g3p + 2 adp
+ *   payoff           g3p + nad + 2 adp + pi  ->  pyruvate + nadh + 2 atp
+ *   ferment          pyruvate + nadh         ->  lactate + nad          disabled
+ *   ferment_ethanol  pyruvate + nadh         ->  ethanol + co2 + nad    disabled
+ *   maintain         atp                     ->  adp + pi
  *
  * Net per glucose across uptake, prep and two turns of payoff: 2 ATP net, 4
  * gross, 2 NADH, 2 pyruvate. docs/SCIENCE.md Part 2, "Glycolysis". The
  * stoichiometry test computes those four numbers from the table above rather
  * than asserting them from memory.
  *
- * FERMENTATION SHIPS DISABLED. The wall has to exist before the way around it
- * does. Run this pathway as it comes and it stalls with a full glucose pool,
- * which is the entire teaching beat of act 1. Enabling `ferment` recovers
- * throughput and does not move yield by a single ATP, which is the thing most
- * players arrive expecting to be false.
+ * BOTH FERMENTATION BRANCHES SHIP DISABLED. The wall has to exist before the way
+ * around it does. Run this pathway as it comes and it stalls with a full glucose
+ * pool, which is the entire teaching beat of act 1. Enabling either branch
+ * recovers throughput and does not move yield by a single ATP, which is the
+ * thing most players arrive expecting to be false.
+ *
+ * AND THE TWO BRANCHES ARE A CHOICE RATHER THAN A LADDER. Both regenerate NAD+,
+ * neither yields ATP, and they are given identical kinetics because nothing
+ * sources a rate for either enzyme. What differs is what the cell is left
+ * holding: three carbons of lactate kept, or two carbons of ethanol and one
+ * carbon released as gas.
  *
  * WHY `maintain` EXISTS. ATP is not a score. The adenylate pool is fixed and
  * closed, and a cell hydrolyses ATP back to ADP and phosphate continuously to
@@ -46,13 +53,20 @@ import { createSimulation, type SimulationState } from '../../sim/state';
 import { act1PoolDefinitions, type Act1PoolId } from './pools';
 import { ACT1_HILL_N, ACT1_KM, ACT1_MAINTAIN_HILL_N, ACT1_VMAX } from './tuning';
 
-export type Act1ReactionId = 'uptake' | 'prep' | 'payoff' | 'ferment' | 'maintain';
+export type Act1ReactionId =
+  | 'uptake'
+  | 'prep'
+  | 'payoff'
+  | 'ferment'
+  | 'ferment_ethanol'
+  | 'maintain';
 
 export const ACT1_REACTION_IDS: readonly Act1ReactionId[] = [
   'uptake',
   'prep',
   'payoff',
   'ferment',
+  'ferment_ethanol',
   'maintain',
 ];
 
@@ -81,6 +95,7 @@ export const ACT1_ENABLED: Readonly<Record<Act1ReactionId, boolean>> = {
   prep: true,
   payoff: true,
   ferment: false,
+  ferment_ethanol: false,
   maintain: true,
 };
 
@@ -236,6 +251,66 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
       ],
       kinetics: michaelisMenten(v('ferment'), k('ferment')),
       enabled: on('ferment'),
+    },
+
+    /**
+     * Ethanol fermentation. The second NAD+ recycling branch, added by
+     * UPDATELOGV10.md stage 2. docs/SCIENCE.md Part 2, "Ethanol fermentation".
+     *
+     * ONE LUMPED STEP, AND HERE IS WHAT THAT LOSES. The real branch is two
+     * reactions: pyruvate decarboxylase removes the carbon dioxide to give
+     * acetaldehyde, then alcohol dehydrogenase reduces the acetaldehyde and
+     * reoxidises NADH. Only the second one touches the carrier.
+     *
+     * What lumping loses is that separation. A player cannot see that the
+     * decarboxylation happens first and independently of the redox step, and
+     * acetaldehyde never appears. What it buys is that the branch is the same
+     * SHAPE as the lactate branch, one arrow off pyruvate, so the two sit side
+     * by side as a choice rather than as a short route and a long one. The beat
+     * is about what the branch produces, not about how it gets there, and an
+     * acetaldehyde pool would be a card, a blob, two kinetic constants and two
+     * divergence rows for a molecule the player meets once and never reads.
+     *
+     * Same posture as `prep` and `payoff`, which lump five enzymatic steps each
+     * and say so.
+     *
+     * THE FIRST CARBON THIS GAME LETS OUT OF THE CELL, and it does not leave the
+     * model. `co2` is a real pool with the carbon still in it, so carbon stays
+     * conserved across this reaction exactly:
+     *
+     *     carbon        pyruvate 3  ->  ethanol 2 + co2 1
+     *     redox     pyruvate 0 + nadh 1  ->  ethanol 1 + co2 0 + nad 0
+     *
+     * Drop the `co2` term and carbon fails at 3 in against 2 out, on carbon
+     * alone and on nothing else. `__tests__/stoichiometry.test.ts` writes that
+     * violation deliberately and asserts the failure, because a conservation
+     * test that has never seen the thing it exists to catch is a test nobody has
+     * checked.
+     *
+     * NO ATP HERE EITHER, and the claim has to be made for this branch on its
+     * own rather than inherited from the lactate one. docs/SCIENCE.md states the
+     * zero yield under this branch's own heading for exactly that reason: a
+     * decarboxylation looks like it ought to cost or release something and it
+     * does neither. There is no ATP term to remove and none that could have been
+     * added without inventing one.
+     *
+     * SHIPS DISABLED, like `ferment`, and it does not replace it. A cell with
+     * both runs both, against the same pyruvate and the same NADH, under their
+     * own kinetics. What the player bought is an option rather than an upgrade.
+     */
+    {
+      id: 'ferment_ethanol',
+      substrates: [
+        { poolIndex: at('pyruvate'), coefficient: 1 },
+        { poolIndex: at('nadh'), coefficient: 1 },
+      ],
+      products: [
+        { poolIndex: at('ethanol'), coefficient: 1 },
+        { poolIndex: at('co2'), coefficient: 1 },
+        { poolIndex: at('nad'), coefficient: 1 },
+      ],
+      kinetics: michaelisMenten(v('ferment_ethanol'), k('ferment_ethanol')),
+      enabled: on('ferment_ethanol'),
     },
 
     /**

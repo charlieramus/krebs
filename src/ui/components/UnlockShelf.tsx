@@ -37,6 +37,7 @@ import { Figure } from './Figure';
 import { useOpenTeachingPanel } from './TeachingPanel';
 import { PANEL_AFFORDANCE, SHELF, UNLOCKS } from '../content';
 import {
+  ETHANOL_ATP_THRESHOLD,
   FERMENT_ATP_THRESHOLD,
   GLYCOLYSIS_ATP_THRESHOLDS,
   GLYCOLYSIS_STEPS,
@@ -206,11 +207,13 @@ export function UnlockShelf() {
    */
   const [bought, setBought] = useState({
     ferment: runtime.snapshot.fermentUnlocked,
+    ethanol: runtime.snapshot.ethanolUnlocked,
     uptakeStep: runtime.snapshot.uptakeStep,
     glycolysisStep: runtime.snapshot.glycolysisStep,
   });
   const [affordable, setAffordable] = useState({
     ferment: false,
+    ethanol: false,
     uptake: false,
     glycolysis: false,
   });
@@ -218,11 +221,13 @@ export function UnlockShelf() {
   useSnapshotEffect((snapshot) => {
     setBought((current) =>
       current.ferment === snapshot.fermentUnlocked &&
+      current.ethanol === snapshot.ethanolUnlocked &&
       current.uptakeStep === snapshot.uptakeStep &&
       current.glycolysisStep === snapshot.glycolysisStep
         ? current
         : {
             ferment: snapshot.fermentUnlocked,
+            ethanol: snapshot.ethanolUnlocked,
             uptakeStep: snapshot.uptakeStep,
             glycolysisStep: snapshot.glycolysisStep,
           },
@@ -230,6 +235,10 @@ export function UnlockShelf() {
 
     const nextFerment =
       !snapshot.fermentUnlocked && snapshot.meter.atpProduced >= FERMENT_ATP_THRESHOLD;
+    // Asked of the runtime, like the glycolytic slot below, because the gate on
+    // this one is a rule and not a threshold: it refuses until the lactate
+    // branch has been bought, whatever the meter says.
+    const nextEthanol = runtime.canBuyEthanol();
     const uptakeThreshold = UPTAKE_ATP_THRESHOLDS[snapshot.uptakeStep];
     const nextUptake =
       uptakeThreshold !== undefined && snapshot.meter.atpProduced >= uptakeThreshold;
@@ -238,14 +247,21 @@ export function UnlockShelf() {
     const nextGlycolysis = runtime.canBuyGlycolysisStep();
     setAffordable((current) =>
       current.ferment === nextFerment &&
+      current.ethanol === nextEthanol &&
       current.uptake === nextUptake &&
       current.glycolysis === nextGlycolysis
         ? current
-        : { ferment: nextFerment, uptake: nextUptake, glycolysis: nextGlycolysis },
+        : {
+            ferment: nextFerment,
+            ethanol: nextEthanol,
+            uptake: nextUptake,
+            glycolysis: nextGlycolysis,
+          },
     );
   });
 
   const fermentBought = bought.ferment;
+  const ethanolBought = bought.ethanol;
   const uptakeStep = bought.uptakeStep;
   const glycolysisStep = bought.glycolysisStep;
 
@@ -280,6 +296,29 @@ export function UnlockShelf() {
           buyLabel={SHELF.fermentBuy.text}
           onBuy={() => {
             runtime.buyFerment();
+          }}
+        />
+
+        {/*
+          THE FOURTH SLOT, AND THE FIRST ONE THAT IS NOT AN UPGRADE.
+          UPDATELOGV10.md stage 2.
+
+          It sits beside the lactate slot rather than after the ladders, because
+          the two fermentation branches are alternatives and reading them side by
+          side is what makes that legible. It stays locked until the lactate
+          branch is bought: locked content stays visible and dimmed, which is
+          DESIGN.md's rule, and here it is also the teaching order.
+        */}
+        <Slot
+          title={UNLOCKS.ethanolFerment.text}
+          badge={UNLOCKS.ethanolFerment.badge}
+          detail={fermentBought ? SHELF.ethanolDetail.text : SHELF.ethanolLocked.text}
+          threshold={ethanolBought || !fermentBought ? null : ETHANOL_ATP_THRESHOLD}
+          bought={ethanolBought}
+          affordable={affordable.ethanol}
+          buyLabel={SHELF.ethanolBuy.text}
+          onBuy={() => {
+            runtime.buyEthanol();
           }}
         />
 

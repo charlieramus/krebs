@@ -90,7 +90,7 @@ describe('act 1 stoichiometry', () => {
     const pools = new PoolRegistry(act1PoolDefinitions());
     const state = createAct1();
 
-    const header = ['reaction'.padEnd(10), ...ACT1_CONSERVED_IDS.map((q) => q.padStart(14))];
+    const header = ['reaction'.padEnd(16), ...ACT1_CONSERVED_IDS.map((q) => q.padStart(14))];
     const lines = [header.join('')];
     for (const reaction of state.reactions) {
       const cells = ACT1_CONSERVED_IDS.map((quantity) => {
@@ -98,7 +98,7 @@ describe('act 1 stoichiometry', () => {
         const out = sideTotal(pools, reaction.products, quantity);
         return `${inn} -> ${out}`.padStart(14);
       });
-      lines.push([reaction.id.padEnd(10), ...cells].join(''));
+      lines.push([reaction.id.padEnd(16), ...cells].join(''));
     }
     console.log(`\n${lines.join('\n')}\n`);
 
@@ -161,27 +161,161 @@ describe('act 1 stoichiometry', () => {
     );
     expect(nadConsumers.map((r) => r.id)).toEqual(['payoff']);
 
+    // TWO REGENERATORS SINCE UPDATELOGV10.md STAGE 2, AND STILL ONE CONSUMER.
+    // That asymmetry is the act: NAD+ is spent in exactly one place and the
+    // player is offered two different ways to get it back, neither of which
+    // yields anything.
     const nadProducers = state.reactions.filter(
       (r) => coefficientOf(pools, r, 'products', 'nad') > 0,
     );
-    expect(nadProducers.map((r) => r.id)).toEqual(['ferment']);
+    expect(nadProducers.map((r) => r.id)).toEqual(['ferment', 'ferment_ethanol']);
 
-    // And the only regenerator ships off, so the carrier is one-way by default
-    // and the pathway has a hard ceiling until something turns it on.
-    expect((nadProducers[0] as Reaction).enabled).toBe(false);
+    // And EVERY regenerator ships off, so the carrier is one-way by default and
+    // the pathway has a hard ceiling until something turns one of them on. A
+    // second branch that shipped enabled would remove the wall entirely.
+    for (const producer of nadProducers) {
+      expect(producer.enabled).toBe(false);
+    }
   });
 
-  it('produces no ATP in the fermentation step, which is the act 1 misconception', () => {
+  it('produces no ATP in either fermentation branch, which is the act 1 misconception', () => {
     const pools = new PoolRegistry(act1PoolDefinitions());
     const state = createAct1();
-    const ferment = byId(state.reactions, 'ferment');
 
-    // docs/SCIENCE.md Part 2, "Fermentation". Asserted on the table rather than on a
-    // simulation run, so no tuning value can change the answer.
-    expect(coefficientOf(pools, ferment, 'products', 'atp')).toBe(0);
-    expect(coefficientOf(pools, ferment, 'substrates', 'atp')).toBe(0);
-    expect(coefficientOf(pools, ferment, 'products', 'nad')).toBe(1);
-    expect(coefficientOf(pools, ferment, 'substrates', 'nadh')).toBe(1);
+    // docs/SCIENCE.md Part 2, "Fermentation". Asserted on the table rather than
+    // on a simulation run, so no tuning value can change the answer.
+    //
+    // BOTH BRANCHES, and the ethanol one is asserted on its own rather than by
+    // family resemblance. docs/SCIENCE.md states the zero yield under that
+    // branch's own heading for the same reason: a decarboxylation looks like it
+    // ought to cost or release something, and it does neither.
+    for (const id of ['ferment', 'ferment_ethanol'] as const) {
+      const branch = byId(state.reactions, id);
+      expect(coefficientOf(pools, branch, 'products', 'atp')).toBe(0);
+      expect(coefficientOf(pools, branch, 'substrates', 'atp')).toBe(0);
+      expect(coefficientOf(pools, branch, 'products', 'nad')).toBe(1);
+      expect(coefficientOf(pools, branch, 'substrates', 'nadh')).toBe(1);
+      expect(coefficientOf(pools, branch, 'substrates', 'pyruvate')).toBe(1);
+    }
+  });
+
+  it('splits pyruvate two ways, and one carbon leaves without leaving the model', () => {
+    // UPDATELOGV10.md stage 2. The claim the ethanol branch exists to make,
+    // read off the reaction table rather than off a run.
+    const pools = new PoolRegistry(act1PoolDefinitions());
+    const state = createAct1();
+    const lactate = byId(state.reactions, 'ferment');
+    const ethanol = byId(state.reactions, 'ferment_ethanol');
+
+    // The lactate branch keeps all three carbons in one molecule and releases
+    // nothing at all.
+    expect(coefficientOf(pools, lactate, 'products', 'lactate')).toBe(1);
+    expect(coefficientOf(pools, lactate, 'products', 'co2')).toBe(0);
+
+    // The ethanol branch keeps two and lets one go, which is the only thing
+    // that distinguishes the two branches.
+    expect(coefficientOf(pools, ethanol, 'products', 'ethanol')).toBe(1);
+    expect(coefficientOf(pools, ethanol, 'products', 'co2')).toBe(1);
+
+    // Read off the weight table rather than written down: 3 = 2 + 1.
+    expect(sideTotal(pools, ethanol.substrates, 'carbon')).toBe(3);
+    expect(sideTotal(pools, ethanol.products, 'carbon')).toBe(3);
+  });
+
+  it('fails on carbon, and only on carbon, if the CO2 is dropped', () => {
+    /**
+     * THE VIOLATION WRITTEN DELIBERATELY. UPDATELOGV10.md stage 2 step 2.
+     *
+     * A conservation test that has never seen the thing it exists to catch is a
+     * test nobody has checked. V7 found two guards that agreed with themselves
+     * and wrote the rule down: probe every guard by breaking the thing it
+     * guards, not by reading it.
+     *
+     * The mutilation is the one a modeller would actually make. Carbon dioxide
+     * is a gas, it leaves the cell, and the tempting shortcut is to let it leave
+     * the model with it. That shortcut deletes matter, and this is the assertion
+     * that says so out loud instead of a comment saying it would.
+     */
+    const pools = new PoolRegistry(act1PoolDefinitions());
+    const state = createAct1();
+    const ethanol = byId(state.reactions, 'ferment_ethanol');
+
+    const co2Index = pools.indexOf('co2');
+    const mutilated = ethanol.products.filter((term) => term.poolIndex !== co2Index);
+    expect(mutilated.length).toBe(ethanol.products.length - 1);
+
+    const broken: string[] = [];
+    for (const quantity of ACT1_CONSERVED_IDS) {
+      const substrates = sideTotal(pools, ethanol.substrates, quantity);
+      const products = sideTotal(pools, mutilated, quantity);
+      if (products !== substrates) broken.push(`${quantity}: ${substrates} in, ${products} out`);
+    }
+
+    // Exactly one quantity, and it is carbon. Redox, nicotinamide, phosphate
+    // and adenylate all still close, which is what makes this a clean probe:
+    // the failure is attributable rather than general.
+    expect(broken).toEqual(['carbon: 3 in, 2 out']);
+
+    // And the whole reaction balances the moment the term is put back, so the
+    // probe measured the CO2 and not some other difference.
+    const restored: string[] = [];
+    for (const quantity of ACT1_CONSERVED_IDS) {
+      const substrates = sideTotal(pools, ethanol.substrates, quantity);
+      const products = sideTotal(pools, ethanol.products, quantity);
+      if (products !== substrates) restored.push(quantity);
+    }
+    expect(restored).toEqual([]);
+  });
+
+  it('gives the same ledger down either branch, to nine decimal places', () => {
+    /**
+     * UPDATELOGV10.md stage 2 step 3. The claim act 1 exists to make, asserted
+     * across the branch choice.
+     *
+     * Computed from the reaction table on both sides rather than compared to a
+     * constant, so a coefficient change in one branch and not the other shows up
+     * as two derivations disagreeing rather than as a number nobody updated.
+     */
+    const pools = new PoolRegistry(act1PoolDefinitions());
+    const state = createAct1();
+    const prep = byId(state.reactions, 'prep');
+    const payoff = byId(state.reactions, 'payoff');
+
+    const payoffTurns =
+      coefficientOf(pools, prep, 'products', 'g3p') /
+      coefficientOf(pools, payoff, 'substrates', 'g3p');
+
+    const ledgerWith = (branchId: 'ferment' | 'ferment_ethanol') => {
+      const branch = byId(state.reactions, branchId);
+      // One branch turn per pyruvate, two per glucose, and neither turn touches
+      // ATP on either side.
+      const turns =
+        (coefficientOf(pools, payoff, 'products', 'pyruvate') * payoffTurns) /
+        coefficientOf(pools, branch, 'substrates', 'pyruvate');
+      const gross =
+        coefficientOf(pools, payoff, 'products', 'atp') * payoffTurns +
+        coefficientOf(pools, branch, 'products', 'atp') * turns;
+      const spent =
+        coefficientOf(pools, prep, 'substrates', 'atp') +
+        coefficientOf(pools, branch, 'substrates', 'atp') * turns;
+      return { gross, net: gross - spent, turns };
+    };
+
+    const lactate = ledgerWith('ferment');
+    const ethanol = ledgerWith('ferment_ethanol');
+
+    expect(lactate.turns).toBe(2);
+    expect(ethanol.turns).toBe(2);
+    expect(lactate.gross.toFixed(9)).toBe('4.000000000');
+    expect(lactate.net.toFixed(9)).toBe('2.000000000');
+    expect(ethanol.gross.toFixed(9)).toBe('4.000000000');
+    expect(ethanol.net.toFixed(9)).toBe('2.000000000');
+
+    // Not merely both right to nine places. Identical as floats, which is the
+    // stronger statement and the one that catches a branch yielding a millionth
+    // of an ATP.
+    expect(ethanol.gross).toBe(lactate.gross);
+    expect(ethanol.net).toBe(lactate.net);
   });
 
   it('resolves every pool index through the registry, so no index is out of range', () => {

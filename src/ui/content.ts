@@ -35,6 +35,7 @@
  */
 
 import { sourced, tuned, type BadgeSpec } from './components/Badge';
+import { MIN_POLYGON_SIDES } from './components/Blob';
 import type { Act1PoolId } from '../content/act1/pools';
 import type { Act1ReactionId } from '../content/act1/reactions';
 
@@ -76,6 +77,8 @@ export const MOLECULES: Readonly<Record<Act1PoolId, Entry>> = {
   g3p: { text: 'Glyceraldehyde 3-phosphate', badge: sourced(PART2) },
   pyruvate: { text: 'Pyruvate', badge: sourced(PART2) },
   lactate: { text: 'Lactate', badge: sourced(PART2) },
+  ethanol: { text: 'Ethanol', badge: sourced(`${PART2}, ethanol fermentation`) },
+  co2: { text: 'Carbon dioxide', badge: sourced(`${PART2}, ethanol fermentation`) },
   nad: { text: 'NAD+', badge: sourced(PART2) },
   nadh: { text: 'NADH', badge: sourced(PART2) },
   atp: { text: 'ATP', badge: sourced(PART2) },
@@ -94,6 +97,15 @@ export const CARRIER_PAIRS: Readonly<Record<'nicotinamide' | 'adenylate', Entry>
   adenylate: { text: 'ATP / ADP', badge: sourced(PART2) },
 };
 
+/**
+ * The ethanol branch makes both of these at once, one apiece, so they share a
+ * card for the same reason the carrier pairs do. Two of pyruvate's carbons stay
+ * and one leaves, and the pair is what says so.
+ */
+export const BRANCH_PRODUCTS: Readonly<Record<'ethanol', Entry>> = {
+  ethanol: { text: 'Ethanol / CO2', badge: sourced(`${PART2}, ethanol fermentation`) },
+};
+
 /* ===========================================================================
    REACTIONS
    =========================================================================== */
@@ -109,6 +121,13 @@ export const REACTIONS: Readonly<Record<Act1ReactionId, Entry>> = {
   prep: { text: 'Preparatory phase', badge: sourced(`${PART2}, steps 1 to 5`) },
   payoff: { text: 'Payoff phase', badge: sourced(`${PART2}, steps 6 to 10`) },
   ferment: { text: 'Lactate fermentation', badge: sourced(`${PART2}, fermentation`) },
+  ferment_ethanol: {
+    text: 'Ethanol fermentation',
+    // One arrow standing for two enzymes, which is the same posture `prep` and
+    // `payoff` take for five each. The badge names the pathway rather than an
+    // enzyme, because naming one of the two would say the other is not there.
+    badge: sourced(`${PART2}, ethanol fermentation`),
+  },
   maintain: {
     text: 'Maintenance',
     // The stoichiometry is real: ATP hydrolyses to ADP and inorganic phosphate.
@@ -174,6 +193,16 @@ export const UNLOCKS = {
     // from an "oxidises" on the same shelf.
     badge: sourced(`${PART2}, lactate dehydrogenase reduces pyruvate to lactate, oxidising NADH`),
   },
+  ethanolFerment: {
+    text: 'Pyruvate decarboxylase',
+    // Named for the enzyme that makes this branch a different branch. Alcohol
+    // dehydrogenase is the step that touches NADH and it is the step the lactate
+    // branch already has an equivalent of, so the decarboxylation is what the
+    // player is actually buying. The detail line names the other one.
+    badge: sourced(
+      `${PART2}, pyruvate decarboxylase removes CO2 to give acetaldehyde and alcohol dehydrogenase reduces it to ethanol`,
+    ),
+  },
   uptakeCapacity: {
     text: 'Uptake capacity',
     badge: tuned('A finite ladder of transport steps. Neither the steps nor their number is sourced'),
@@ -233,6 +262,26 @@ export const SHELF = {
   },
   fermentBuy: {
     text: 'Express it',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+
+  ethanolDetail: {
+    // The sentence has to say what differs without saying which is better,
+    // because neither is. docs/PROGRESSION.md act 1 item 8, and the zero yield
+    // is stated for this branch on its own rather than borrowed from the slot
+    // to its left.
+    text: 'The other way out of pyruvate. One carbon leaves as gas and two stay as ethanol. Makes no ATP.',
+    badge: sourced(`${PART2}, ethanol fermentation yields no ATP and releases one CO2 per pyruvate`),
+  },
+  ethanolLocked: {
+    text: 'Opens once the cell has a way to recycle NAD+ at all.',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  ethanolBuy: {
+    // NOT "Express it", which is the slot to the left. Two buttons reading the
+    // same two words side by side is the defect V3 stage 4 found on the two
+    // capacity slots, and it is worse read aloud than on screen.
+    text: 'Open the other route',
     badge: tuned(ABOUT_THE_BUILD),
   },
 
@@ -668,7 +717,14 @@ export const CARRIER_READOUT: Entry = {
 
 export function blobReadout(name: string, carbon: number, phosphate: number): Entry {
   const parts = [name];
-  if (carbon > 0) parts.push(`${carbon} sides, ${carbon} carbons`);
+  // BELOW THREE CARBONS THE SHAPE IS BEADS AND THE SENTENCE HAS TO SAY SO.
+  // UPDATELOGV10.md stage 2. A polygon needs three sides, so ethanol and carbon
+  // dioxide are drawn as one round bead per carbon, and a readout that said
+  // "1 sides, 1 carbons" would be describing a shape that is not on the screen
+  // as well as being ungrammatical. The count is still the whole of the claim.
+  if (carbon >= MIN_POLYGON_SIDES) parts.push(`${carbon} sides, ${carbon} carbons`);
+  else if (carbon === 1) parts.push('1 bead, 1 carbon');
+  else if (carbon > 0) parts.push(`${carbon} beads, ${carbon} carbons`);
   if (phosphate > 0) parts.push(`${phosphate} phosphate`);
   return { text: parts.join('. '), badge: sourced(`${PART2}, stoichiometry`) };
 }

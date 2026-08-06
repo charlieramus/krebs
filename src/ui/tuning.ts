@@ -123,6 +123,24 @@ export const DASH_LENGTH = 8;
 export const FERMENT_ATP_THRESHOLD = 55;
 
 /**
+ * Cumulative gross ATP before the ethanol branch can be bought. Added by
+ * UPDATELOGV10.md stage 2 and derived from a clock in stage 5.
+ *
+ * UNLIKE FERMENT_ATP_THRESHOLD, THIS ONE HAS A RANGE. That number is trapped
+ * between a wall at 2.95 game-seconds and an unbuyable ceiling of 60, so it has
+ * half a second to live in. This one is a spacing decision like the two ladders:
+ * the branch is not an answer to anything, it is a second option offered to a
+ * player whose cell is already running, so it can land wherever the act needs a
+ * beat.
+ *
+ * ALSO GATED, AND THE GATE IS NOT THIS NUMBER. `canBuyEthanol` refuses until the
+ * lactate branch has been bought, whatever the meter says. The NAD+ wall gets
+ * one answer, not a fork between two things a player has no way to tell apart
+ * yet. docs/PROGRESSION.md lists lactate at 7 and ethanol at 8.
+ */
+export const ETHANOL_ATP_THRESHOLD = 35000;
+
+/**
  * Uptake Vmax by capacity step. ENUMERATED, NOT A MULTIPLIER.
  *
  * CLAUDE.md hard rule 3 forbids infinite scaling, and an upgrade with no last
@@ -317,6 +335,9 @@ export const TUNING_BADGES = {
   dashSpeed: tuned('How fast the pathway looks. Chosen by watching it'),
   fermentThreshold: tuned(
     'Bounded above by the measured cumulative-ATP ceiling of a walled cell, which is 60. Above that the unlock is unbuyable',
+  ),
+  ethanolThreshold: tuned(
+    'A spacing decision rather than a constraint. The branch answers nothing, so it can land wherever the act needs a beat',
   ),
   uptakeThreshold: tuned(
     'Spaced so the capacity ladder is climbed across act 1 rather than in its first minute',

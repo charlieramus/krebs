@@ -31,6 +31,7 @@ import { createLoop, elapsedMs, type Loop } from '../sim/loop';
 import { hill, michaelisMenten, type Kinetics } from '../sim/reactions';
 import type { SimulationState } from '../sim/state';
 import {
+  ETHANOL_ATP_THRESHOLD,
   FERMENT_ATP_THRESHOLD,
   GLYCOLYSIS_ATP_THRESHOLDS,
   GLYCOLYSIS_STEPS,
@@ -58,6 +59,7 @@ import {
 import {
   ACT1_NO_CARRIED_COUNTERS,
   ACT1_UNLOCK_FERMENT,
+  ACT1_UNLOCK_FERMENT_ETHANOL,
   act1GlycolysisUnlockId,
   act1UptakeUnlockId,
   captureAct1,
@@ -162,6 +164,12 @@ export interface Act1Snapshot {
 
   /** Whether lactate dehydrogenase has been bought. */
   fermentUnlocked: boolean;
+  /**
+   * Whether the ethanol branch has been bought. Independent of `fermentUnlocked`
+   * in the data, gated behind it in the shelf: a player meeting the NAD+ wall
+   * for the first time is offered one answer and not a fork.
+   */
+  ethanolUnlocked: boolean;
   /** Index into UPTAKE_VMAX_STEPS. 0 is the shipped default and is not bought. */
   uptakeStep: number;
   /**
@@ -331,6 +339,15 @@ export interface Act1Runtime {
    * produces it at a rate. Do not "fix" this into a purchase.
    */
   buyFerment(): boolean;
+  /**
+   * Buy the ethanol branch, under the same rules plus one more: it refuses
+   * until the lactate branch has been bought. See `canBuyEthanol`.
+   *
+   * It does not remove the lactate branch and nothing ever does. A cell with
+   * both runs both against the same pyruvate, so what the player bought is an
+   * option rather than an upgrade.
+   */
+  buyEthanol(): boolean;
   /** Buy the next uptake capacity step, under the same rules. */
   buyUptakeStep(): boolean;
   /**
@@ -340,6 +357,7 @@ export interface Act1Runtime {
   buyGlycolysisStep(): boolean;
   /** Whether the meter has reached each threshold. Display only. */
   canBuyFerment(): boolean;
+  canBuyEthanol(): boolean;
   canBuyUptakeStep(): boolean;
   canBuyGlycolysisStep(): boolean;
 
@@ -548,6 +566,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     lastTickCount: 0,
     frameCount: 0,
     fermentUnlocked: state.reactions[reactionIndex('ferment')]?.enabled ?? false,
+    ethanolUnlocked: state.reactions[reactionIndex('ferment_ethanol')]?.enabled ?? false,
     uptakeStep: 0,
     glycolysisStep: 0,
     walled: false,
@@ -938,6 +957,31 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       return true;
     },
 
+    canBuyEthanol(): boolean {
+      // GATED BEHIND THE LACTATE BRANCH, and the gate is a teaching decision
+      // rather than a balance one. The NAD+ wall arrives about three seconds in
+      // and its answer has to be one thing the player can act on. Offering two
+      // branches at that moment turns the act's central beat into a choice
+      // between two options the player has no way to tell apart yet, and the
+      // thing they have to learn first is that either of them recycles NAD+ and
+      // neither makes ATP. docs/PROGRESSION.md lists lactate at 7 and ethanol
+      // at 8 for the same reason.
+      if (!snapshot.fermentUnlocked) return false;
+      if (snapshot.ethanolUnlocked) return false;
+      return meter.atpProduced >= ETHANOL_ATP_THRESHOLD;
+    },
+
+    buyEthanol(): boolean {
+      if (!snapshot.fermentUnlocked) return false;
+      if (snapshot.ethanolUnlocked) return false;
+      if (meter.atpProduced < ETHANOL_ATP_THRESHOLD) return false;
+      setReactionEnabled(state, 'ferment_ethanol', true);
+      snapshot.ethanolUnlocked = true;
+      unlocked.push(ACT1_UNLOCK_FERMENT_ETHANOL);
+      autosave?.saveNow('unlock');
+      return true;
+    },
+
     canBuyUptakeStep(): boolean {
       const next = snapshot.uptakeStep + 1;
       if (next >= UPTAKE_VMAX_STEPS.length) return false;
@@ -1122,6 +1166,12 @@ function applyGlycolysisStep(state: SimulationState, step: number): void {
   setReactionVmaxPreservingShape(state, 'prep', rung.prep);
   setReactionVmaxPreservingShape(state, 'payoff', rung.payoff);
   setReactionVmaxPreservingShape(state, 'ferment', rung.payoff);
+  // The ethanol branch climbs with the lactate branch, at the same value, for
+  // the reason the two ship at the same value: the choice between them is about
+  // what the cell keeps and a ladder that raised only one would turn it into a
+  // choice about speed. It is raised whether or not it has been bought, exactly
+  // as `ferment` is, because a Vmax on a disabled reaction does nothing.
+  setReactionVmaxPreservingShape(state, 'ferment_ethanol', rung.payoff);
 }
 
 /** Pool index by id, for a display that knows what it is looking at. */

@@ -55,12 +55,23 @@ import type { Act1ReactionId } from './reactions';
  * pathway without ATP piling up against the fixed adenylate total. If it could
  * not, ADP would run out and glycolysis would stall on the adenylate ceiling
  * instead of on NAD+, which would put the wrong wall in front of the player.
+ *
+ * `ferment_ethanol` EQUALS `ferment`, AND THE EQUALITY IS THE DECISION.
+ * UPDATELOGV10.md stage 2. docs/SCIENCE.md Part 1 refuses literature rates, so
+ * there is no sourced reason to make either branch faster than the other, and
+ * inventing one would decide the game's first real choice on a number nobody can
+ * check. Identical constants make the choice about what the cell keeps rather
+ * than about which branch is quicker, which is what docs/PROGRESSION.md act 1
+ * item 8 says the choice is. It also means neither branch is ever strictly worse
+ * than the other, which UPDATELOGV5.md's rule about purchasable configurations
+ * requires: a purchase that makes the cell worse does not ship.
  */
 export const ACT1_VMAX: Readonly<Record<Act1ReactionId, number>> = {
   uptake: 8,
   prep: 12,
   payoff: 26,
   ferment: 26,
+  ferment_ethanol: 26,
   maintain: 50,
 };
 
@@ -88,6 +99,7 @@ export const ACT1_KM: Readonly<Record<Act1ReactionId, number>> = {
   prep: 4,
   payoff: 2,
   ferment: 2,
+  ferment_ethanol: 2,
   maintain: 12,
 };
 

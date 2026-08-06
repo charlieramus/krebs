@@ -136,6 +136,26 @@ describe('act 1 determinism', () => {
     // repair that makes only one of them. Nothing else moved: no coefficient, no
     // pool, no ordering, no Vmax, and no starting amount. See
     // __tests__/bootstrap.test.ts, which is the reason the change exists.
-    expect(hashState(runScript(CANONICAL_SEED, CANONICAL_TICKS))).toBe('49ea08d3');
+    //
+    // 2b18a4bc, UPDATELOGV10.md stage 2, AND THIS ONE MOVED FOR A REASON THE
+    // OTHER TWO DID NOT. Both earlier moves changed a number. This one changed
+    // the SHAPE of the hashed state: act 1 gained two pools, `ethanol` and
+    // `co2`, which are the products of the ethanol fermentation branch, and the
+    // canonical form is a function of the pool set and its order. Both start at
+    // zero and the script below never enables the branch, so **not one pool
+    // amount in this fixture differs from the run that produced 49ea08d3.** The
+    // hash moved because there are two more zeros in the canonical form and
+    // because the two new ids sit between `lactate` and `nad` in
+    // ACT1_POOL_IDS, which is where the pathway puts them.
+    //
+    // That is worth stating plainly, because it is the first time this line has
+    // moved without the simulation behaving differently, and a maintainer
+    // comparing act 1 before and after V10 should not go looking for an
+    // economy change that is not there. What did not move: any coefficient of
+    // any pre-existing reaction, any Vmax, any Km, any starting amount, any
+    // kinetic form, and the ledger of 4 ATP gross and 2 net per glucose, which
+    // __tests__/stoichiometry.test.ts asserts down both branches to nine
+    // decimal places.
+    expect(hashState(runScript(CANONICAL_SEED, CANONICAL_TICKS))).toBe('2b18a4bc');
   });
 });

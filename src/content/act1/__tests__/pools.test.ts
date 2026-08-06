@@ -30,6 +30,8 @@ const PROBE: Readonly<Record<Act1PoolId, number>> = {
   g3p: 4,
   pyruvate: 3,
   lactate: 5,
+  ethanol: 13,
+  co2: 17,
   nad: 6,
   nadh: 2,
   atp: 9,
@@ -38,9 +40,9 @@ const PROBE: Readonly<Record<Act1PoolId, number>> = {
 };
 
 describe('act 1 pools', () => {
-  it('constructs a registry over the ten act 1 pools', () => {
+  it('constructs a registry over the twelve act 1 pools', () => {
     const pools = new PoolRegistry(act1PoolDefinitions());
-    expect(pools.count).toBe(10);
+    expect(pools.count).toBe(12);
     expect(pools.ids).toEqual([...ACT1_POOL_IDS]);
     expect(pools.labels[pools.indexOf('nad')]).toBe('NAD+');
   });
@@ -70,17 +72,21 @@ describe('act 1 pools', () => {
     const pools = new PoolRegistry(act1PoolDefinitions(PROBE));
 
     // carbon: glucose_env 6*100=600, glucose 6*7=42, g3p 3*4=12,
-    //         pyruvate 3*3=9, lactate 3*5=15. Carriers carry no carbon.
-    expect(pools.totalConserved('carbon')).toBe(678);
+    //         pyruvate 3*3=9, lactate 3*5=15, ethanol 2*13=26, co2 1*17=17.
+    //         Carriers carry no carbon.
+    expect(pools.totalConserved('carbon')).toBe(721);
 
     // phosphate: g3p 1*4=4, atp 3*9=27, adp 2*8=16, pi 1*11=11.
     //            Glucose is unphosphorylated, pyruvate and lactate are not.
     expect(pools.totalConserved('phosphate')).toBe(58);
 
     // redox: glucose_env 2*100=200, glucose 2*7=14, g3p 1*4=4,
-    //        lactate 1*5=5, nadh 1*2=2. NAD+ and pyruvate carry zero, which is
-    //        the whole point of the convention.
-    expect(pools.totalConserved('redox')).toBe(225);
+    //        lactate 1*5=5, ethanol 1*13=13, nadh 1*2=2. NAD+, pyruvate and
+    //        CARBON DIOXIDE carry zero. The last of those is the one worth
+    //        checking rather than assuming: CO2 is the most oxidised form
+    //        carbon takes, so it holds no reducing power at all, and it is what
+    //        forces ethanol to 1 for the ethanol branch to balance.
+    expect(pools.totalConserved('redox')).toBe(238);
 
     // nicotinamide: nad 6 + nadh 2. Nothing else touches it.
     expect(pools.totalConserved('nicotinamide')).toBe(8);
@@ -122,8 +128,12 @@ describe('act 1 pools', () => {
     expect(pools.get('nad')).toBe(ACT1_INITIAL.nad);
     expect(pools.get('nadh')).toBe(0);
 
-    // Nothing has entered the cell and nothing has been fermented.
+    // Nothing has entered the cell and nothing has been fermented, down either
+    // branch. Both ethanol-branch products start empty and neither is a tuned
+    // number: a cell that has never run has made none of either.
     expect(pools.get('glucose')).toBe(0);
     expect(pools.get('lactate')).toBe(0);
+    expect(pools.get('ethanol')).toBe(0);
+    expect(pools.get('co2')).toBe(0);
   });
 });

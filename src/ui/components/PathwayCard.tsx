@@ -1,11 +1,12 @@
 /**
- * The pathway. Five act 1 reactions as arrows between the pool blobs, on the
+ * The pathway. Six act 1 reactions as arrows between the pool blobs, on the
  * cream working surface.
  *
- * Three rows, in the order UPDATELOGV3.md settles:
+ * Four rows, in the order UPDATELOGV3.md settles plus the branch V10 adds:
  *
  *     glucose_env -> uptake  -> glucose  -> prep    -> g3p
  *     g3p         -> payoff  -> pyruvate -> ferment -> lactate
+ *     pyruvate    -> ferment_ethanol     -> ethanol + co2
  *     atp         -> maintain-> adp + pi
  *
  * g3p ends the first row and starts the second, drawn twice on purpose. The
@@ -42,6 +43,8 @@ const SEEDS: Readonly<Record<string, number>> = {
   g3p: 37,
   pyruvate: 41,
   lactate: 59,
+  ethanol: 97,
+  co2: 103,
   nad: 67,
   nadh: 67,
   atp: 73,
@@ -55,6 +58,8 @@ const FILLS: Readonly<Record<string, string>> = {
   g3p: SUBSTRATE,
   pyruvate: SUBSTRATE,
   lactate: SUBSTRATE,
+  ethanol: SUBSTRATE,
+  co2: SUBSTRATE,
   atp: ATP_ORANGE,
   adp: ATP_ORANGE,
   pi: 'var(--color-white)',
@@ -148,6 +153,24 @@ export function PathwayCard() {
         <Row
           groups={[['g3p'], ['pyruvate'], ['lactate']]}
           reactions={['payoff', 'ferment']}
+          reducedMotion={reducedMotion}
+        />
+        {/*
+          The second way out of pyruvate, added by UPDATELOGV10.md stage 2.
+
+          Its own row, starting from pyruvate again, for the same reason g3p is
+          drawn twice one row up: the branch point is where the arithmetic
+          happens and a row that wrapped would hide it. Two products in one
+          group, like the maintenance row below, because a decarboxylation makes
+          two things and drawing only the ethanol would make the missing carbon
+          look like a rounding error rather than a molecule.
+
+          Pyruvate's three sides against two beads and one bead is the whole
+          claim, and it is on the screen rather than in a sentence.
+        */}
+        <Row
+          groups={[['pyruvate'], ['ethanol', 'co2']]}
+          reactions={['ferment_ethanol']}
           reducedMotion={reducedMotion}
         />
         {/*

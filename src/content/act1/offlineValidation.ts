@@ -88,6 +88,14 @@ export const CONFIGURATIONS: readonly string[] = [
   'glycolytic-4',
   'walled-then-bought',
   'environment-low',
+  // THE TWO ETHANOL-BRANCH CASES, added by UPDATELOGV10.md stage 2. A shipped
+  // code path that the offline sweep never enters is a code path nobody has
+  // checked can be jumped over. `ethanol` is a cell that took the other branch
+  // and `both-branches` is one that took both, which is the case with two
+  // reactions competing for the same pyruvate and therefore the one most likely
+  // to settle differently.
+  'ethanol',
+  'both-branches',
 ];
 
 export function buildConfiguration(name: string): SimulationState {
@@ -106,6 +114,13 @@ export function buildConfiguration(name: string): SimulationState {
     setVmax(state, 'payoff', rung.payoff);
     setVmax(state, 'ferment', rung.payoff);
     return state;
+  }
+
+  if (name === 'ethanol') {
+    return createAct1({ enabled: { ferment: false, ferment_ethanol: true } });
+  }
+  if (name === 'both-branches') {
+    return createAct1({ enabled: { ferment: true, ferment_ethanol: true } });
   }
 
   const state = createAct1({ enabled: { ferment: true } });
