@@ -8,7 +8,7 @@ import type { OfflineEventRecord } from '../../sim/jump';
 import { ACT1_POOL_IDS } from '../../content/act1/pools';
 import { collapseEvents, OfflineReturn } from '../components/OfflineReturn';
 import { OFFLINE_RETURN, SAVE } from '../content';
-import type { Act1OfflineReport } from '../runtime';
+import type { ActOfflineReport } from '../runtime';
 
 /**
  * The offline return screen. DESIGN.md's screen inventory, open since
@@ -35,7 +35,7 @@ function event(
   };
 }
 
-function report(overrides: Partial<Act1OfflineReport> = {}): Act1OfflineReport {
+function report(overrides: Partial<ActOfflineReport> = {}): ActOfflineReport {
   return {
     creditedMs: 8 * 3600000,
     uncreditedMs: 0,

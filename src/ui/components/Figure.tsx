@@ -21,7 +21,7 @@
  */
 
 import { useLive } from '../RuntimeContext';
-import type { Act1Snapshot } from '../runtime';
+import type { ActSnapshot } from '../runtime';
 import { Badge, badgeTrace, type BadgeSpec } from './Badge';
 
 /**
@@ -55,7 +55,7 @@ interface FigureBaseProps {
   /** A number known at render time. Mutually exclusive with `read`. */
   value?: number;
   /** A number sampled from the simulation snapshot every frame. */
-  read?: (snapshot: Act1Snapshot) => number;
+  read?: (snapshot: ActSnapshot) => number;
   /** Decimal places. Fixed rather than significant, so columns align. */
   decimals?: number;
   /**
@@ -185,7 +185,7 @@ function LiveNumber({
   decimals,
   signed,
 }: {
-  read: (snapshot: Act1Snapshot) => number;
+  read: (snapshot: ActSnapshot) => number;
   decimals: number;
   signed: boolean;
 }) {

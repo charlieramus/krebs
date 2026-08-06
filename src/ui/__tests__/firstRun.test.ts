@@ -22,7 +22,7 @@ import { hashState } from '../../sim/hash';
 import { setShortfallLogging } from '../../sim/tick';
 import { serialize } from '../../save/codec';
 import { createMemoryStore, createSaveStore, STORAGE_KEYS } from '../../save/storage';
-import { createAct1Runtime, type Act1PersistenceOptions, type Act1Runtime } from '../runtime';
+import { createActRuntime, type ActPersistenceOptions, type ActRuntime } from '../runtime';
 
 beforeAll(() => {
   setShortfallLogging(false);
@@ -31,7 +31,7 @@ beforeAll(() => {
 function harness(seed: Readonly<Record<string, string>> = {}) {
   const backing = createMemoryStore(seed);
   let epoch = 1785000000000;
-  const persistence = (): Act1PersistenceOptions => ({
+  const persistence = (): ActPersistenceOptions => ({
     store: createSaveStore({ store: backing }),
     epochClock: () => epoch,
     // No timer and no listeners. Every write in this file is an explicit one,
@@ -44,11 +44,11 @@ function harness(seed: Readonly<Record<string, string>> = {}) {
   return { backing, persistence, advance: (ms: number) => (epoch += ms) };
 }
 
-function makeRuntime(h: ReturnType<typeof harness>): Act1Runtime {
-  return createAct1Runtime({ schedule: () => 0, cancel: () => {}, persistence: h.persistence() });
+function makeRuntime(h: ReturnType<typeof harness>): ActRuntime {
+  return createActRuntime({ schedule: () => 0, cancel: () => {}, persistence: h.persistence() });
 }
 
-function play(runtime: Act1Runtime, ticks: number): void {
+function play(runtime: ActRuntime, ticks: number): void {
   let nowMs = 0;
   runtime.frame(nowMs);
   for (let i = 0; i < ticks; i += 1) {

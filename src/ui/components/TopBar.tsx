@@ -21,13 +21,13 @@ import { Figure } from './Figure';
 import { Badge, type BadgeSpec } from './Badge';
 import { Button } from './Button';
 import { ABOUT, LANDMARKS, READOUTS, WORDMARK } from '../content';
-import { poolIndex, type Act1Snapshot } from '../runtime';
+import { poolIndex, type ActSnapshot } from '../runtime';
 
 const ATP = poolIndex('atp');
 const GLUCOSE = poolIndex('glucose');
 
-const readAtpPerSecond = (snapshot: Act1Snapshot): number => snapshot.production[ATP] as number;
-const readGlucosePerSecond = (snapshot: Act1Snapshot): number =>
+const readAtpPerSecond = (snapshot: ActSnapshot): number => snapshot.production[ATP] as number;
+const readGlucosePerSecond = (snapshot: ActSnapshot): number =>
   snapshot.production[GLUCOSE] as number;
 
 /**
@@ -38,7 +38,7 @@ const readGlucosePerSecond = (snapshot: Act1Snapshot): number =>
  * Figure. docs/PROGRESSION.md gives act 1 a duration of 45 to 90 minutes, so
  * minutes is also the unit the pacing is actually specified in.
  */
-const readElapsedMinutes = (snapshot: Act1Snapshot): number => snapshot.elapsedMs / 60000;
+const readElapsedMinutes = (snapshot: ActSnapshot): number => snapshot.elapsedMs / 60000;
 
 function Headline({
   label,
@@ -50,7 +50,7 @@ function Headline({
 }: {
   label: string;
   badge: BadgeSpec;
-  read: (snapshot: Act1Snapshot) => number;
+  read: (snapshot: ActSnapshot) => number;
   unit: string;
   decimals?: number;
   colour?: string;

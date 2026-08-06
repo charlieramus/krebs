@@ -58,7 +58,7 @@
 
 import { TICK_MS } from '../../sim/constants';
 import type { OfflineEventRecord } from '../../sim/jump';
-import type { Act1OfflineReport } from '../runtime';
+import type { ActOfflineReport } from '../runtime';
 import { Badge } from './Badge';
 import { Button } from './Button';
 import { Card } from './Card';
@@ -137,7 +137,7 @@ export function OfflineReturn({
   report,
   onDismiss,
 }: {
-  report: Act1OfflineReport;
+  report: ActOfflineReport;
   onDismiss: () => void;
 }) {
   const runs = collapseEvents(report.events, report.poolIds);

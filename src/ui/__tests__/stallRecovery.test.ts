@@ -19,7 +19,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { TICK_MS, TICK_SECONDS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
-import { createAct1Runtime, poolIndex, reactionIndex, type Act1Runtime } from '../runtime';
+import { createActRuntime, poolIndex, reactionIndex, type ActRuntime } from '../runtime';
 import { FERMENT_ATP_THRESHOLD } from '../tuning';
 
 beforeAll(() => {
@@ -34,7 +34,7 @@ const GLUCOSE = poolIndex('glucose');
 const PAYOFF = reactionIndex('payoff');
 const PREP = reactionIndex('prep');
 
-function advance(runtime: Act1Runtime, ticks: number, fromMs: number): number {
+function advance(runtime: ActRuntime, ticks: number, fromMs: number): number {
   let nowMs = fromMs;
   for (let t = 0; t < ticks; t += 1) {
     nowMs += TICK_MS;
@@ -46,7 +46,7 @@ function advance(runtime: Act1Runtime, ticks: number, fromMs: number): number {
 describe('recovery from a very long stall', () => {
   it('recovers after 20000 ticks walled, and reports how', () => {
     const STALL_TICKS = 20000; // 1000 game-seconds, about 16.7 minutes.
-    const runtime = createAct1Runtime();
+    const runtime = createActRuntime();
     let nowMs = 0;
     runtime.frame(nowMs);
     nowMs = advance(runtime, STALL_TICKS, nowMs);
@@ -129,7 +129,7 @@ describe('recovery from a very long stall', () => {
     // puts its flux far below anything that could restart a pathway. Asserting
     // the flux rather than the ATP level also survives the next change to how
     // much ATP a walled cell holds.
-    const runtime = createAct1Runtime();
+    const runtime = createActRuntime();
     let nowMs = 0;
     runtime.frame(nowMs);
     nowMs = advance(runtime, 20000, nowMs);

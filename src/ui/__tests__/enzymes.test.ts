@@ -17,7 +17,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { TICK_MS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
-import { createAct1Runtime, poolIndex, type Act1Runtime } from '../runtime';
+import { createActRuntime, poolIndex, type ActRuntime } from '../runtime';
 import {
   GLYCOLYSIS_STEPS,
   PFK1_PK_ATP_THRESHOLD,
@@ -70,7 +70,7 @@ const CONFIGURATIONS: readonly Configuration[] = [
 ];
 
 /** A runtime built directly into a configuration, run to steady state. */
-function at(configuration: Configuration, seconds: number): Act1Runtime {
+function at(configuration: Configuration, seconds: number): ActRuntime {
   const rung =
     configuration.glycolysisStep === null
       ? null
@@ -88,7 +88,7 @@ function at(configuration: Configuration, seconds: number): Act1Runtime {
   const base = rung ?? (GLYCOLYSIS_STEPS[0] as { prep: number; payoff: number });
   const payoff = base.payoff * factor;
 
-  const runtime = createAct1Runtime({
+  const runtime = createActRuntime({
     act1: {
       enabled: { ferment: true },
       vmax: {
@@ -166,7 +166,7 @@ describe('the named glycolytic enzymes', () => {
   });
 
   it('sells nothing until the uptake ladder is finished', () => {
-    const runtime = createAct1Runtime({ persistence: { enabled: false } });
+    const runtime = createActRuntime({ persistence: { enabled: false } });
     runtime.frame(0);
     for (let t = 0; t < 200; t += 1) runtime.frame(runtime.snapshot.elapsedMs + TICK_MS);
     expect(runtime.buyFerment()).toBe(true);

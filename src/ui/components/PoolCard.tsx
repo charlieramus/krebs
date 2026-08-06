@@ -28,7 +28,7 @@
 
 import { useState } from 'react';
 import { useLiveNode, useRuntime, useSnapshotEffect } from '../RuntimeContext';
-import { poolIndex, type Act1Snapshot } from '../runtime';
+import { poolIndex, type ActSnapshot } from '../runtime';
 import type { Act1PoolId } from '../../content/act1/pools';
 import { Badge } from './Badge';
 import { Blob, setRedoxLevel } from './Blob';
@@ -50,7 +50,7 @@ import { FERMENT_ATP_THRESHOLD } from '../tuning';
 /** Below this the pool is flat rather than moving, and the sign means nothing. */
 const FLAT_RATE = 1e-6;
 
-function SignedRate({ read }: { read: (snapshot: Act1Snapshot) => number }) {
+function SignedRate({ read }: { read: (snapshot: ActSnapshot) => number }) {
   /**
    * MOVING OR FLAT, IN INK. UPDATELOGV7.md stage 5.
    *

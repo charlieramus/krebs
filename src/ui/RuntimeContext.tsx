@@ -22,24 +22,24 @@ import {
   type RefObject,
 } from 'react';
 import {
-  createAct1Runtime,
-  type Act1Runtime,
-  type Act1RuntimeOptions,
-  type Act1Snapshot,
+  createActRuntime,
+  type ActRuntime,
+  type ActRuntimeOptions,
+  type ActSnapshot,
 } from './runtime';
 
-const RuntimeContext = createContext<Act1Runtime | null>(null);
+const RuntimeContext = createContext<ActRuntime | null>(null);
 
 export function RuntimeProvider({
   children,
   options,
 }: {
   children: ReactNode;
-  options?: Act1RuntimeOptions;
+  options?: ActRuntimeOptions;
 }) {
   // Lazy initialiser, so StrictMode's double render does not build two
   // simulations and throw one away mid-flight.
-  const [runtime] = useState(() => createAct1Runtime(options ?? {}));
+  const [runtime] = useState(() => createActRuntime(options ?? {}));
 
   useEffect(() => {
     runtime.start();
@@ -49,7 +49,7 @@ export function RuntimeProvider({
   return <RuntimeContext.Provider value={runtime}>{children}</RuntimeContext.Provider>;
 }
 
-export function useRuntime(): Act1Runtime {
+export function useRuntime(): ActRuntime {
   const runtime = useContext(RuntimeContext);
   if (runtime === null) throw new Error('useRuntime: no RuntimeProvider above this component');
   return runtime;
@@ -66,7 +66,7 @@ export function useRuntime(): Act1Runtime {
  * not resubscribe on every render. The subscription is keyed to the runtime.
  */
 export function useLiveNode<E extends HTMLElement | SVGElement>(
-  apply: (element: E, snapshot: Act1Snapshot) => void,
+  apply: (element: E, snapshot: ActSnapshot) => void,
 ): RefObject<E | null> {
   const runtime = useRuntime();
   const ref = useRef<E>(null);
@@ -97,7 +97,7 @@ export function useLiveNode<E extends HTMLElement | SVGElement>(
  * every frame, so it must compare before it sets, or it re-renders the tree
  * sixty times a second and undoes the entire point of the runtime.
  */
-export function useSnapshotEffect(effect: (snapshot: Act1Snapshot) => void): void {
+export function useSnapshotEffect(effect: (snapshot: ActSnapshot) => void): void {
   const runtime = useRuntime();
   const effectRef = useRef(effect);
 
@@ -117,7 +117,7 @@ export function useSnapshotEffect(effect: (snapshot: Act1Snapshot) => void): voi
  * because the simulation ticks at 20Hz and the display runs at 60.
  */
 export function useLive<E extends HTMLElement | SVGElement>(
-  read: (snapshot: Act1Snapshot) => string,
+  read: (snapshot: ActSnapshot) => string,
 ): RefObject<E | null> {
   return useLiveNode<E>((element, snapshot) => {
     const next = read(snapshot);

@@ -16,10 +16,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { TICK_SECONDS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
-import { createAct1Runtime } from '../runtime';
+import { createActRuntime } from '../runtime';
 import { TICK_MS } from '../../sim/constants';
 import { UPTAKE_VMAX_STEPS } from '../tuning';
-import { poolIndex, type Act1Runtime } from '../runtime';
+import { poolIndex, type ActRuntime } from '../runtime';
 
 const ATP_INDEX = poolIndex('atp');
 const ENV = poolIndex('glucose_env');
@@ -30,7 +30,7 @@ const ENV = poolIndex('glucose_env');
  * deciding, which is what keeps the report measuring the game rather than a
  * second copy of its rules.
  */
-function buyOne(runtime: Act1Runtime): string | null {
+function buyOne(runtime: ActRuntime): string | null {
   if (runtime.buyFerment()) return 'lactate fermentation';
   if (runtime.buyUptakeStep()) return `uptake capacity ${runtime.snapshot.uptakeStep}`;
   if (runtime.buyGlycogen()) return 'glycogen storage';
@@ -49,7 +49,7 @@ function timeToReach(
   milestones: readonly number[],
   options: { ferment: boolean; uptakeVmax: number; minutes: number },
 ): (number | null)[] {
-  const runtime = createAct1Runtime({
+  const runtime = createActRuntime({
     act1: { enabled: { ferment: options.ferment }, vmax: { uptake: options.uptakeVmax } },
   });
   const found: (number | null)[] = milestones.map(() => null);
@@ -86,7 +86,7 @@ describe('unlock pacing', () => {
     // threshold at or above that ceiling is unbuyable, and the player is stuck
     // at a wall whose solution they can never afford. This is the single number
     // that constrains the whole unlock table.
-    const runtime = createAct1Runtime({ act1: { enabled: { ferment: false } } });
+    const runtime = createActRuntime({ act1: { enabled: { ferment: false } } });
     let nowMs = 0;
     runtime.frame(nowMs);
     for (let t = 0; t < 4000; t += 1) {
@@ -141,7 +141,7 @@ describe('unlock pacing', () => {
     ];
 
     for (const [label, checkEvery] of players) {
-      const runtime = createAct1Runtime({ persistence: { enabled: false } });
+      const runtime = createActRuntime({ persistence: { enabled: false } });
       runtime.frame(0);
       const checkTicks = Math.round(checkEvery * 60 * 20);
       const rows: string[] = [];

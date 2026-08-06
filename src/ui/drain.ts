@@ -27,7 +27,7 @@ import { TICK_MS } from '../sim/constants';
 import { setShortfallLogging } from '../sim/tick';
 import { ACT1_GLUCOSE_ENV_INITIAL } from '../content/act1/tuning';
 import { UPTAKE_VMAX_STEPS } from './tuning';
-import { createAct1Runtime } from './runtime';
+import { createActRuntime } from './runtime';
 import { poolIndex } from './runtime';
 
 /**
@@ -60,7 +60,7 @@ interface DrainResult {
 }
 
 function measure(uptakeVmax: number, maxMinutes: number): DrainResult {
-  const runtime = createAct1Runtime({
+  const runtime = createActRuntime({
     act1: { enabled: { ferment: true }, vmax: { uptake: uptakeVmax } },
   });
 

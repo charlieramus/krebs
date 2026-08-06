@@ -40,7 +40,7 @@
 
 import { useRef, useState } from 'react';
 import { useRuntime, useSnapshotEffect } from '../RuntimeContext';
-import type { Act1Snapshot } from '../runtime';
+import type { ActSnapshot } from '../runtime';
 import { ANNOUNCEMENTS, LANDMARKS, UNLOCKS, unlockAffordable, unlockBought } from '../content';
 import {
   FERMENT_ATP_THRESHOLD,
@@ -58,7 +58,7 @@ import {
  * purchase keys carry their step, so buying the second rung is a different event
  * from buying the first.
  */
-function events(snapshot: Act1Snapshot, canBuyGlycolysis: boolean): string[] {
+function events(snapshot: ActSnapshot, canBuyGlycolysis: boolean): string[] {
   const keys: string[] = [];
 
   if (snapshot.walled) keys.push('walled');

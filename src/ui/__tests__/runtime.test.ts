@@ -19,7 +19,7 @@ import { MAX_CATCHUP_TICKS, TICK_MS } from '../../sim/constants';
 import { hashState } from '../../sim/hash';
 import { setShortfallLogging, tick } from '../../sim/tick';
 import { createAct1 } from '../../content/act1/reactions';
-import { createAct1Runtime, type Act1RuntimeOptions } from '../runtime';
+import { createActRuntime, type ActRuntimeOptions } from '../runtime';
 
 beforeAll(() => {
   setShortfallLogging(false);
@@ -33,8 +33,8 @@ beforeAll(() => {
  * would hand it. The first frame credits zero time by construction, so the list
  * is fed starting from the second.
  */
-function drive(deltasMs: readonly number[], options: Act1RuntimeOptions = {}) {
-  const runtime = createAct1Runtime(options);
+function drive(deltasMs: readonly number[], options: ActRuntimeOptions = {}) {
+  const runtime = createActRuntime(options);
   let nowMs = 0;
   runtime.frame(nowMs);
   for (const delta of deltasMs) {
@@ -177,14 +177,14 @@ describe('frame timing does not reach the simulation', () => {
 
 describe('the runtime does not write to simulation state from the display side', () => {
   it('credits zero elapsed time on the first frame of a run, however late it arrives', () => {
-    const runtime = createAct1Runtime({ act1: { enabled: { ferment: true } } });
+    const runtime = createActRuntime({ act1: { enabled: { ferment: true } } });
     runtime.frame(9_999_999);
     expect(runtime.state.tickCount).toBe(0);
     expect(runtime.snapshot.pendingOfflineMs).toBe(0);
   });
 
   it('leaves the interpolation fraction in [0, 1) and out of the state', () => {
-    const runtime = createAct1Runtime({ act1: { enabled: { ferment: true } } });
+    const runtime = createActRuntime({ act1: { enabled: { ferment: true } } });
     let nowMs = 0;
     // 17ms frames over a 50ms tick: the remainder cycles rather than resting.
     for (let f = 0; f < 60; f += 1) {
@@ -197,7 +197,7 @@ describe('the runtime does not write to simulation state from the display side',
   });
 
   it('unsubscribes cleanly', () => {
-    const runtime = createAct1Runtime();
+    const runtime = createActRuntime();
     let calls = 0;
     const unsubscribe = runtime.subscribe(() => {
       calls += 1;

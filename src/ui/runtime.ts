@@ -96,7 +96,7 @@ import {
  * garbage collector to absorb it, which shows up as exactly the periodic hitch
  * that makes a flowing-dash animation stutter.
  */
-export interface Act1Snapshot {
+export interface ActSnapshot {
   /** Pool amounts, ACT1_POOL_IDS order. */
   readonly amounts: Float64Array;
   /** Intended flux per reaction, ACT1_REACTION_IDS order, units per game-second. */
@@ -205,7 +205,7 @@ export interface Act1Snapshot {
   walled: boolean;
 }
 
-export type Act1SnapshotListener = (snapshot: Act1Snapshot) => void;
+export type ActSnapshotListener = (snapshot: ActSnapshot) => void;
 
 /**
  * Applied flux below which a reaction counts as stopped for the purpose of
@@ -235,7 +235,7 @@ const WALLED_NAD = 0.05;
  * write a save slot, and a persistence layer that cannot be switched off makes
  * every one of them stateful.
  */
-export interface Act1PersistenceOptions {
+export interface ActPersistenceOptions {
   /** Defaults to `createSaveStore()`, which probes localStorage and falls back to memory. */
   readonly store?: SaveStore;
   /** Epoch milliseconds. Defaults to `epochNow`. The only wall clock in the runtime. */
@@ -256,7 +256,7 @@ export interface Act1PersistenceOptions {
  * backup, `future` refuses and says why, `unreadable` says both slots failed,
  * `new-game` says nothing at all.
  */
-export interface Act1Session {
+export interface ActSession {
   readonly kind: 'loaded' | 'new-game' | 'recoverable' | 'future' | 'unreadable' | 'disabled';
   /**
    * Real milliseconds between the last save and this load, capped at
@@ -277,7 +277,7 @@ export interface Act1Session {
   /** The version found, when the save came from a newer build. */
   readonly futureVersion: number | null;
   /** What the offline path did with `awayMs` plus anything already pending. */
-  readonly offline: Act1OfflineReport;
+  readonly offline: ActOfflineReport;
 }
 
 /**
@@ -287,7 +287,7 @@ export interface Act1Session {
  * session; `creditedMs` is zero when there was nothing to credit, which is the
  * common case and is what a reload produces.
  */
-export interface Act1OfflineReport {
+export interface ActOfflineReport {
   /** Game time actually simulated, in milliseconds. */
   readonly creditedMs: number;
   /** Time that was owed and not simulated, in milliseconds. Non-zero only when the budget ran out. */
@@ -312,7 +312,7 @@ export type ImportOutcome =
   | { readonly kind: 'future'; readonly version: number }
   | { readonly kind: 'failed'; readonly reason: string };
 
-export interface Act1RuntimeOptions {
+export interface ActRuntimeOptions {
   /** Passed through to createAct1. Enabled flags, Vmax overrides, initial amounts. */
   readonly act1?: Partial<Act1Options>;
   /** Monotonic milliseconds. Defaults to performance.now. */
@@ -321,12 +321,12 @@ export interface Act1RuntimeOptions {
   readonly schedule?: (callback: () => void) => number;
   /** Frame canceller. Defaults to cancelAnimationFrame. */
   readonly cancel?: (handle: number) => void;
-  readonly persistence?: Act1PersistenceOptions;
+  readonly persistence?: ActPersistenceOptions;
 }
 
-export interface Act1Runtime {
+export interface ActRuntime {
   /** The one snapshot object. Read it, do not keep references to its arrays. */
-  readonly snapshot: Act1Snapshot;
+  readonly snapshot: ActSnapshot;
   /** Escape hatch for tests and the drain measurement. Not for the display. */
   readonly state: SimulationState;
   readonly loop: Loop;
@@ -339,7 +339,7 @@ export interface Act1Runtime {
    * calls, and what tests and headless measurements call instead of scheduling.
    */
   frame(nowMs: number): void;
-  subscribe(listener: Act1SnapshotListener): () => void;
+  subscribe(listener: ActSnapshotListener): () => void;
 
   /**
    * Buy lactate dehydrogenase. Idempotent, and refuses if the cumulative meter
@@ -394,7 +394,7 @@ export interface Act1Runtime {
   /* ===== Persistence, UPDATELOGV4.md stage 5 ===== */
 
   /** What happened when this session started. Fixed at construction. */
-  readonly session: Act1Session;
+  readonly session: ActSession;
   /** Unlock ids in purchase order. The source of truth the save carries. */
   readonly unlocked: readonly string[];
   /** Build the save this instant. Pure with respect to the simulation. */
@@ -432,7 +432,7 @@ export interface Act1Runtime {
   markFirstRunSeen(): void;
 }
 
-export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime {
+export function createActRuntime(options: ActRuntimeOptions = {}): ActRuntime {
   const clock = options.clock ?? (() => performance.now());
   const schedule =
     options.schedule ?? ((callback: () => void) => requestAnimationFrame(callback));
@@ -579,7 +579,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     }
   }
 
-  const snapshot: Act1Snapshot = {
+  const snapshot: ActSnapshot = {
     amounts: new Float64Array(poolCount),
     flux: new Float64Array(reactionCount),
     appliedFlux: new Float64Array(reactionCount),
@@ -698,7 +698,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * rather than being rounded into existence. That is the same rule
    * docs/SAVE_SCHEMA.md Part 3 applies to reconstruction.
    */
-  function creditPendingOffline(): Act1OfflineReport {
+  function creditPendingOffline(): ActOfflineReport {
     const startedAt = clock();
     const pendingMs = state.diagnostics.pendingOfflineMs;
     const windowTicks = Math.floor(pendingMs / TICK_MS);
@@ -764,7 +764,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     };
   }
 
-  const session: Act1Session = {
+  const session: ActSession = {
     kind: store === null ? 'disabled' : (loaded?.kind ?? 'new-game'),
     awayMs: offline.awayMs,
     offlineCapped: offline.capped,
@@ -780,7 +780,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     offline: offlineReport,
   };
 
-  const listeners = new Set<Act1SnapshotListener>();
+  const listeners = new Set<ActSnapshotListener>();
 
   /** Filled in place. Nothing here allocates. */
   function fill(interpolation: number): void {
@@ -982,7 +982,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
 
     frame,
 
-    subscribe(listener: Act1SnapshotListener): () => void {
+    subscribe(listener: ActSnapshotListener): () => void {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
@@ -1317,7 +1317,7 @@ export function reactionIndex(id: Act1ReactionId): number {
 }
 
 /** Game seconds from the snapshot's game milliseconds. The one conversion. */
-export function gameSeconds(snapshot: Act1Snapshot): number {
+export function gameSeconds(snapshot: ActSnapshot): number {
   return snapshot.elapsedMs / 1000;
 }
 
