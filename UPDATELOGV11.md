@@ -373,7 +373,96 @@ each, and the quoted output of all four probes.
 
 ## Stage 3 Report
 
-_Pending._
+**`src/ui/content.ts` is gone and eleven files stand where it stood. Grouped by surface, because a person looking for a string is looking for the screen it is on.**
+
+```
+  src/ui/content/
+    index.ts          the barrel. Re-exports only, declares nothing
+    common.ts         the Entry shape, PART1, PART2, ABOUT_THE_BUILD
+    molecules.ts      MOLECULES, moleculeName, CARRIER_PAIRS, BRANCH_PRODUCTS
+    pathway.ts        REACTIONS
+    topBar.ts         READOUTS, WORDMARK
+    poolRail.ts       POOL_FIGURES, carrierState, FIGURE_LABELS,
+                      CARRIER_READOUT, blobReadout
+    shelf.ts          UNLOCKS, SHELF
+    announcements.ts  LANDMARKS, ANNOUNCEMENTS, unlockAffordable, unlockBought
+    teaching.ts       COACH, the three coach marks, YIELD_PANEL,
+                      PANEL_AFFORDANCE
+    about.ts          DISCLOSURE, FIRST_RUN, ABOUT
+    offline.ts        OFFLINE_RETURN
+    save.ts           SAVE
+```
+
+**One file is not a surface and that is deliberate.** `molecules.ts` holds the names the pool rail, the pathway card and the coach marks all say. A name that lived on one surface would be restated on the other two, which is the drift docs/CONTENT_STYLE.md Part 3 exists to stop. Every other file is a screen.
+
+**`index.ts` is a re-export and nothing else**, so every existing `from '../content'` import resolves unchanged. The split cost zero import edits at the fifty-odd call sites, and a component that wants to be specific can name the surface file directly. No string is declared in it, and the guard scans it anyway, because a string smuggled into a barrel file is exactly what a walk keyed on "the files that hold strings" would let through.
+
+**The Badge exemption survived, and the reasoning changed rather than the rule.** It could not be removed cleanly. The cycle moved one level down instead of going away: `common.ts` holds `Entry`, `Entry` is typed against `BadgeSpec`, and `BadgeSpec` lives in `Badge.tsx`, so `Badge.tsx` would still be importing its own four words back out of the directory that types itself against it. Removing it properly means moving the badge contract out of the component, which is a change to what a badge IS rather than to where strings live, and stage 2's own rule applies: a change that feels like an improvement rather than a move belongs in another log. The exemption's comment now says where the cycle sits.
+
+**Both guards walk and both have a guard-the-guard.**
+
+`contentStyle.test.ts` pointed at `join(ROOT,'src','ui','content.ts')`. It failed loudly the moment that file stopped existing, which is correct behaviour and is what the stage predicted. It walks `src/ui/content/` now. **The subtle failure the stage named was real and is closed**: the `.tsx` half has walked `src/` since V6 and had a guard-the-guard on the walk; the content half had neither, and a walk fails differently from a path. A path throws. A walk quietly reaches fewer files and every assertion under it passes. The new assertion compares what the walk reached against `readdirSync` of the directory, so a file the walk misses fails rather than passing.
+
+`accessibility.test.ts` listed ten component paths in an array while `src/ui/components/` holds twenty. It walks now, and the walk is asserted against the directory listing with a floor of twenty. Two more assertions came with it: the ten that were outside the guard are named explicitly, so a future narrowing has to delete that line on purpose, and one assertion proves the contents are in the scanned string rather than only the filenames being in an array. `Blob.tsx` was being read separately at one call site, which is the same defect one level down, and it is inside the walk now.
+
+**What the widened guard found: nothing to repair, and that is a real result rather than an absent one.**
+
+```
+  About.tsx          clean
+  Announcer.tsx      clean
+  Blob.tsx           clean
+  CoachMark.tsx      clean
+  FirstRunCard.tsx   clean
+  OfflineReturn.tsx  clean
+  Overlay.tsx        clean
+  PathwayCard.tsx    four semantic colours, all of them FILLS
+  PoolRail.tsx       clean
+  TeachingPanel.tsx  clean
+```
+
+Zero uses of `text-<semantic>`, zero writes of a semantic colour into `style.color`, zero uses of `text-ink3` or `var(--color-ink3)` across all ten. `PathwayCard.tsx`'s four are `SUBSTRATE`, `ATP_ORANGE`, `var(--color-oxidized)` and `var(--color-reduced)` used as blob fills, which is what the rule permits: a semantic colour fills and ink writes. So there is no repair and no referral. **That is luck rather than diligence**, since nine of these ten shipped after the guard was written and nothing was checking them, and the honest reading is that V7's palette discipline held by habit for four logs. It is mechanism now.
+
+**One residual hole, reported rather than fixed.** The contrast pair table in the same file is still enumerated by hand: `pairs()` lists what the act screen renders rather than deriving it from the components. That is a smaller version of the same "guard agrees with its own list" problem, and the tokens and the dim are both read from source so it cannot silently drift on values, only on coverage. Deriving rendered pairs from component source is its own piece of work and is not what this stage asked for. Named here so the next log inherits it rather than discovers it.
+
+**All four probes, run by breaking the thing each guards, output quoted.**
+
+Probe 1, a violating string in a content file the walk newly reaches, `text: 'Welcome back!'` added to `offline.ts`:
+
+```
+  FAIL  contentStyle.test.ts > uses no exclamation mark anywhere
+  AssertionError: expected [ 'Welcome back!' ] to deeply equal []
+    + [ "Welcome back!" ]
+```
+
+Probe 2, the content walk narrowed to miss one file:
+
+```
+  FAIL  contentStyle.test.ts > reaches every file in the content directory
+  AssertionError: expected [ 'about.ts', ...(10) ] to deeply equal [ 'about.ts', ...(11) ]
+    -   "offline.ts",
+```
+
+Probe 3, `text-gain` added to `About.tsx`, which was outside the guard until this stage:
+
+```
+  FAIL  accessibility.test.ts > uses no semantic colour as a Tailwind text utility
+  AssertionError: expected 'text-gain flex max-w-[52ch] flex-col ...' not to match /\btext-gain\b/
+```
+
+Probe 4, the accessibility walk narrowed back to V7's exact ten:
+
+```
+  Failed Tests 6
+  FAIL  accessibility.test.ts > redox state survives the loss of colour, through a level rule in ink
+  AssertionError: expected '/**\r\n * The badge contract. DESIGN....' to contain 'redox-level'
+  ... plus the guard-the-guard on the walk and four more channel rows
+```
+
+Probe 4 is the most useful of the four, because it fails in six places rather than one: narrowing the list breaks the channel table as well as the walk assertion, since `Blob.tsx` is only reachable through the walk. The old shape had that file pulled in by hand at the single call site that needed it, and nothing else in the guard could see it.
+
+**Verify.** `npm run typecheck` clean, `npm run lint` clean, **572 tests across 44 files**, all green, up from stage 2's 568. Regression bar clean: both canonical hashes unchanged at `172f83fb` and `65b43d27`, `git diff` empty across the three tuning files, docs/SCIENCE.md and docs/ECONOMY.md. `npm run build` 286.42 kB, 88.79 kB gzipped, unchanged from stage 2 to a hundredth of a kilobyte, which is the expected result for a file split: the bundler was already tree-shaking one module and now tree-shakes eleven.
+
+**One lesson recorded because it cost real work.** The first run of probe 2 was done with the guard's own edits uncommitted, and `git checkout --` to undo the probe took the stage's work with it. Probe after committing, not before.
 
 ---
 
