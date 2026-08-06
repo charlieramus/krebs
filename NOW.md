@@ -1,6 +1,6 @@
 # Now
 
-Last updated: 2026-08-06, by V10
+Last updated: 2026-08-06, by V11
 
 Where the project actually is. Read this before the spec docs.
 
@@ -10,7 +10,23 @@ If this file disagrees with a spec doc, the spec doc wins and this file is stale
 
 ## Status
 
-**Act 1's unlock list is complete for the first time, and the longest silence in the act is half what it was.**
+**The project can run an act rather than the act, and act 1 has an ending.**
+
+`src/ui/runtime.ts` was 1142 lines and every type it exported was named for act 1. It now takes an act descriptor, and the eight types are `ActSnapshot`, `ActSnapshotListener`, `ActPersistenceOptions`, `ActSession`, `ActOfflineReport`, `ActRuntimeOptions`, `ActRuntime` and `createActRuntime`. **What moved is not only names.** A walled-cell threshold, five literal pool and reaction ids, the constructor, the meter, the offline observer and the save mapping all come from `src/content/acts.ts` now, and act 1 chemistry is out of the `CardKind` type union.
+
+**Nothing outside one fenced stage changed behaviour, and it is proved rather than claimed.** Both canonical hashes are unmoved at `172f83fb` and `65b43d27`, `git diff` is empty across the three tuning files, docs/SCIENCE.md and docs/ECONOMY.md for the whole log, and the 47-case offline sweep reports V10's figures to the digit. That is what made the largest rename in the project's history affordable: 540 tests, both hashes, a 36-case reload sweep and a 47-case offline sweep already existed, and not one of them was written for this refactor.
+
+**The descriptor is honest about knowing one act.** It has exactly the fields a caller in `runtime.ts` needs and nothing speculative: no oxygen schedule, no damage model, no compartments, and no unlock model. Four of its types are act 1's shapes under act-neutral names and the file says so. `src/sim/jump.ts` refuses the same temptation about act 2's seam, and NOW.md has recorded twice that a wrong sentence in a specification survives until something is built on top of it.
+
+**The runtime finally holds the rule the kernel has held since V1.** `poolIndex` was `ACT1_POOL_IDS.indexOf(id)`, a linear scan, called once per render from `PoolCard`, from V3 to V11. **All 559 tests passed through every one of those logs**, because every one of them asserts a value and a scan produces the same value a map does. It resolves once now, at construction, and nine assertions hold it: zero array scans and zero map writes per resolution, zero resolutions across 500 frames, and exactly one resolution per rail slot on a mount, computed from the card table rather than written down.
+
+**Two guards stopped agreeing with their own lists.** `accessibility.test.ts` named ten component paths while `src/ui/components/` held twenty, and **nine of the ten it was missing shipped after it was written**, so the hole widened every log and widened silently. `contentStyle.test.ts` pointed at one file and had no guard-the-guard on the content side at all. Both walk now and both assert what they reached against the directory listing. The widened accessibility guard found **nothing to repair**: all ten of the newly covered components are clean of semantic colour as text, which is luck rather than diligence and is mechanism from here.
+
+**Act 1 has an ending and the state on the other side of it is authored.** The boundary is a content condition, every one of the ten purchases made, and it fires once. The offline path stops at it rather than gaining an event kind. And the screen after it says where the game currently ends, with the cell still running underneath, because act 2 is four logs away and a screen that keeps ticking after the last content reads as the game breaking. **A test fails the build the moment a second act exists**, so the placeholder is removed by a build failure rather than by memory.
+
+**The first end-to-end assertion in the project's history exists.** A fresh cell, 70 game-minutes, all ten purchases in order, the NAD+ wall met and recovered from, the boundary once, the ledger held at 4 gross and 2 net throughout. Run twice, the second with ten game-minutes resolved through the offline path, agreeing to **0.0067 percent on cumulative ATP against a 2 percent tolerance** and landing on the identical tick. 225 ms for both.
+
+**Act 1's unlock list is complete, and the longest silence in the act is half what it was.**
 
 `docs/PROGRESSION.md` has listed nine act 1 unlocks since 2026-07-29 and six were built. All nine are built now. Measured end to end with every unlock available, a player who buys the instant a purchase is affordable makes **ten purchases, the last at 54m03s, with a worst gap of 6m43s**, against V5's seven purchases, last at 61m57s, worst gap 13m51s. **The act is inside its 45 to 90 minute target at both ends and the worst gap in it now belongs to V5's uptake ladder rather than to anything V10 added**: the seven gaps this log placed are all between 6m19s and 6m37s.
 
@@ -66,7 +82,8 @@ One sentence per log. The "does not" column is the fence each stage doc inherits
 | V8 | Offline progress: steady-state detection, the analytic jump, the Part 3 validation test, crediting, and the offline return screen | New content, act 2, the economy, any change to a tuned number | Done 2026-08-05 |
 | V9 | CI, cross-engine determinism and deployment | Not read in detail yet | Not started |
 | V10 | Act 1 completion: ethanol fermentation and the first carbon released, glycogen storage, the named glycolytic enzymes, and the act re-derived end to end | An ending for act 1, the timeline, the beast, the act boundary, act 2, and any change to docs/SCIENCE.md outside stage 1 | Done 2026-08-06 |
-| V11+ | The spine and the four acts. See `docs/designs/game-spine-and-four-acts.md` | | Written, not started |
+| V11 | Spine A, the structural half: the act registry, the runtime de-specialised, content.ts as a directory, the act boundary and act 1's ending, the future-act refusal, the guards walking, and the first end-to-end playthrough | The timeline, the beast, provenance-on-click, any new visual surface, a second act, the descriptor's full shape, and any change to a tuned number | Done 2026-08-06 |
+| V12 | Spine B, the surface half. See `docs/designs/game-spine-and-four-acts.md` | | Written, not started |
 
 **docs/SIMULATION.md is finished and that changes what the table is for.** Every part of the engine specification is implemented: the tick loop in V1, reaction kinetics in V1 and V2, offline progress in V8, number representation in V1, determinism throughout and the constants summary as of this log. It has been the document every log was measured against since V1 and there is nothing left in it to build. **What is left in the project's specifications is content**, which is docs/PROGRESSION.md acts 2 to 4, and process, which is V9.
 
@@ -110,7 +127,7 @@ Not built, deliberately: offline progress, saves and migrations.
 
 ## What act 1 contains
 
-Transcribed in full, because this block is the single most useful thing in this file for anyone picking the project up and it goes stale silently. Correct as of 2026-08-06, after V10.
+Transcribed in full, because this block is the single most useful thing in this file for anyone picking the project up and it goes stale silently. Correct as of 2026-08-06, after V11.
 
 ```
   pools          glucose_env  glucose  g3p  pyruvate  lactate  ethanol  co2
@@ -141,6 +158,7 @@ Transcribed in full, because this block is the single most useful thing in this 
 
   environment    empties at 93m07s
   the cell stops 104m05s, on glycogen after the food is gone
+  act boundary   the tenth purchase. A content condition, added by V11
   target         45 to 90 minutes
   canonical      65b43d27
   ledger         4 ATP gross, 2 net, 2 NADH, 2 pyruvate per glucose
@@ -203,8 +221,11 @@ Not built, deliberately: the ethanol branch, glycogen storage, the ten-enzyme de
 `src/ui/`, added by V3. Depends on `src/content/` and `src/sim/`; neither may ever depend on it.
 
     runtime.ts          the bridge. Simulation, loop, meter, snapshot, rAF, unlocks
-    RuntimeContext.tsx  the React side. Provider, useLiveNode, useLive, useSnapshotEffect
-    content.ts          every player-facing string, each paired with its badge
+    RuntimeContext.tsx  the React side. Provider, useAct, usePoolIndex,
+                        useReactionIndex, useLiveNode, useLive, useSnapshotEffect
+    content/            every player-facing string, one file per surface, each
+                        paired with its badge. Twelve files, was one of 1120 lines
+    boundary.ts         when an act is finished, keyed by act number
     tuning.ts           every provisional interface number, all Tuned
     poolCards.ts        ten pools to eight cards, geometry read from the pool table
     scenario.ts         `?glucose=500` and `?ferment=on`, a development door
@@ -258,6 +279,14 @@ V5 added 16 more, taking the suite to **285 across 27 files**, and the bundle to
 The ESLint determinism guard now covers `src/save/**` too, in two halves. Hard rules 4 and 5 apply in full, because a save carries pool amounts and a PRNG state that go straight back into the tick loop. The clock ban applies everywhere except `src/save/meta.ts`, because docs/SAVE_SCHEMA.md Part 3 makes `lastSavedAt` the only wall-clock input in the system and exactly one file has to read it. The property worth keeping is not "save code may read the clock", it is that the places that read the clock are countable. There is one.
 
 Not built, deliberately: offline progress, cloud sync, accounts, compression, and any value under `enzymes` or `environment` that act 1 does not honestly make true.
+
+**`progression.act` stopped being decorative in V11, and the failure that creates has a refusal rather than a crash.** It has been written by every save since V4 and read by nothing. A save naming an act this build does not have gets `session.kind === 'future-act'`, a new game in memory, both slots left on disk untouched and a line in the save panel saying so. **The same posture as the future-schema refusal and deliberately beside it**: `migrations.ts` refuses a newer save and refuses to migrate downward, ever, because this build cannot know what the fields mean. It is not clamped to the highest known act, because that loads successfully and silently rewrites somebody's progress.
+
+The failure is real rather than hypothetical. Acts ship one log at a time and builds knowing different numbers of acts will exist at once, in a cached bundle or after a rolled-back deploy, and there is no backend and no way to push a fix to one player.
+
+**Two different failures, kept apart.** An act that is not a whole number of 1 or more is malformed and the codec rejects it as corrupt, alongside every other malformed field. A well-formed act this build does not have is refused one layer up, and the codec has no opinion about which acts exist. Asserted directly, so a later log does not tidy the check into the codec and turn a refusal into a corruption.
+
+**Sealing was bypassable and V11 closed it.** `save()` checked the flag while eight purchase paths and three settings writes called `autosave.saveNow` directly. Harmless while sealing only followed an import, because that session reloads immediately. Not harmless once a refused act seals a session the player can keep clicking in: buying fermentation would have written a fresh act 1 save straight over the file the refusal exists to protect. Every direct write goes through one function that checks the flag now, and `start()` no longer arms the timer or its listeners while sealed.
 
 ## What the economy does
 
@@ -416,6 +445,91 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
 
 **V10 takes the suite to 540 across 42 files and the bundle to 285.18 kB, 88.58 kB gzipped.** One new test file, `src/ui/__tests__/enzymes.test.ts`. The measured act, both player models, is a report test in `unlockPacing.report.test.ts` rather than a figure in a log, so it can be re-run. The toy pathway's hash is still `172f83fb` and act 1's is `65b43d27`.
 
+**V11 takes the suite to 624 across 47 files and the bundle to 290.65 kB, 89.92 kB gzipped.** Five new test files: the act registry's own shape and the import direction, index resolution on both hot paths, the act boundary, the future-act refusal, and the playthrough. **Both hashes are unchanged and no tuned number moved across the whole log**, including the one stage that adds behaviour: `git diff` across the three tuning files, docs/SCIENCE.md and docs/ECONOMY.md is empty from V10's tip to V11's.
+
+## What the act layer does
+
+`src/content/acts.ts`, plus `src/ui/boundary.ts` and the card table in `src/ui/poolCards.ts`. Added by V11. The part of the project that knows an act is a thing.
+
+    src/content/acts.ts   the descriptor, the registry, and the unknown-act case
+    src/ui/boundary.ts    when an act is finished, keyed by act number
+    src/ui/poolCards.ts   what an act looks like, keyed by the same number
+
+**Eighteen members, and every one of them has a caller in `src/ui/runtime.ts` today.**
+
+    act                        the registry key, and progression.act
+    poolIds, reactionIds       the snapshot's layout
+    poolIndex, reactionIndex   map-backed, built once at module load
+    create                     was createAct1(options.act1 ?? {})
+    createMeter, createMeterProbes, recordTick, createOfflineObserver
+    yieldBaselinePoolId        was the literal 'g3p'
+    atpPerCompletedGlucose, netAtpPerCompletedGlucose
+    isWalled                   was WALLED_NAD plus three inline conditions
+    capture, restore, noCarriedCounters
+
+**`isWalled` is a predicate rather than a threshold and it is the design decision in the whole registry.** A field called `walledNad` keeps act 1's chemistry in a general interface. A field called `walledPoolId` plus a number is worse, because it also asserts that every act's wall is one pool crossing one level, and act 2's is not. So the act answers the question, closing over three indices resolved at module load, allocating nothing, callable from the per-frame path.
+
+**What it deliberately does not have, which is the point of it.** No oxygen schedule. No damage model. No compartments. No act boundary condition, because that is a stage's worth of decision on its own. **No unlock model**: act 1's two ladders, its thresholds and its purchase gates stay on the runtime, because a generic unlock descriptor designed against one act's two sequential ladders and one two-enzyme purchase is an abstraction over a sample size of one. `src/sim/jump.ts` leaves act 2's oxygen seam obvious rather than pre-solving it and says why; the same paragraph is in `acts.ts`.
+
+**Four type aliases point at act 1 and the file says so rather than hiding it.** `ActMeter`, `ActMeterProbes`, `ActRestoreResult` and `ActCarriedCounters` are act 1's shapes under act-neutral names. Act 2 is what widens them, with two instances to be right about.
+
+**Two things could not move into the descriptor and the reason is the import rule rather than a preference.** The card layout carries a `Surface`, a `CoachMark` and player-facing strings, and the boundary counts rungs that live in `src/ui/tuning.ts`. Content may not import the interface. So the descriptor answers what an act is and two tables in `src/ui/` answer what it looks like and when it is finished, keyed by the same act number. When the ladders move into content, the boundary moves with them.
+
+**The act boundary is a content condition.** Every purchase made: both fermentation branches, glycogen storage, the two enzymes, and both ladders to the top. Ten, counted from the ladders rather than written down. Not a time and not an ATP total, because docs/PROGRESSION.md requires every branch to complete first, and a clock would end the act with content on the shelf while a total would end it for a player who bought nothing.
+
+`snapshot.actComplete` is derived exactly as `walled` is, six boolean comparisons in `fill()`, so a restored save that is already complete arrives complete rather than waiting for a purchase that will never come.
+
+**The boundary stops the offline jump rather than becoming an event kind.** `src/sim/jump.ts` locates every event in closed form from a pool crossing a level, computes the substrate mask once per absence on that assumption, and says in its own header that an unlock crossing is not a simulation event. So `OfflineStop` is one method, `ticksUntil(state)`, asked twice per iteration because the caller learns the rate of its own counter from the settle. Five cases are tested at exact ticks: crossing before the next pool event, not crossing, crossing at the end of the window, crossing at tick zero, and the boundary already behind.
+
+**The gap between the last purchase being made and being available is real and is stated at both ends.** A purchase is a player action, so the boundary can never fire during an absence. What the offline path can see is the moment the last purchase becomes possible, and it stops there so the authored moment plays live on return. Time past that point is dropped rather than deferred, because deferring it is a trap: the same stop would fire at zero ticks on every later load until the player clicked the right button.
+
+**And act 1's ending is authored rather than left to happen.** Three paragraphs: every enzyme built, the yield did not move and is still 2 net per glucose, and the cell keeps running from here while this build ends here. The overlay is undimmed and the simulation ticks under it, which is `FirstRunCard`'s rule at the other end of the act. It does not congratulate and it does not say "soon". `settings.boundarySeen` is the second persisted UI setting and needed no schema bump.
+
+**One test fails the build when act 2 lands**, asserting the registry holds one act while the copy names act 2. Same mechanism `schemaVersionGate.test.ts` uses for hard rule 7.
+
+## What the guards do
+
+Seven now, and V11 is the log that stopped two of them agreeing with their own lists.
+
+    determinism lint          Math.random, Math.pow, Math.exp, Math.log, Date
+    Needs source release gate scans the emitted production bundle
+    DESIGN.md colour test     parses the Colour section against index.css
+    divergence-row test       parses docs/ECONOMY.md against the tuned scalars
+    accessibility test        every rendered pair, and the channel table
+    Part 3 validation sweep   40 cases in the suite, 200 beside it
+    content style test        where a string lives, and what characters are in it
+
+**`accessibility.test.ts` listed ten component paths in an array while `src/ui/components/` held twenty**, and nine of the ten missing shipped after the guard was written, so the hole had been widening every log. It walks now, with a guard-the-guard comparing what it read against `readdirSync`, a floor of twenty, an assertion naming the ten that were outside it, and one assertion that the contents rather than only the filenames are in the scanned string.
+
+**What the widening found: nothing to repair.** Zero uses of a semantic colour as a Tailwind text utility, zero writes of one into `style.color`, zero uses of `ink3`, across all ten. `PathwayCard.tsx` holds four semantic colours and all four are blob fills, which is exactly what V7's rule permits. **Four logs of palette discipline held by habit and nothing was checking it.**
+
+**`contentStyle.test.ts` pointed at one path and had no guard-the-guard on the content half at all.** That was survivable while every string was in one file and it is the silent failure the moment they are not: a path throws, a walk quietly reaches fewer files and every assertion under it passes. It walks `src/ui/content/` now and asserts it reached everything in it, `index.ts` and `common.ts` included.
+
+**All four probes fired**, each by breaking the thing the guard guards rather than by reading it. The most useful was narrowing the accessibility walk back to V7's exact ten, which fails in six places rather than one, because `Blob.tsx` was reachable only through the walk.
+
+**One residual hole, named rather than fixed.** The contrast pair table in `accessibility.test.ts` is still enumerated by hand: `pairs()` lists what the act screen renders rather than deriving it from the components. The tokens and the dim are read from source, so it cannot drift on values, only on coverage. Deriving rendered pairs from component source is its own piece of work.
+
+## What the playthrough proves
+
+`src/ui/__tests__/playthrough.test.ts`, added by V11. The first end-to-end assertion in the project's history, through vite-node like every other harness here rather than through a browser runner.
+
+    all ten purchases, once each, in shelf order
+    both ladders to the top, all three of V10's unlocks
+    the NAD+ wall arrived and was recovered from
+    the act boundary fired exactly once
+    the ledger held at 4 gross and 2 net throughout, worst error below 1e-6
+    run twice: continuous, and with ten game-minutes resolved offline
+    final tick identical, cumulative ATP within 0.0067 percent of 2 percent
+    118 ms and 107 ms
+
+**Shape, never timings.** A tuning change is expected to move timings and `unlockPacing.report.test.ts` already reports them; a suite that fails on an intended balance change teaches people to edit the expectation.
+
+**Not bit-identical, asserted as a claim rather than left as a permission.** A run that came out identical would mean the resolution had quietly replayed instead of jumping, and the whole argument for the offline path is that it does not.
+
+**One finding, and it is about the measurement rather than the game.** A player who buys on the exact frame a threshold is crossed buys lactate dehydrogenase at about 3.0 game-seconds, and the NAD+ wall forms at about 3.05. **So the instant-buy player bought the answer before the problem existed and `walled` was never true across a whole 70-minute run.** The player looks once a game-second now, which is the coarsest cadence that still makes every purchase in order and is the honest one.
+
+**It proves nothing about whether any of it reads**, and that sentence is in the test file rather than only here.
+
 ## What V10 did not do
 
 Written out because a reader of this file should not be able to mistake a complete unlock list for a complete act.
@@ -431,6 +545,54 @@ Written out because a reader of this file should not be able to mistake a comple
 **Blocking item 2 did not close.** It narrowed by half and the log says plainly that content cannot close what is left.
 
 **Nobody who is not the author has still looked at this game.** Blocking items 0 and 0b are exactly where V6 and V7 left them, and V10 added four more things for a reader who does not exist to fail to understand.
+
+## What V11 did not do
+
+Written out for the same reason V10's section exists: a reader should not be able to mistake a project that could run a second act for one that has one.
+
+**There is still no timeline, no beast and no provenance-on-click.** DESIGN.md has specified the first two since 2026-07-28. That is V12, Spine B, and it is the half of the spine that is entirely looking.
+
+**There is no second act, and the descriptor is deliberately not designed for one.** It has act 1's fields. Act 2 widens it, and widening it against two instances is the whole reason it was not widened against one.
+
+**The act 1 ending is machinery, not a set piece.** `docs/designs/game-spine-and-four-acts.md` E9 makes act boundaries authored set pieces. What ships is the thing that fires, so V12 can make it look like anything without also inventing when it happens, what stops the offline credit, and what the state on the other side of it is.
+
+**The unlock ladder is still act 1's, sitting on `ActRuntime`.** `buyFerment`, `buyGlycogen`, the two ladders and their twelve methods did not move. Generalising them means designing an unlock model against one act, which is the abstraction this log exists to avoid.
+
+**Nobody who is not the author has still looked at this game.** Blocking items 0 and 0b are exactly where V6 and V7 left them. V11 added an ending, a boundary and a refusal screen for a reader who does not exist to fail to understand.
+
+**No tuned number moved and docs/SCIENCE.md was not touched at all.** Not in any stage, including stage 4, which is the one stage that adds behaviour.
+
+## What a second act would still need
+
+The honest measure of whether this log worked is how short this list is. Concretely, and not a plan.
+
+**Content.** `src/content/act2/` with pools, reactions, tuning, a meter, a save mapping and an offline observer, to the same shape act 1's has. One entry added to `ACTS` in `src/content/acts.ts`.
+
+**Three things the descriptor does not yet answer, and each is a field it gains rather than a redesign.** A wall that is not a NAD+ level, which `isWalled` already accommodates because it is a predicate. An oxygen schedule, which is a boundary in wall-clock rather than in a pool level and which `jump.ts` says out loud it has not pre-solved. And a damage model.
+
+**A kernel concept that does not exist.** Per-reaction Vmax varying dynamically as hashed simulation state. `Reaction.kinetics` is readonly and the runtime already casts through it in one place for unlocks; ROS damage makes it a live quantity with determinism and schema consequences.
+
+**A schema bump, with a migration and a version 1 fixture.** The fixture already exists and is committed. This is the log the bump is expected in. See "The schema decision" above.
+
+**Two tables in `src/ui/`, keyed by act number**: a card layout and a boundary condition. Both are a map entry and a literal.
+
+**Whatever act 2's unlocks are, on the runtime.** This is the largest remaining item and it is the one V11 deliberately left: two acts is the sample size at which a general unlock model can be designed rather than guessed.
+
+**A repaired offline fallback, first.** Blocking item 6. Act 2 breaks both halves of the reason the fallback is harmless today.
+
+**And the thing that is not code.** docs/PROGRESSION.md still lists act 2's shape as an open question for the prototype, and act 2 introduces damage, which is the first mechanic that can take something away from a player. Whether that reads as a metabolic consequence or as a punishment is a comprehension question. See Blocking item 0.
+
+## The schema decision
+
+**No bump. Version 1 still, and V11 is the third log to decide that rather than to assume it.**
+
+The only persisted state this log added is `settings.boundarySeen`, which a save written by V10 defaults to false. docs/SAVE_SCHEMA.md Part 1 makes a field new code can default an additive change, and the project has now proved it three times: V5's two unlock id families, V6's `settings.firstRunSeen` and this. `progression.act` was already in the version 1 shape, documented as 1 to 4, and V11 reads it rather than adding it.
+
+**The next bump is expected in the act 2 log, and the thing that forces it is per-reaction Vmax as hashed state.** ROS damage means each reaction carries a current Vmax that is part of the simulation rather than a constant read from a tuning file, so a save has to carry it or a reload silently repairs the cell. That is not a field new code can default, because there is no correct default for how damaged an enzyme is: the honest answers are the saved value or a different game.
+
+**Two things that will not force it, recorded so they are not mistaken for it.** The oxygen schedule index is already reserved under `environment`. And a new act's unlock ids are additive by V5's argument, in both directions.
+
+Written into docs/SAVE_SCHEMA.md Part 1 rather than only here, because a decision that lives in a state file is a decision that goes stale.
 
 ## What exists
 
@@ -461,6 +623,7 @@ Written out because a reader of this file should not be able to mistake a comple
     UPDATELOGV7.md         the accessibility log, five stages, all reported
     UPDATELOGV8.md         the offline progress log, six stages, all reported
     UPDATELOGV10.md        the act 1 completion log, six stages, all reported
+    UPDATELOGV11.md        Spine A, the structural half, seven stages, all reported
 
 Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system-20260728/`. `preview-cartoon.html` is the current direction. `preview.html` is a rejected earlier direction kept for comparison.
 
@@ -491,6 +654,23 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - Act 2 models two damage mechanisms, not one. ROS and molecular oxygen have different targets and the antioxidant enzymes only address the first. The target inside act 1's own loop is GAPDH by thiol oxidation.
 - Content lives in `src/content/` and the kernel never imports it. The arrow points one way, permanently.
 - ATP is a flux, not a score. The adenylate pool is fixed and closed and `maintain` hydrolyses ATP back to ADP and phosphate. Cumulative production is a counter beside the simulation, never a pool inside it.
+
+## Settled 2026-08-06, by V11
+
+- **An act is a thing rather than an assumption, and the descriptor is honest about knowing one of them.** Every field has a caller in `src/ui/runtime.ts` today and nothing speculative was added. A registry that is right about one act and says so is worth more than one that is confidently wrong about four.
+- **A capability that varies per act is a predicate on the act, not a number in the caller.** `WALLED_NAD` was the test case and it settled the shape. A named threshold keeps one act's chemistry in a general interface, and a generic pool-and-threshold pair is worse, because it also asserts that every act's wall is one pool crossing one level.
+- **A type alias that points at one act is honest; a structural interface invented from one act is not.** Four of the descriptor's types are act 1's shapes under act-neutral names, and the file says so. Act 2 is what widens them.
+- **Ids resolve to indices at construction, in the interface as well as in the kernel.** `src/sim/pools.ts` and `src/sim/steady.ts` have held the rule since V1. The runtime did not, and `poolIndex` was a linear scan called once per render from V3 to V11 with 559 tests passing over it, **because every test in this project asserts a value and a scan produces the same value a map does.** The class of defect a value assertion cannot see needs its own assertions.
+- **A guard that is told where to look stops looking.** `accessibility.test.ts` named ten files while the directory held twenty and nine of the missing ten shipped after it was written. A hand-written list fails loudly when a path is wrong and silently when a path is absent. Both guards walk now and both assert what they reached against the directory listing.
+- **An act boundary is a content condition.** Every branch complete, counted from the ladders. Not a time and not a cumulative total: a clock ends the act with content on the shelf, and a total ends it for a player who bought nothing.
+- **A threshold on a running total stops the offline jump rather than becoming an event kind.** Every event `jump.ts` finds is a pool crossing a level, located by a division, and the substrate mask is computed once per absence on that assumption. Stopping is the only way to add one without weakening the bound the whole algorithm rests on.
+- **Uncredited time past an act boundary is dropped, not deferred.** Deferring it is a trap: the stop fires on a counter that does not go back down, so a player who does not make the purchase accrues nothing on every later load until they do. A game that quietly stops crediting is worse than one that says the act ended.
+- **A save naming an act this build does not have is refused, exactly as a newer schema version is.** Not clamped. Clamping loads successfully and silently rewrites somebody's progress. A well-formed act number this build lacks is a refusal; an act that is not a whole number of 1 or more is malformed and the codec rejects it, and the codec must not acquire an opinion about which acts exist.
+- **A refusal that leaves a write path armed is not a refusal.** Sealing was bypassable: `save()` checked the flag while eight purchase paths and three settings writes called `autosave.saveNow` directly. Harmless after an import, because that session reloads immediately; not harmless once a refused act seals a session the player can keep clicking in.
+- **An end-to-end test asserts shape and never timings.** Timings belong where a tuning change is expected to move them. Correctness belongs where it is not.
+- **A player who buys on the exact frame a threshold is crossed is not a player.** The instant-buy model completed act 1 without the NAD+ wall ever forming, because the answer became affordable 50 milliseconds before the problem existed. A measurement that models nobody measures nothing.
+- **A placeholder for content that does not exist yet gets a test that deletes it.** The act 1 ending says act 2 is where the oxygen arrives, and the build fails the moment a second act is in the registry. Same mechanism hard rule 7 already uses.
+- **The schema decision is a decision only if it names its own expiry.** No bump, and the next one is expected in the act 2 log, forced by per-reaction Vmax becoming hashed state. Written into docs/SAVE_SCHEMA.md rather than only into this file.
 
 ## Settled 2026-08-06, by V10
 
@@ -702,7 +882,13 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 0. **Find one cold reader.** Not a log and not a stage. It is listed first because it is the only item on this page that no amount of building advances, because it gates docs/PILLARS.md's first two success conditions, and because every log after this one adds more to a screen nobody outside this project has looked at. See Blocking item 0. It does not block V9 and V9 should not wait for it.
 
-1. **The spine, and the four acts.** `UPDATELOGV11.md`, Spine A, the structural half. See `docs/designs/game-spine-and-four-acts.md` rather than a restatement of it here. **It is the log act 1 now needs**, because act 1 has all of its content and no ending, and because the runtime is named for act 1 in every type it exports.
+1. **Spine B, the surface half.** `UPDATELOGV12.md`. See `docs/designs/game-spine-and-four-acts.md` rather than a restatement of it here. The DESIGN.md stage first, then the timeline as the spine with a discrete marker, the beast subject to the art spike, provenance-on-click, the pool rail reading the running act, and the viewport story.
+
+   **It is the log the project now needs, and the reason is the shape of what V11 shipped.** Spine A built the half nobody looks at: a registry, a rename, a directory, a boundary, a refusal and a playthrough. **What is still missing is everything you can see.** DESIGN.md has specified the timeline and the beast since 2026-07-28, both were deferred in V3 and neither has been picked back up since, and `docs/designs/game-spine-and-four-acts.md` names them as the two design elements that supply meaning.
+
+   **One thing gates part of it.** Spike C, two hand-drawn figures to DESIGN.md's standard, prices the illustration scope and has to answer governance as well as execution: nothing currently constrains a hand-authored asset to the token palette, because every illustration so far is derived from the conserved-weight table and `Blob.tsx` contains no path data by rule.
+
+   **Spine A, the structural half, is done.** `UPDATELOGV11.md`, seven stages, all reported.
 
 2. **CI, cross-engine determinism and deployment.** `UPDATELOGV9.md`. **Written and not started.** Both canonical hashes a second engine has to reproduce exactly have moved: `172f83fb` is unchanged and the act 1 hash is `65b43d27`.
 

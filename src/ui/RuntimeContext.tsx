@@ -16,30 +16,40 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
   type RefObject,
 } from 'react';
+import { ACT1, type ActDescriptor } from '../content/acts';
 import {
-  createAct1Runtime,
-  type Act1Runtime,
-  type Act1RuntimeOptions,
-  type Act1Snapshot,
+  createActRuntime,
+  type ActRuntime,
+  type ActRuntimeOptions,
+  type ActSnapshot,
 } from './runtime';
 
-const RuntimeContext = createContext<Act1Runtime | null>(null);
+const RuntimeContext = createContext<ActRuntime | null>(null);
 
 export function RuntimeProvider({
   children,
+  act = ACT1,
   options,
 }: {
   children: ReactNode;
-  options?: Act1RuntimeOptions;
+  /**
+   * The act to run. Defaults to act 1 because act 1 is the only act, and the
+   * default is here rather than inside the runtime on purpose: `createActRuntime`
+   * takes the descriptor as a required argument, so nothing below this line can
+   * fall back to act 1 by accident. Stage 5 makes `App` choose it from the save.
+   */
+  act?: ActDescriptor;
+  options?: ActRuntimeOptions;
 }) {
   // Lazy initialiser, so StrictMode's double render does not build two
   // simulations and throw one away mid-flight.
-  const [runtime] = useState(() => createAct1Runtime(options ?? {}));
+  const [runtime] = useState(() => createActRuntime(act, options ?? {}));
 
   useEffect(() => {
     runtime.start();
@@ -49,10 +59,42 @@ export function RuntimeProvider({
   return <RuntimeContext.Provider value={runtime}>{children}</RuntimeContext.Provider>;
 }
 
-export function useRuntime(): Act1Runtime {
+export function useRuntime(): ActRuntime {
   const runtime = useContext(RuntimeContext);
   if (runtime === null) throw new Error('useRuntime: no RuntimeProvider above this component');
   return runtime;
+}
+
+/** The running act. What used to be an assumption every component made. */
+export function useAct(): ActDescriptor {
+  return useRuntime().act;
+}
+
+/**
+ * A pool's index, resolved once per component instance and never per render.
+ *
+ * THE RULE THIS EXISTS FOR. `src/sim/steady.ts` states it for the kernel: no
+ * allocation after construction, indexed loops over typed arrays only. The
+ * interface never held it. `poolIndex` was a linear scan over `ACT1_POOL_IDS`
+ * and `PoolCard` called it inside its render body, so every pool card paid a
+ * scan on every React render, and nothing in the suite could have found it
+ * because every test asserts a value rather than the shape of the work that
+ * produced it.
+ *
+ * `useMemo` with the act as its only dependency is the whole fix: one map read
+ * at mount, an integer afterwards. The dependency is the act rather than the id
+ * because an id is a literal at every call site in this codebase, and keying on
+ * it would suggest a component whose pool changes under it, which none do.
+ */
+export function usePoolIndex(id: string): number {
+  const act = useAct();
+  return useMemo(() => act.poolIndex(id), [act, id]);
+}
+
+/** A reaction's index, on the same terms. */
+export function useReactionIndex(id: string): number {
+  const act = useAct();
+  return useMemo(() => act.reactionIndex(id), [act, id]);
 }
 
 /**
@@ -66,7 +108,7 @@ export function useRuntime(): Act1Runtime {
  * not resubscribe on every render. The subscription is keyed to the runtime.
  */
 export function useLiveNode<E extends HTMLElement | SVGElement>(
-  apply: (element: E, snapshot: Act1Snapshot) => void,
+  apply: (element: E, snapshot: ActSnapshot) => void,
 ): RefObject<E | null> {
   const runtime = useRuntime();
   const ref = useRef<E>(null);
@@ -97,7 +139,7 @@ export function useLiveNode<E extends HTMLElement | SVGElement>(
  * every frame, so it must compare before it sets, or it re-renders the tree
  * sixty times a second and undoes the entire point of the runtime.
  */
-export function useSnapshotEffect(effect: (snapshot: Act1Snapshot) => void): void {
+export function useSnapshotEffect(effect: (snapshot: ActSnapshot) => void): void {
   const runtime = useRuntime();
   const effectRef = useRef(effect);
 
@@ -117,7 +159,7 @@ export function useSnapshotEffect(effect: (snapshot: Act1Snapshot) => void): voi
  * because the simulation ticks at 20Hz and the display runs at 60.
  */
 export function useLive<E extends HTMLElement | SVGElement>(
-  read: (snapshot: Act1Snapshot) => string,
+  read: (snapshot: ActSnapshot) => string,
 ): RefObject<E | null> {
   return useLiveNode<E>((element, snapshot) => {
     const next = read(snapshot);

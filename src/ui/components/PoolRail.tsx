@@ -9,13 +9,19 @@
  */
 
 import { LANDMARKS } from '../content';
-import { POOL_CARDS } from '../poolCards';
+import { poolCardsFor } from '../poolCards';
+import { useAct } from '../RuntimeContext';
 import { PoolCard } from './PoolCard';
 
 export function PoolRail() {
+  // The rail reads the running act rather than importing act 1's list. The
+  // layout itself is still written down: which pools share a card is a teaching
+  // decision, and only the geometry inside a card is derived.
+  const cards = poolCardsFor(useAct());
+
   return (
     <nav aria-label={LANDMARKS.pools.text} className="flex flex-col gap-3">
-      {POOL_CARDS.map((spec) => (
+      {cards.map((spec) => (
         <PoolCard key={spec.id} spec={spec} />
       ))}
     </nav>

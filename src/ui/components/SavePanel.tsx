@@ -179,6 +179,7 @@ export function SavePanel() {
       {session.clockWentBackwards ? <Line entry={SAVE.clockBackwards} className="text-ink2" /> : null}
 
       {session.kind === 'future' ? <Line entry={SAVE.future} /> : null}
+      {session.kind === 'future-act' ? <Line entry={SAVE.futureAct} /> : null}
       {session.kind === 'unreadable' ? <Line entry={SAVE.unreadable} /> : null}
 
       {recoveryOffered ? (

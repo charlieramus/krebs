@@ -257,7 +257,19 @@ function validate(root: Record<string, unknown>): DeserializeResult {
   const progression = section(root, 'progression');
   if (typeof progression === 'string') return corrupt(progression);
   const progressionProblem =
-    finite(progression, 'progression.act', 'act') ??
+    /*
+     * A POSITIVE INTEGER RATHER THAN MERELY FINITE. UPDATELOGV11.md stage 5.
+     *
+     * `finite` was correct while nothing read this field. It selects an act now,
+     * so 0, -1, 2.5 and NaN are all malformed rather than merely unusual, and
+     * they are rejected here alongside every other malformed field rather than
+     * reaching a registry lookup that has no answer for them.
+     *
+     * An act number this build does not HAVE is a different case and is not
+     * corruption: the save is well formed and came from a newer build. That gets
+     * a refusal rather than a rejection. See src/ui/runtime.ts.
+     */
+    positiveInteger(progression, 'progression.act', 'act') ??
     stringArray(progression, 'progression.unlocked', 'unlocked') ??
     boolean(progression, 'progression.transitionTaken', 'transitionTaken') ??
     nullableText(progression, 'progression.shuttleChoice', 'shuttleChoice');
@@ -378,6 +390,20 @@ function finite(host: Record<string, unknown>, path: string, key: string): strin
   if (value === undefined) return `${path} is missing`;
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return `${path} must be a finite number, got ${describe(value)}`;
+  }
+  return null;
+}
+
+/**
+ * A whole number, one or greater. docs/SAVE_SCHEMA.md documents
+ * `progression.act` as 1 to 4.
+ */
+function positiveInteger(host: Record<string, unknown>, path: string, key: string): string | null {
+  const problem = finite(host, path, key);
+  if (problem !== null) return problem;
+  const value = host[key] as number;
+  if (!Number.isInteger(value) || value < 1) {
+    return `${path} must be a whole number of 1 or more, got ${describe(host[key])}`;
   }
   return null;
 }

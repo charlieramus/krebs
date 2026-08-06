@@ -15,9 +15,10 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ACT1 } from '../../content/acts';
 import { TICK_MS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
-import { createAct1Runtime, poolIndex, type Act1Runtime } from '../runtime';
+import { createActRuntime, type ActRuntime } from '../runtime';
 import {
   GLYCOLYSIS_STEPS,
   PFK1_PK_ATP_THRESHOLD,
@@ -29,7 +30,7 @@ beforeAll(() => {
   setShortfallLogging(false);
 });
 
-const ATP = poolIndex('atp');
+const ATP = ACT1.poolIndex('atp');
 
 /**
  * Every configuration of the two capacity ladders and the enzyme purchase that
@@ -70,7 +71,7 @@ const CONFIGURATIONS: readonly Configuration[] = [
 ];
 
 /** A runtime built directly into a configuration, run to steady state. */
-function at(configuration: Configuration, seconds: number): Act1Runtime {
+function at(configuration: Configuration, seconds: number): ActRuntime {
   const rung =
     configuration.glycolysisStep === null
       ? null
@@ -88,8 +89,8 @@ function at(configuration: Configuration, seconds: number): Act1Runtime {
   const base = rung ?? (GLYCOLYSIS_STEPS[0] as { prep: number; payoff: number });
   const payoff = base.payoff * factor;
 
-  const runtime = createAct1Runtime({
-    act1: {
+  const runtime = createActRuntime(ACT1, {
+    create: {
       enabled: { ferment: true },
       vmax: {
         uptake,
@@ -166,7 +167,7 @@ describe('the named glycolytic enzymes', () => {
   });
 
   it('sells nothing until the uptake ladder is finished', () => {
-    const runtime = createAct1Runtime({ persistence: { enabled: false } });
+    const runtime = createActRuntime(ACT1, { persistence: { enabled: false } });
     runtime.frame(0);
     for (let t = 0; t < 200; t += 1) runtime.frame(runtime.snapshot.elapsedMs + TICK_MS);
     expect(runtime.buyFerment()).toBe(true);
@@ -243,12 +244,12 @@ describe('the named glycolytic enzymes', () => {
     for (const configuration of CONFIGURATIONS) {
       const runtime = at(configuration, 0);
       const state = runtime.state;
-      const env = poolIndex('glucose_env');
+      const env = ACT1.poolIndex('glucose_env');
       // Run the larder dry and keep going, which is the worst state act 1 can
       // put a cell in.
       state.pools.amounts[env] = 2000;
       for (let t = 0; t < 12000; t += 1) runtime.frame(runtime.snapshot.elapsedMs + TICK_MS);
-      const floor = runtime.snapshot.amounts[poolIndex('atp')] as number;
+      const floor = runtime.snapshot.amounts[ACT1.poolIndex('atp')] as number;
       expect(floor, `fell past a recoverable ATP in: ${configuration.name}`).toBeGreaterThan(0.2);
 
       // Then feed it again. A cell that cannot restart is the trap.

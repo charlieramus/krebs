@@ -15,9 +15,10 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ACT1 } from '../../content/acts';
 import { TICK_MS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
-import { createAct1Runtime, poolIndex, type Act1Runtime } from '../runtime';
+import { createActRuntime, type ActRuntime } from '../runtime';
 import {
   GLYCOLYSIS_ATP_THRESHOLDS,
   GLYCOLYSIS_STEPS,
@@ -29,14 +30,14 @@ beforeAll(() => {
   setShortfallLogging(false);
 });
 
-const ATP = poolIndex('atp');
+const ATP = ACT1.poolIndex('atp');
 
 /** A runtime pinned to one rung, run to steady state. */
-function atRung(step: number, seconds: number): Act1Runtime {
+function atRung(step: number, seconds: number): ActRuntime {
   const rung = GLYCOLYSIS_STEPS[step];
   if (rung === undefined) throw new Error(`no rung ${step}`);
-  const runtime = createAct1Runtime({
-    act1: {
+  const runtime = createActRuntime(ACT1, {
+    create: {
       enabled: { ferment: true },
       vmax: {
         uptake: rung.uptake,
@@ -150,7 +151,7 @@ describe('the glycolytic capacity ladder', () => {
     // Both ladders raise uptake and this one always raises it further, so
     // offering them at once would let a player buy a rung that immediately
     // undoes a purchase still showing as bought on the shelf.
-    const runtime = createAct1Runtime({ persistence: { enabled: false } });
+    const runtime = createActRuntime(ACT1, { persistence: { enabled: false } });
     runtime.frame(0);
     for (let t = 0; t < 200; t += 1) runtime.frame(runtime.snapshot.elapsedMs + TICK_MS);
     // The wall has to be solved or the meter stops at 60 and the run measures
@@ -171,7 +172,7 @@ describe('the glycolytic capacity ladder', () => {
   });
 
   it('refuses to sell a rung past the last one', () => {
-    const runtime = createAct1Runtime({ persistence: { enabled: false } });
+    const runtime = createActRuntime(ACT1, { persistence: { enabled: false } });
     runtime.frame(0);
     for (let t = 0; t < 2000; t += 1) runtime.frame(runtime.snapshot.elapsedMs + TICK_MS);
     runtime.buyFerment();

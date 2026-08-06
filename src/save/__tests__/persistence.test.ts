@@ -2,7 +2,7 @@
  * Persistence end to end: autosave, the offline delta, export and import.
  *
  * These are the tests that exercise the whole stack the way the game does,
- * through `createAct1Runtime`, rather than any one layer in isolation. Every
+ * through `createActRuntime`, rather than any one layer in isolation. Every
  * clock, timer and event listener is injected, so a session that plays for ten
  * game-minutes, saves, reloads and continues costs a few milliseconds of real
  * time and nothing is flaky.
@@ -13,6 +13,7 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ACT1 } from '../../content/acts';
 
 import { TICK_MS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
@@ -23,9 +24,9 @@ import {
   act1UptakeUnlockId,
 } from '../../content/act1/save';
 import {
-  createAct1Runtime,
-  type Act1PersistenceOptions,
-  type Act1Runtime,
+  createActRuntime,
+  type ActPersistenceOptions,
+  type ActRuntime,
 } from '../../ui/runtime';
 import { GLYCOLYSIS_STEPS, PFK1_PK_VMAX_FACTOR, UPTAKE_VMAX_STEPS } from '../../ui/tuning';
 import { serialize } from '../codec';
@@ -53,7 +54,7 @@ function harness(seed: Readonly<Record<string, string>> = {}) {
   let nextHandle = 1;
   let epoch = 1785000000000;
 
-  const persistence = (extra: Partial<Act1PersistenceOptions> = {}): Act1PersistenceOptions => ({
+  const persistence = (extra: Partial<ActPersistenceOptions> = {}): ActPersistenceOptions => ({
     store: createSaveStore({ store: backing }),
     epochClock: () => epoch,
     startTimer: (callback, ms) => {
@@ -105,9 +106,9 @@ function harness(seed: Readonly<Record<string, string>> = {}) {
  */
 function makeRuntime(
   h: ReturnType<typeof harness>,
-  extra: Partial<Act1PersistenceOptions> = {},
-): Act1Runtime {
-  return createAct1Runtime({
+  extra: Partial<ActPersistenceOptions> = {},
+): ActRuntime {
+  return createActRuntime(ACT1, {
     schedule: () => 0,
     cancel: () => {},
     persistence: h.persistence(extra),
@@ -115,7 +116,7 @@ function makeRuntime(
 }
 
 /** Drive a runtime for whole ticks, one per frame, the way rAF would at 20Hz. */
-function play(runtime: Act1Runtime, ticks: number): void {
+function play(runtime: ActRuntime, ticks: number): void {
   let nowMs = 0;
   runtime.frame(nowMs);
   for (let i = 0; i < ticks; i += 1) {
@@ -407,7 +408,7 @@ describe('autosave', () => {
   });
 
   it('does nothing at all when persistence is disabled', () => {
-    const runtime = createAct1Runtime({
+    const runtime = createActRuntime(ACT1, {
       schedule: () => 0,
       cancel: () => {},
       persistence: { enabled: false },
@@ -605,7 +606,7 @@ describe('reloading a session', () => {
       },
       removeItem: () => {},
     };
-    const runtime = createAct1Runtime({
+    const runtime = createActRuntime(ACT1, {
       schedule: () => 0,
       cancel: () => {},
       persistence: { store: createSaveStore({ store: throwing }), epochClock: () => 1 },

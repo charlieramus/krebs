@@ -291,6 +291,37 @@ export interface OfflineObserver {
   advance?(ticks: number): void;
 }
 
+/**
+ * A reason to stop resolving before the window is spent.
+ *
+ * ---------------------------------------------------------------------------
+ * AN ACT BOUNDARY IS NOT A NEW EVENT KIND AND MUST NOT BECOME ONE
+ * ---------------------------------------------------------------------------
+ *
+ * Every event this file finds is a pool crossing a level, located in closed form
+ * by a division, and the header lists an unlock threshold crossing as explicitly
+ * NOT a simulation event: the player is not there to buy anything, so a crossing
+ * changes no rate and does not interrupt a jump. An act boundary is that same
+ * kind of thing, a threshold on a running total that lives outside the
+ * simulation, and adding it to `nextHorizon` would put a non-pool quantity into
+ * an enumerator whose whole correctness argument is that it only reads pools.
+ * The substrate mask is computed once per resolution on the same assumption.
+ *
+ * So it stops the resolution instead. Time is credited up to it, the caller is
+ * told why, and the authored moment plays live when the player comes back, which
+ * is better than reading a summary row of it anyway. The bounded cost per event
+ * that the whole algorithm rests on is untouched.
+ *
+ * `ticksUntil` is asked twice per iteration, once before the settle and once
+ * after it, because the caller learns the rate of its own counter FROM the
+ * settle. Returning `Infinity` on the first call and a real estimate on the
+ * second is the expected shape rather than a defect.
+ */
+export interface OfflineStop {
+  /** Ticks from the current state until the boundary, or Infinity. */
+  ticksUntil(state: SimulationState): number;
+}
+
 export type OfflineEventKind = 'depletion' | 'window-end' | 'no-jump';
 
 export interface OfflineEventRecord {
@@ -317,6 +348,11 @@ export interface OfflineOutcome {
   readonly ticksRemaining: number;
   /** Whether EVENT_BUDGET ran out. Not the same thing as failing to settle. */
   readonly budgetExhausted: boolean;
+  /**
+   * Whether an `OfflineStop` ended the resolution. Not a failure: the window was
+   * not finished because finishing it would have run past the end of the act.
+   */
+  readonly stoppedEarly: boolean;
   /**
    * Total amount discarded by retiring spent pools, in pool units. The only
    * matter the offline path does not conserve exactly, and it is reported
@@ -380,6 +416,7 @@ export function resolveOffline(
   detector: SteadyDetector,
   windowTicks: number,
   observer?: OfflineObserver,
+  stop?: OfflineStop,
 ): OfflineOutcome {
   const events: OfflineEventRecord[] = [];
   const mask = substrateMask(state);
@@ -398,6 +435,7 @@ export function resolveOffline(
   let remaining = windowTicks;
   let resolved = true;
   let budgetExhausted = false;
+  let stoppedEarly = false;
 
   while (remaining > 0) {
     if (events.length >= EVENT_BUDGET) {
@@ -405,8 +443,21 @@ export function resolveOffline(
       break;
     }
 
+    /*
+     * The stop, asked before anything is spent. Under one tick counts as
+     * reached, both because a sub-tick credit is not a thing the loop can spend
+     * and because a budget below one tick makes `replayUntilSteady` run zero
+     * ticks, which would spin here forever.
+     */
+    const until = stop === undefined ? Number.POSITIVE_INFINITY : stop.ticksUntil(state);
+    if (until < 1) {
+      stoppedEarly = true;
+      break;
+    }
+    const allowed = Math.min(remaining, Math.floor(until));
+
     // Steps 1 and 2. Bounded full-fidelity replay, then the steady test.
-    const settleBudget = Math.min(SETTLE_MAX_TICKS, remaining);
+    const settleBudget = Math.min(SETTLE_MAX_TICKS, allowed);
     const settle = replayUntilSteady(state, detector, settleBudget, onTick);
     remaining -= settle.ticksRun;
     let settleTicks = settle.ticksRun;
@@ -419,7 +470,7 @@ export function resolveOffline(
     }
 
     // Spend the rest of the settle budget refining the rate. See above.
-    const refine = Math.min(SETTLE_MAX_TICKS - settle.ticksRun, remaining);
+    const refine = Math.min(SETTLE_MAX_TICKS - settle.ticksRun, allowed - settle.ticksRun);
     for (let i = 0; i < refine; i += 1) {
       tick(state);
       if (onTick !== undefined) onTick(state, TICK_SECONDS);
@@ -429,6 +480,19 @@ export function resolveOffline(
     settleTicks += refine;
 
     if (remaining <= 0) break;
+
+    /*
+     * Asked again, now that the settle has run real ticks and the caller has a
+     * rate to estimate from. This is the call that actually bounds the jump.
+     */
+    const untilNow = stop === undefined ? Number.POSITIVE_INFINITY : stop.ticksUntil(state);
+    if (untilNow < 1) {
+      stoppedEarly = true;
+      break;
+    }
+    const room = Math.min(remaining, Math.floor(untilNow));
+    if (room < 1) continue;
+
     if (!detector.settled) {
       // It stopped being steady while the rate was being refined, which means
       // something changed under it. Not a fallback: go round again and settle
@@ -477,7 +541,7 @@ export function resolveOffline(
      */
     const fractional = Number.isFinite(horizon.ticks)
       ? Math.floor(horizon.ticks * MAX_JUMP_DEPLETION_FRACTION)
-      : remaining;
+      : room;
 
     /*
      * THE HARD BOUND, WHICH IS NOT THE SAME AS THE ACCURACY BOUND, AND THE
@@ -498,7 +562,7 @@ export function resolveOffline(
      * entirely. It is the same division.
      */
     const zero = nextZeroCrossing(state, detector.previousDelta);
-    const hard = Number.isFinite(zero.ticks) ? Math.floor(zero.ticks) : remaining;
+    const hard = Number.isFinite(zero.ticks) ? Math.floor(zero.ticks) : room;
 
     /*
      * A pool deep in its exponential tail is finished off in one jump rather
@@ -514,7 +578,7 @@ export function resolveOffline(
         (peak[horizon.poolIndex] as number) * OFFLINE_TAIL_FRACTION;
 
     let bound = Math.min(fractional, hard);
-    if (inTail) bound = Math.min(hard, remaining);
+    if (inTail) bound = Math.min(hard, room);
     bound = Math.min(bound, hard);
 
     // Floating point can put `amount + rate * floor(amount / -rate)` a hair
@@ -534,8 +598,9 @@ export function resolveOffline(
       continue;
     }
 
-    // Step 4. Jump to the earlier of the event and the end of the window.
-    const jumpTicks = Math.min(remaining, bound);
+    // Step 4. Jump to the earliest of the event, the end of the window and the
+    // stop.
+    const jumpTicks = Math.min(room, bound);
     if (observer?.capture !== undefined) observer.capture(state);
     applyJump(state, detector.previousDelta, jumpTicks);
     if (observer?.advance !== undefined) observer.advance(jumpTicks);
@@ -557,6 +622,7 @@ export function resolveOffline(
     ticksResolved: windowTicks - remaining,
     ticksRemaining: remaining,
     budgetExhausted,
+    stoppedEarly,
     discarded,
     events,
   };

@@ -27,9 +27,8 @@
  */
 
 import { useState } from 'react';
-import { useLiveNode, useRuntime, useSnapshotEffect } from '../RuntimeContext';
-import { poolIndex, type Act1Snapshot } from '../runtime';
-import type { Act1PoolId } from '../../content/act1/pools';
+import { useLiveNode, usePoolIndex, useRuntime, useSnapshotEffect } from '../RuntimeContext';
+import { type ActSnapshot } from '../runtime';
 import { Badge } from './Badge';
 import { Blob, setRedoxLevel } from './Blob';
 import { Card } from './Card';
@@ -41,7 +40,7 @@ import {
   carrierState,
   CARRIER_READOUT,
   FIGURE_LABELS,
-  MOLECULES,
+  moleculeName,
   POOL_FIGURES,
 } from '../content';
 import { carbonOf, phosphateOf, type PoolCardSpec } from '../poolCards';
@@ -50,7 +49,7 @@ import { FERMENT_ATP_THRESHOLD } from '../tuning';
 /** Below this the pool is flat rather than moving, and the sign means nothing. */
 const FLAT_RATE = 1e-6;
 
-function SignedRate({ read }: { read: (snapshot: Act1Snapshot) => number }) {
+function SignedRate({ read }: { read: (snapshot: ActSnapshot) => number }) {
   /**
    * MOVING OR FLAT, IN INK. UPDATELOGV7.md stage 5.
    *
@@ -105,12 +104,12 @@ function SignedRate({ read }: { read: (snapshot: Act1Snapshot) => number }) {
 }
 
 /** The stock, small, underneath. One line per pool the card covers. */
-function Stock({ poolId }: { poolId: Act1PoolId }) {
-  const index = poolIndex(poolId);
+function Stock({ poolId }: { poolId: string }) {
+  const index = usePoolIndex(poolId);
   return (
     <span className="flex items-baseline justify-between gap-2">
       <span className="text-micro font-body font-bold uppercase tracking-label text-ink2">
-        {MOLECULES[poolId].text}
+        {moleculeName(poolId).text}
       </span>
       <Figure
         read={(snapshot) => snapshot.amounts[index] as number}
@@ -160,8 +159,8 @@ function Stock({ poolId }: { poolId: Act1PoolId }) {
  * to zero, one and two would put a species on the screen that does not exist.
  */
 function NicotinamideBlob({ seed }: { seed: number }) {
-  const nad = poolIndex('nad');
-  const nadh = poolIndex('nadh');
+  const nad = usePoolIndex('nad');
+  const nadh = usePoolIndex('nadh');
 
   const levelRef = useLiveNode<SVGGElement>((element, snapshot) => {
     const oxidized = snapshot.amounts[nad] as number;
@@ -242,7 +241,7 @@ function NicotinamideBlob({ seed }: { seed: number }) {
 }
 
 export function PoolCard({ spec }: { spec: PoolCardSpec }) {
-  const headline = poolIndex(spec.headline);
+  const headline = usePoolIndex(spec.headline);
   const runtime = useRuntime();
 
   /**
@@ -258,7 +257,7 @@ export function PoolCard({ spec }: { spec: PoolCardSpec }) {
    * condition worth interrupting for.
    */
   const mark = spec.coach;
-  const autoTriggered = spec.kind === 'nicotinamide';
+  const autoTriggered = spec.kind === 'mix';
   const coach = useCoachMark(autoTriggered ? COACH_MARK_TRIGGER : 'manual');
   const openPanel = useOpenTeachingPanel();
 
@@ -318,7 +317,7 @@ export function PoolCard({ spec }: { spec: PoolCardSpec }) {
 
       <span className="flex items-center gap-2">
         <span className="flex shrink-0 items-center gap-1">
-          {spec.kind === 'nicotinamide' ? (
+          {spec.kind === 'mix' ? (
             <NicotinamideBlob seed={spec.blobs[0]?.seed ?? 1} />
           ) : (
             spec.blobs.map((blob) => (
@@ -337,7 +336,7 @@ export function PoolCard({ spec }: { spec: PoolCardSpec }) {
                 // cannot describe a shape the pathway no longer makes.
                 label={
                   blobReadout(
-                    MOLECULES[blob.poolId].text,
+                    moleculeName(blob.poolId).text,
                     carbonOf(blob.poolId),
                     phosphateOf(blob.poolId),
                   ).text

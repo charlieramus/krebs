@@ -15,11 +15,12 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ACT1 } from '../../content/acts';
 import { MAX_CATCHUP_TICKS, TICK_MS } from '../../sim/constants';
 import { hashState } from '../../sim/hash';
 import { setShortfallLogging, tick } from '../../sim/tick';
 import { createAct1 } from '../../content/act1/reactions';
-import { createAct1Runtime, type Act1RuntimeOptions } from '../runtime';
+import { createActRuntime, type ActRuntimeOptions } from '../runtime';
 
 beforeAll(() => {
   setShortfallLogging(false);
@@ -33,8 +34,8 @@ beforeAll(() => {
  * would hand it. The first frame credits zero time by construction, so the list
  * is fed starting from the second.
  */
-function drive(deltasMs: readonly number[], options: Act1RuntimeOptions = {}) {
-  const runtime = createAct1Runtime(options);
+function drive(deltasMs: readonly number[], options: ActRuntimeOptions = {}) {
+  const runtime = createActRuntime(ACT1, options);
   let nowMs = 0;
   runtime.frame(nowMs);
   for (const delta of deltasMs) {
@@ -48,7 +49,7 @@ describe('the render bridge introduces no drift', () => {
   it('produces the same pool amounts as calling tick directly the same number of times', () => {
     const ticks = 400;
     const runtime = drive(new Array<number>(ticks).fill(TICK_MS), {
-      act1: { enabled: { ferment: true } },
+      create: { enabled: { ferment: true } },
     });
 
     const direct = createAct1({ enabled: { ferment: true } });
@@ -61,7 +62,7 @@ describe('the render bridge introduces no drift', () => {
 
   it('copies the live state into the snapshot rather than reporting its own accounting', () => {
     const runtime = drive(new Array<number>(200).fill(TICK_MS), {
-      act1: { enabled: { ferment: true } },
+      create: { enabled: { ferment: true } },
     });
 
     expect(Array.from(runtime.snapshot.amounts)).toEqual(
@@ -77,12 +78,12 @@ describe('the render bridge introduces no drift', () => {
     // instead of per tick would make these three disagree wildly, because the
     // meter reads scratch arrays the next tick overwrites.
     const perTick = drive(new Array<number>(200).fill(TICK_MS), {
-      act1: { enabled: { ferment: true } },
+      create: { enabled: { ferment: true } },
     });
     const perTenTicks = drive(new Array<number>(20).fill(TICK_MS * 10), {
-      act1: { enabled: { ferment: true } },
+      create: { enabled: { ferment: true } },
     });
-    const oneFrame = drive([TICK_MS * 200], { act1: { enabled: { ferment: true } } });
+    const oneFrame = drive([TICK_MS * 200], { create: { enabled: { ferment: true } } });
 
     expect(perTenTicks.state.tickCount).toBe(200);
     expect(oneFrame.state.tickCount).toBe(200);
@@ -142,8 +143,8 @@ describe('frame timing does not reach the simulation', () => {
   });
 
   it('produces an identical tick count, identical pools and an identical hash', () => {
-    const smooth = drive(regular, { act1: { enabled: { ferment: true } } });
-    const stuttering = drive(irregular, { act1: { enabled: { ferment: true } } });
+    const smooth = drive(regular, { create: { enabled: { ferment: true } } });
+    const stuttering = drive(irregular, { create: { enabled: { ferment: true } } });
 
     expect(stuttering.state.tickCount).toBe(smooth.state.tickCount);
     expect(stuttering.state.tickCount).toBe(400);
@@ -158,7 +159,7 @@ describe('frame timing does not reach the simulation', () => {
   });
 
   it('does not lose time to the offline path at these frame sizes', () => {
-    const stuttering = drive(irregular, { act1: { enabled: { ferment: true } } });
+    const stuttering = drive(irregular, { create: { enabled: { ferment: true } } });
     expect(stuttering.snapshot.pendingOfflineMs).toBe(0);
   });
 
@@ -168,7 +169,7 @@ describe('frame timing does not reach the simulation', () => {
     // frame runs MAX_CATCHUP_TICKS ticks and hands the rest to the offline path,
     // which nothing in V3 consumes.
     const fiveMinutes = 5 * 60 * 1000;
-    const runtime = drive([fiveMinutes], { act1: { enabled: { ferment: true } } });
+    const runtime = drive([fiveMinutes], { create: { enabled: { ferment: true } } });
 
     expect(runtime.state.tickCount).toBe(MAX_CATCHUP_TICKS);
     expect(runtime.snapshot.pendingOfflineMs).toBe(fiveMinutes - MAX_CATCHUP_TICKS * TICK_MS);
@@ -177,14 +178,14 @@ describe('frame timing does not reach the simulation', () => {
 
 describe('the runtime does not write to simulation state from the display side', () => {
   it('credits zero elapsed time on the first frame of a run, however late it arrives', () => {
-    const runtime = createAct1Runtime({ act1: { enabled: { ferment: true } } });
+    const runtime = createActRuntime(ACT1, { create: { enabled: { ferment: true } } });
     runtime.frame(9_999_999);
     expect(runtime.state.tickCount).toBe(0);
     expect(runtime.snapshot.pendingOfflineMs).toBe(0);
   });
 
   it('leaves the interpolation fraction in [0, 1) and out of the state', () => {
-    const runtime = createAct1Runtime({ act1: { enabled: { ferment: true } } });
+    const runtime = createActRuntime(ACT1, { create: { enabled: { ferment: true } } });
     let nowMs = 0;
     // 17ms frames over a 50ms tick: the remainder cycles rather than resting.
     for (let f = 0; f < 60; f += 1) {
@@ -197,7 +198,7 @@ describe('the runtime does not write to simulation state from the display side',
   });
 
   it('unsubscribes cleanly', () => {
-    const runtime = createAct1Runtime();
+    const runtime = createActRuntime(ACT1);
     let calls = 0;
     const unsubscribe = runtime.subscribe(() => {
       calls += 1;

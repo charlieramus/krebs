@@ -61,13 +61,20 @@ describe('one live region, and it never narrates the tick', () => {
 });
 
 describe('how much a full act 1 says', () => {
-  it('is sixteen announcements, counted from the ladders rather than restated', () => {
-    // One stall, one recovery, and an affordable plus a bought for each of the
-    // seven purchases. If a later log adds a rung this moves with it, which is
-    // the point of deriving it: a number written in a comment would not.
+  it('is seventeen announcements, counted from the ladders rather than restated', () => {
+    // One stall, one recovery, one act boundary, and an affordable plus a bought
+    // for each of the seven purchases this component speaks for. If a later log
+    // adds a rung this moves with it, which is the point of deriving it: a
+    // number written in a comment would not.
+    //
+    // SIXTEEN AT V8 AND SEVENTEEN NOW. UPDATELOGV11.md stage 4 added the act
+    // boundary, which is the most significant event in the game so far and is
+    // still worth exactly one sentence. The three unlocks V10 added are bought
+    // from the shelf and are not spoken here, which is a gap this file records
+    // rather than a change stage 4 made.
     expect(ACT1_PURCHASE_COUNT).toBe(7);
-    expect(ACT1_ANNOUNCEMENT_COUNT).toBe(2 + 2 * ACT1_PURCHASE_COUNT);
-    expect(ACT1_ANNOUNCEMENT_COUNT).toBe(16);
+    expect(ACT1_ANNOUNCEMENT_COUNT).toBe(3 + 2 * ACT1_PURCHASE_COUNT);
+    expect(ACT1_ANNOUNCEMENT_COUNT).toBe(17);
   });
 
   it('stays two orders of magnitude below what narrating the tick would cost', () => {

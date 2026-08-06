@@ -58,8 +58,8 @@
  */
 
 import { useRef } from 'react';
-import { useLiveNode } from '../RuntimeContext';
-import { reactionIndex, TICK_MS, type Act1Snapshot } from '../runtime';
+import { useLiveNode, useReactionIndex } from '../RuntimeContext';
+import { TICK_MS, type ActSnapshot } from '../runtime';
 import type { Act1ReactionId } from '../../content/act1/reactions';
 import { REACTIONS } from '../content';
 import { Figure } from './Figure';
@@ -116,12 +116,12 @@ export interface PathwayArrowProps {
 }
 
 /** Continuous game time in seconds, including the sub-tick remainder. */
-function gameTimeSeconds(snapshot: Act1Snapshot): number {
+function gameTimeSeconds(snapshot: ActSnapshot): number {
   return (snapshot.elapsedMs + snapshot.interpolation * TICK_MS) / 1000;
 }
 
 export function PathwayArrow({ reaction, reducedMotion }: PathwayArrowProps) {
-  const index = reactionIndex(reaction);
+  const index = useReactionIndex(reaction);
   const entry = REACTIONS[reaction];
 
   /** Accumulated dash travel in pixels, and the clock reading it was last advanced to. */

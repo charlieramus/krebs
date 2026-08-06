@@ -42,41 +42,34 @@ import {
   UPTAKE_VMAX_STEPS,
   ZERO_FLUX_THRESHOLD,
 } from './tuning';
+import { knowsAct, KNOWN_ACT_NUMBERS } from '../content/acts';
+import type {
+  ActCarriedCounters,
+  ActCreateOptions,
+  ActDescriptor,
+  ActMeter,
+  ActMeterProbes,
+} from '../content/acts';
 import {
-  atpPerCompletedGlucose,
-  createAct1Meter,
-  createAct1MeterProbes,
-  netAtpPerCompletedGlucose,
-  recordAct1Tick,
-  type Act1Meter,
-  type Act1MeterProbes,
-} from '../content/act1/meter';
-import { createAct1OfflineObserver } from '../content/act1/offline';
-import { ACT1_POOL_IDS, type Act1PoolId } from '../content/act1/pools';
-import {
-  ACT1_REACTION_IDS,
-  createAct1,
-  type Act1Options,
-  type Act1ReactionId,
-} from '../content/act1/reactions';
-import {
-  ACT1_NO_CARRIED_COUNTERS,
   ACT1_UNLOCK_FERMENT,
   ACT1_UNLOCK_FERMENT_ETHANOL,
   ACT1_UNLOCK_GLYCOGEN,
   ACT1_UNLOCK_PFK1_PK,
   act1GlycolysisUnlockId,
   act1UptakeUnlockId,
-  captureAct1,
-  restoreAct1,
-  type Act1CarriedCounters,
 } from '../content/act1/save';
 import { createAutosave, type Autosave, type AutosaveRecord, type SaveReason } from '../save/autosave';
 import { serializeReadable } from '../save/codec';
 import { currentBuildId, epochNow } from '../save/meta';
 import { parseAndMigrate } from '../save/migrations';
 import { computeOfflineDelta } from '../save/offline';
-import { coarseReplay, resolveOffline, type OfflineEventRecord } from '../sim/jump';
+import {
+  coarseReplay,
+  resolveOffline,
+  type OfflineEventRecord,
+  type OfflineStop,
+} from '../sim/jump';
+import { boundaryFor, type ActBoundary } from './boundary';
 import { createSteadyDetector } from '../sim/steady';
 import type { SaveSettingsV1, SaveV1 } from '../save/schema';
 import {
@@ -96,10 +89,10 @@ import {
  * garbage collector to absorb it, which shows up as exactly the periodic hitch
  * that makes a flowing-dash animation stutter.
  */
-export interface Act1Snapshot {
-  /** Pool amounts, ACT1_POOL_IDS order. */
+export interface ActSnapshot {
+  /** Pool amounts, `descriptor.poolIds` order. */
   readonly amounts: Float64Array;
-  /** Intended flux per reaction, ACT1_REACTION_IDS order, units per game-second. */
+  /** Intended flux per reaction, `descriptor.reactionIds` order, units per game-second. */
   readonly flux: Float64Array;
   /**
    * Flux the tick actually applied, which is `flux * scale`. The two differ
@@ -108,12 +101,12 @@ export interface Act1Snapshot {
    * that has already stopped the reaction.
    */
   readonly appliedFlux: Float64Array;
-  /** Ticks in which each pool ran short. Diagnostics, ACT1_POOL_IDS order. */
+  /** Ticks in which each pool ran short. Diagnostics, `descriptor.poolIds` order. */
   readonly shortfallTicks: Int32Array;
 
   /**
    * Units per game-second produced into each pool, summed across every
-   * reaction that makes it. ACT1_POOL_IDS order.
+   * reaction that makes it. `descriptor.poolIds` order.
    *
    * DERIVED FROM THE REACTION TABLE, not written down. "ATP per second" is
    * `production[atp]`, which is the payoff phase's coefficient of 2 read out of
@@ -131,8 +124,8 @@ export interface Act1Snapshot {
    */
   readonly netRate: Float64Array;
 
-  /** The live meter. Same object every frame, filled in place by recordAct1Tick. */
-  readonly meter: Act1Meter;
+  /** The live meter. Same object every frame, filled in place by `descriptor.recordTick`. */
+  readonly meter: ActMeter;
   /** Gross ATP per glucose that finished the pathway. The sourced figure is 4. */
   atpPerGlucose: number;
   /** Net of the preparatory spend. The sourced figure is 2. */
@@ -203,9 +196,24 @@ export interface Act1Snapshot {
    * against the flux the tick applied rather than the flux it intended.
    */
   walled: boolean;
+
+  /**
+   * The act's content is exhausted. UPDATELOGV11.md stage 4.
+   *
+   * DERIVED, LIKE `walled`, AND FOR THE SAME REASON. Nothing in the simulation
+   * knows what an act is and it must not: an act boundary is a reading of what
+   * the player has bought, not a state the pools are in. The condition is the
+   * running act's, in src/ui/boundary.ts, and it is a content condition rather
+   * than a time or an ATP total.
+   *
+   * It goes true once and never goes back, because nothing sells an unlock back.
+   * The edge is what fires the authored moment; this flag is what the edge is
+   * read off.
+   */
+  actComplete: boolean;
 }
 
-export type Act1SnapshotListener = (snapshot: Act1Snapshot) => void;
+export type ActSnapshotListener = (snapshot: ActSnapshot) => void;
 
 /**
  * Applied flux below which a reaction counts as stopped for the purpose of
@@ -218,14 +226,6 @@ export type Act1SnapshotListener = (snapshot: Act1Snapshot) => void;
  */
 const STOPPED_FLUX = ZERO_FLUX_THRESHOLD;
 
-/**
- * NAD+ remaining below which the carrier counts as exhausted.
- *
- * A fraction of a single unit against a nicotinamide total of 30. Not zero,
- * because the pool approaches zero asymptotically and never quite arrives, and
- * a detector that waits for exactly zero waits forever.
- */
-const WALLED_NAD = 0.05;
 
 /**
  * Persistence, added by UPDATELOGV4.md stage 5.
@@ -235,7 +235,7 @@ const WALLED_NAD = 0.05;
  * write a save slot, and a persistence layer that cannot be switched off makes
  * every one of them stateful.
  */
-export interface Act1PersistenceOptions {
+export interface ActPersistenceOptions {
   /** Defaults to `createSaveStore()`, which probes localStorage and falls back to memory. */
   readonly store?: SaveStore;
   /** Epoch milliseconds. Defaults to `epochNow`. The only wall clock in the runtime. */
@@ -256,8 +256,15 @@ export interface Act1PersistenceOptions {
  * backup, `future` refuses and says why, `unreadable` says both slots failed,
  * `new-game` says nothing at all.
  */
-export interface Act1Session {
-  readonly kind: 'loaded' | 'new-game' | 'recoverable' | 'future' | 'unreadable' | 'disabled';
+export interface ActSession {
+  readonly kind:
+    | 'loaded'
+    | 'new-game'
+    | 'recoverable'
+    | 'future'
+    | 'future-act'
+    | 'unreadable'
+    | 'disabled';
   /**
    * Real milliseconds between the last save and this load, capped at
    * MAX_OFFLINE_HOURS. ACCUMULATED AND NOT CREDITED: V4 simulates none of it.
@@ -276,8 +283,24 @@ export interface Act1Session {
   readonly reason: string | null;
   /** The version found, when the save came from a newer build. */
   readonly futureVersion: number | null;
+  /**
+   * The act found, when the save names an act this build does not have.
+   *
+   * THE SAME POSTURE AS `futureVersion` AND FOR THE SAME REASON.
+   * `migrations.ts` refuses a save from a newer schema and refuses to migrate
+   * downward, ever, because this build cannot know what the fields mean. A save
+   * naming act 3 against a build that knows one act is that case exactly, one
+   * level up: the shape is valid, the content is from a future this build has
+   * not been written for, and interpreting it would be guessing.
+   *
+   * It is not hypothetical. Acts ship one log at a time and builds knowing
+   * different numbers of acts will exist at once, in a cached bundle in
+   * somebody's browser or after a deploy is rolled back. There is no backend, no
+   * accounts and no way to push a fix to one player.
+   */
+  readonly futureAct: number | null;
   /** What the offline path did with `awayMs` plus anything already pending. */
-  readonly offline: Act1OfflineReport;
+  readonly offline: ActOfflineReport;
 }
 
 /**
@@ -287,7 +310,7 @@ export interface Act1Session {
  * session; `creditedMs` is zero when there was nothing to credit, which is the
  * common case and is what a reload produces.
  */
-export interface Act1OfflineReport {
+export interface ActOfflineReport {
   /** Game time actually simulated, in milliseconds. */
   readonly creditedMs: number;
   /** Time that was owed and not simulated, in milliseconds. Non-zero only when the budget ran out. */
@@ -302,6 +325,14 @@ export interface Act1OfflineReport {
   readonly fellBack: boolean;
   /** Whether EVENT_BUDGET ran out. Not the same thing as falling back. */
   readonly budgetExhausted: boolean;
+  /**
+   * Whether the credit stopped because the act's content ran out rather than
+   * because the window did. UPDATELOGV11.md stage 4.
+   *
+   * The remaining time is reported as `uncreditedMs` and is NOT carried
+   * forward. See `creditPendingOffline` for why deferring it is a trap.
+   */
+  readonly stoppedAtBoundary: boolean;
   /** How long the credit took, in real milliseconds. Measured, not estimated. */
   readonly elapsedRealMs: number;
 }
@@ -312,21 +343,35 @@ export type ImportOutcome =
   | { readonly kind: 'future'; readonly version: number }
   | { readonly kind: 'failed'; readonly reason: string };
 
-export interface Act1RuntimeOptions {
-  /** Passed through to createAct1. Enabled flags, Vmax overrides, initial amounts. */
-  readonly act1?: Partial<Act1Options>;
+export interface ActRuntimeOptions {
+  /** Passed through to the descriptor's constructor. Enabled flags, Vmax overrides, initial amounts. */
+  readonly create?: ActCreateOptions;
   /** Monotonic milliseconds. Defaults to performance.now. */
   readonly clock?: () => number;
   /** Frame scheduler. Defaults to requestAnimationFrame. */
   readonly schedule?: (callback: () => void) => number;
   /** Frame canceller. Defaults to cancelAnimationFrame. */
   readonly cancel?: (handle: number) => void;
-  readonly persistence?: Act1PersistenceOptions;
+  readonly persistence?: ActPersistenceOptions;
 }
 
-export interface Act1Runtime {
+export interface ActRuntime {
+  /**
+   * The running act's end condition, so the interface can ask what it is rather
+   * than restating it. See src/ui/boundary.ts.
+   */
+  readonly boundary: ActBoundary;
+  /**
+   * The act this runtime is running.
+   *
+   * Exposed rather than kept private because the interface needs it: a
+   * component resolving a pool id to an index asks the running act, and there
+   * is no longer a module-level function that answers for act 1 on everyone's
+   * behalf. `RuntimeContext` re-exports it as `useAct`.
+   */
+  readonly act: ActDescriptor;
   /** The one snapshot object. Read it, do not keep references to its arrays. */
-  readonly snapshot: Act1Snapshot;
+  readonly snapshot: ActSnapshot;
   /** Escape hatch for tests and the drain measurement. Not for the display. */
   readonly state: SimulationState;
   readonly loop: Loop;
@@ -339,7 +384,7 @@ export interface Act1Runtime {
    * calls, and what tests and headless measurements call instead of scheduling.
    */
   frame(nowMs: number): void;
-  subscribe(listener: Act1SnapshotListener): () => void;
+  subscribe(listener: ActSnapshotListener): () => void;
 
   /**
    * Buy lactate dehydrogenase. Idempotent, and refuses if the cumulative meter
@@ -394,7 +439,7 @@ export interface Act1Runtime {
   /* ===== Persistence, UPDATELOGV4.md stage 5 ===== */
 
   /** What happened when this session started. Fixed at construction. */
-  readonly session: Act1Session;
+  readonly session: ActSession;
   /** Unlock ids in purchase order. The source of truth the save carries. */
   readonly unlocked: readonly string[];
   /** Build the save this instant. Pure with respect to the simulation. */
@@ -430,9 +475,28 @@ export interface Act1Runtime {
    * waiting for the autosave interval.
    */
   markFirstRunSeen(): void;
+
+  /* ===== The act boundary, UPDATELOGV11.md stage 4 ===== */
+
+  /**
+   * Whether the act's ending has been shown. Persisted under `settings`,
+   * alongside `firstRunSeen` and for the same reasons.
+   *
+   * WITHOUT THIS THE ENDING FIRES ON EVERY RELOAD. `snapshot.actComplete` is
+   * derived from what has been bought, so a completed save arrives complete on
+   * its first frame and would reopen the screen every launch forever. It is
+   * presentation, docs/SAVE_SCHEMA.md Part 3, and it defaults to false, which is
+   * right rather than tolerated: a player whose save predates this build has not
+   * seen it either.
+   */
+  boundarySeen(): boolean;
+  markBoundarySeen(): void;
 }
 
-export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime {
+export function createActRuntime(
+  descriptor: ActDescriptor,
+  options: ActRuntimeOptions = {},
+): ActRuntime {
   const clock = options.clock ?? (() => performance.now());
   const schedule =
     options.schedule ?? ((callback: () => void) => requestAnimationFrame(callback));
@@ -461,8 +525,37 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * all. And an unreadable pair is exactly the case where the corrupt bytes have
    * to stay on disk untouched while the player decides what to do.
    */
-  const restoredSave: SaveV1 | null = loaded?.kind === 'loaded' ? loaded.save : null;
-  const restored = restoredSave === null ? null : restoreAct1(restoredSave);
+  const rawSave: SaveV1 | null = loaded?.kind === 'loaded' ? loaded.save : null;
+
+  /**
+   * THE ACT REFUSAL. UPDATELOGV11.md stage 5.
+   *
+   * `progression.act` has been written by every save since V4 and read by
+   * nothing. It is load-bearing from this log on, so a save naming an act this
+   * build does not have stops being inert and becomes a lookup with no answer,
+   * surfacing wherever the first property access happens rather than at load.
+   *
+   * NOT CLAMPED TO THE HIGHEST KNOWN ACT. That would load successfully and
+   * silently rewrite somebody's progress, which is worse than refusing. The
+   * project's posture is already settled elsewhere and this matches it: recovery
+   * from a backup is an offer rather than an action, and a corrupt save starts a
+   * new game in memory while both slots stay untouched.
+   *
+   * The codec has already rejected an act that is not a positive integer, so
+   * anything reaching here is a well-formed number naming an act that does not
+   * exist in this build.
+   */
+  const declaredAct = rawSave === null ? descriptor.act : rawSave.progression.act;
+  const actRefused = rawSave !== null && !knowsAct(declaredAct);
+  if (actRefused) {
+    console.warn(
+      `krebs: this save is from act ${declaredAct} and this build knows ` +
+        `${KNOWN_ACT_NUMBERS.join(', ')}. It has been left on disk untouched.`,
+    );
+  }
+
+  const restoredSave: SaveV1 | null = actRefused ? null : rawSave;
+  const restored = restoredSave === null ? null : descriptor.restore(restoredSave);
 
   if (restored !== null && restored.kind !== 'ok') {
     // The codec validated the shape and the content mapping still refused it,
@@ -473,9 +566,9 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
 
   const restoredOk = restored?.kind === 'ok' ? restored.restored : null;
 
-  const state = restoredOk === null ? createAct1(options.act1 ?? {}) : restoredOk.state;
-  const probes: Act1MeterProbes = createAct1MeterProbes(state);
-  const meter = restoredOk === null ? createAct1Meter() : restoredOk.meter;
+  const state = restoredOk === null ? descriptor.create(options.create) : restoredOk.state;
+  const probes: ActMeterProbes = descriptor.createMeterProbes(state);
+  const meter = restoredOk === null ? descriptor.createMeter() : restoredOk.meter;
 
   /** Unlock ids in purchase order. Persisted as `progression.unlocked`. */
   const unlocked: string[] = restoredOk === null ? [] : [...restoredOk.unlocked];
@@ -501,23 +594,25 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * the readonly half is the useful half. The offline credit is the only thing
    * that moves them.
    */
-  let carried: Act1CarriedCounters = restoredOk?.carried ?? ACT1_NO_CARRIED_COUNTERS;
+  let carried: ActCarriedCounters = restoredOk?.carried ?? descriptor.noCarriedCounters;
   const createdAt = restoredSave?.meta.createdAt ?? epochClock();
 
   const poolCount = state.pools.count;
   const reactionCount = state.reactions.length;
 
   /**
-   * The g3p level at the start of the METERED WINDOW, for the completed-glucose
-   * correction in meter.ts. Trioses sitting in the pool are glucose that has been
-   * paid for and has not paid out, and subtracting them is the difference between
-   * reporting the sourced yield of 4 and reporting a stall as a collapse in
-   * yield.
+   * The yield-correction baseline at the start of the METERED WINDOW.
+   *
+   * THE POOL IS THE ACT'S CHOICE AND NOT THIS FILE'S. Act 1 names `g3p`:
+   * trioses sitting in the pool are glucose that has been paid for and has not
+   * paid out, and subtracting them is the difference between reporting the
+   * sourced yield of 4 and reporting a stall as a collapse in yield. The runtime
+   * held that literal until UPDATELOGV11.md stage 2 and now asks the descriptor.
    *
    * A RESTORED SESSION USES ZERO, NOT THE RESTORED AMOUNT, and this is the one
    * thing persistence quietly broke before it was noticed. The meter is
-   * cumulative over the whole save, so its baseline is the g3p the run started
-   * with, which is `ACT1_INITIAL.g3p` and is zero. Taking the restored pool level
+   * cumulative over the whole save, so its baseline is the level the run started
+   * with, which for act 1 is `ACT1_INITIAL.g3p` and is zero. Taking the restored pool level
    * as the baseline would measure the correction from the reload rather than from
    * the beginning, and ATP per glucose would read wrong after every refresh. The
    * development scenario door can seed a non-zero starting g3p, and a save
@@ -525,17 +620,14 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * that is a known and deliberate limit of a door that only exists behind a
    * query string.
    */
-  const g3pIndex = state.pools.indexOf('g3p');
-  const g3pInitial = restoredOk === null ? (state.pools.amounts[g3pIndex] as number) : 0;
-
-  const payoffReaction = reactionIndex('payoff');
-  const uptakeReaction = reactionIndex('uptake');
-  const nadPool = state.pools.indexOf('nad');
+  const baselineIndex = descriptor.poolIndex(descriptor.yieldBaselinePoolId);
+  const baselineInitial =
+    restoredOk === null ? (state.pools.amounts[baselineIndex] as number) : 0;
 
   /**
    * THE ONCE-PER-TICK PROBLEM, AND HOW IT IS SOLVED.
    *
-   * `recordAct1Tick` reads `state.fluxes` and `state.scales`, which are scratch
+   * `descriptor.recordTick` reads `state.fluxes` and `state.scales`, which are scratch
    * arrays the next tick overwrites. One frame can run zero ticks, one tick, or
    * two hundred. Metering once per frame is therefore wrong in both directions:
    * a frame that ran three ticks and meters once counts the third tick three
@@ -553,7 +645,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * remembering to match it.
    */
   const loop = createLoop(state, (ticked) => {
-    recordAct1Tick(ticked, probes, meter);
+    descriptor.recordTick(ticked, probes, meter);
   });
 
   /**
@@ -579,7 +671,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     }
   }
 
-  const snapshot: Act1Snapshot = {
+  const snapshot: ActSnapshot = {
     amounts: new Float64Array(poolCount),
     flux: new Float64Array(reactionCount),
     appliedFlux: new Float64Array(reactionCount),
@@ -595,13 +687,14 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     pendingOfflineMs: 0,
     lastTickCount: 0,
     frameCount: 0,
-    fermentUnlocked: state.reactions[reactionIndex('ferment')]?.enabled ?? false,
-    ethanolUnlocked: state.reactions[reactionIndex('ferment_ethanol')]?.enabled ?? false,
-    glycogenUnlocked: state.reactions[reactionIndex('store')]?.enabled ?? false,
+    fermentUnlocked: state.reactions[descriptor.reactionIndex('ferment')]?.enabled ?? false,
+    ethanolUnlocked: state.reactions[descriptor.reactionIndex('ferment_ethanol')]?.enabled ?? false,
+    glycogenUnlocked: state.reactions[descriptor.reactionIndex('store')]?.enabled ?? false,
     pfk1PkBought: false,
     uptakeStep: 0,
     glycolysisStep: 0,
     walled: false,
+    actComplete: false,
   };
 
   /**
@@ -621,7 +714,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    */
   if (restoredOk !== null && restoredOk.unlocks.uptakeStep > 0) {
     const step = Math.min(restoredOk.unlocks.uptakeStep, UPTAKE_VMAX_STEPS.length - 1);
-    setReactionVmax(state, 'uptake', UPTAKE_VMAX_STEPS[step] as number);
+    setReactionVmax(descriptor, state, 'uptake', UPTAKE_VMAX_STEPS[step] as number);
     snapshot.uptakeStep = step;
   }
 
@@ -650,14 +743,23 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
 
   if (restoredOk !== null && restoredOk.unlocks.glycolysisStep > 0) {
     const step = Math.min(restoredOk.unlocks.glycolysisStep, GLYCOLYSIS_STEPS.length - 1);
-    applyGlycolysisStep(state, step, restoredOk.unlocks.pfk1PkBought);
+    applyGlycolysisStep(descriptor, state, step, restoredOk.unlocks.pfk1PkBought);
     snapshot.glycolysisStep = step;
   } else if (restoredOk !== null && restoredOk.unlocks.pfk1PkBought) {
     // Bought the enzymes and no rung yet. The factor still has to be applied,
     // and rung 0 is the configuration at the top of the uptake ladder, which is
     // where this purchase lives.
-    applyGlycolysisStep(state, 0, true);
+    applyGlycolysisStep(descriptor, state, 0, true);
   }
+
+  /**
+   * The running act's end condition. Resolved once, at construction, like every
+   * other act question in this file.
+   *
+   * It has to be in place before the offline credit runs, because the credit is
+   * what stops at it, and the credit happens before the first frame.
+   */
+  const boundary = boundaryFor(descriptor);
 
   /* =========================================================================
      THE OFFLINE DELTA, AND SPENDING IT. docs/SIMULATION.md Part 3.
@@ -698,7 +800,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * rather than being rounded into existence. That is the same rule
    * docs/SAVE_SCHEMA.md Part 3 applies to reconstruction.
    */
-  function creditPendingOffline(): Act1OfflineReport {
+  function creditPendingOffline(): ActOfflineReport {
     const startedAt = clock();
     const pendingMs = state.diagnostics.pendingOfflineMs;
     const windowTicks = Math.floor(pendingMs / TICK_MS);
@@ -710,19 +812,21 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
         uncreditedMs: 0,
         atpProduced: 0,
         events: [],
-        poolIds: ACT1_POOL_IDS,
+        poolIds: descriptor.poolIds,
         fellBack: false,
         budgetExhausted: false,
+        stoppedAtBoundary: false,
         elapsedRealMs: 0,
       };
     }
 
-    const observer = createAct1OfflineObserver(probes, meter);
+    const observer = descriptor.createOfflineObserver(probes, meter);
     const outcome = resolveOffline(
       state,
       createSteadyDetector(state.pools.count),
       windowTicks,
       observer,
+      boundaryStop(),
     );
 
     let coveredTicks = outcome.ticksResolved;
@@ -744,7 +848,26 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     }
 
     const creditedMs = coveredTicks * TICK_MS;
-    state.diagnostics.pendingOfflineMs = pendingMs - creditedMs;
+    const uncreditedMs = pendingMs - creditedMs;
+    state.diagnostics.pendingOfflineMs = uncreditedMs;
+
+    /*
+     * TIME PAST THE BOUNDARY IS NOT CARRIED FORWARD, AND DEFERRING IT IS A TRAP.
+     *
+     * The obvious alternative is to leave the remainder pending so a later load
+     * credits it once the act has actually ended. It does not work: the stop
+     * fires on the meter having reached the act's last threshold, so a player
+     * who comes back and does not buy the last unlock would hit the same stop at
+     * zero ticks on every subsequent load and accrue no offline time at all
+     * until they did. A game that quietly stops crediting until you click the
+     * right button is worse than one that says the act ended.
+     *
+     * So it is dropped, reported as `uncreditedMs` with `stoppedAtBoundary`
+     * true, and the return screen has both numbers. It is reachable at most once
+     * per save, in the window between the last purchase becoming available and
+     * being made.
+     */
+    if (outcome.stoppedEarly) state.diagnostics.pendingOfflineMs = 0;
     carried = {
       ...carried,
       offlineCreditedMs: carried.offlineCreditedMs + creditedMs,
@@ -754,18 +877,60 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
 
     return {
       creditedMs,
-      uncreditedMs: state.diagnostics.pendingOfflineMs,
+      // Read from the subtraction rather than from the field, because the
+      // boundary case zeroes the field and the report still has to say how much
+      // was owed and not credited.
+      uncreditedMs,
       atpProduced: meter.atpProduced - atpBefore,
       events: outcome.events,
-      poolIds: ACT1_POOL_IDS,
+      poolIds: descriptor.poolIds,
       fellBack,
       budgetExhausted: outcome.budgetExhausted,
+      stoppedAtBoundary: outcome.stoppedEarly,
       elapsedRealMs: clock() - startedAt,
     };
   }
 
-  const session: Act1Session = {
-    kind: store === null ? 'disabled' : (loaded?.kind ?? 'new-game'),
+  /**
+   * The act boundary, as something the offline resolution can stop at.
+   *
+   * RATE FROM MEASUREMENT RATHER THAN FROM A MODEL. Converting "how much ATP is
+   * still owed" into "how many ticks" needs a rate, and the honest one is the
+   * rate the resolution has just been running at: the delta in the meter over
+   * the delta in the tick count since the last time this was asked. The first
+   * call has no history and returns Infinity, which is why `resolveOffline` asks
+   * twice per iteration, once before the settle and once after it. By the second
+   * call a full-fidelity settle has metered real ticks.
+   *
+   * It reads `meter.atpProduced` and nothing else about the act, so no pool id
+   * appears in this file for it.
+   */
+  function boundaryStop(): OfflineStop {
+    let lastTick = state.tickCount;
+    let lastAtp = meter.atpProduced;
+    return {
+      ticksUntil(current) {
+        const threshold = boundary.nextContentAtp(snapshot, meter);
+        if (!Number.isFinite(threshold)) return Number.POSITIVE_INFINITY;
+        const owed = threshold - meter.atpProduced;
+        if (owed <= 0) return 0;
+        const ticks = current.tickCount - lastTick;
+        const made = meter.atpProduced - lastAtp;
+        lastTick = current.tickCount;
+        lastAtp = meter.atpProduced;
+        if (ticks <= 0 || made <= 0) return Number.POSITIVE_INFINITY;
+        return owed / (made / ticks);
+      },
+    };
+  }
+
+  const session: ActSession = {
+    kind:
+      store === null
+        ? 'disabled'
+        : actRefused
+          ? 'future-act'
+          : (loaded?.kind ?? 'new-game'),
     awayMs: offline.awayMs,
     offlineCapped: offline.capped,
     clockWentBackwards: offline.clockWentBackwards,
@@ -777,10 +942,11 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     reason:
       loaded?.kind === 'recoverable' || loaded?.kind === 'unreadable' ? loaded.reason : null,
     futureVersion: loaded?.kind === 'future' ? loaded.version : null,
+    futureAct: actRefused ? declaredAct : null,
     offline: offlineReport,
   };
 
-  const listeners = new Set<Act1SnapshotListener>();
+  const listeners = new Set<ActSnapshotListener>();
 
   /** Filled in place. Nothing here allocates. */
   function fill(interpolation: number): void {
@@ -803,9 +969,9 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       }
     }
 
-    const g3pDelta = (state.pools.amounts[g3pIndex] as number) - g3pInitial;
-    snapshot.atpPerGlucose = atpPerCompletedGlucose(meter, g3pDelta);
-    snapshot.netAtpPerGlucose = netAtpPerCompletedGlucose(meter, g3pDelta);
+    const baselineDelta = (state.pools.amounts[baselineIndex] as number) - baselineInitial;
+    snapshot.atpPerGlucose = descriptor.atpPerCompletedGlucose(meter, baselineDelta);
+    snapshot.netAtpPerGlucose = descriptor.netAtpPerCompletedGlucose(meter, baselineDelta);
 
     snapshot.tickCount = state.tickCount;
     snapshot.elapsedMs = elapsedMs(state);
@@ -815,20 +981,32 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     snapshot.frameCount += 1;
 
     /**
-     * Walled, read off the state rather than flagged by it.
+     * Walled, read off the state rather than flagged by it, AND ASKED OF THE ACT
+     * RATHER THAN COMPUTED HERE.
      *
-     * Three conditions, and all three are needed. The payoff phase has stopped,
-     * so the pathway is not producing. Uptake has NOT stopped, which is what
-     * separates this from starvation: a starved cell has every flux low
-     * together, and a walled cell is importing at full rate. And the carrier is
-     * essentially all reduced, which is the cause rather than a symptom, so a
-     * pathway that stops for some other reason a later act invents does not get
-     * mislabelled as this one.
+     * This file used to hold `WALLED_NAD = 0.05` and three act 1 conditions
+     * inline. Act 2's wall is not a NAD+ level, so neither the number nor the
+     * conditions could stay, and neither could be generalised without asserting
+     * that every act's wall is one pool crossing one threshold. The act answers
+     * the question instead. See `isWalled` in src/content/acts.ts, which carries
+     * the three conditions and the reasoning for them unchanged.
+     *
+     * Called once per frame with the same two arrays every time and allocates
+     * nothing, which is why the predicate takes arrays rather than the snapshot.
      */
-    snapshot.walled =
-      (snapshot.appliedFlux[payoffReaction] as number) < STOPPED_FLUX &&
-      (snapshot.appliedFlux[uptakeReaction] as number) >= STOPPED_FLUX &&
-      (state.pools.amounts[nadPool] as number) < WALLED_NAD;
+    snapshot.walled = descriptor.isWalled(state.pools.amounts, snapshot.appliedFlux, STOPPED_FLUX);
+
+    /*
+     * The act boundary, read the same way and on the same path.
+     *
+     * Six boolean comparisons, no allocation and no lookup, so it costs what
+     * `walled` costs. Recomputed every frame rather than set at the purchase
+     * that completes the act, because a flag written by six call sites is six
+     * places to forget it, and because reading it here means a restored save
+     * that is already complete arrives complete rather than waiting for a
+     * purchase that will never come.
+     */
+    snapshot.actComplete = boundary.isComplete(snapshot);
   }
 
   function notify(): void {
@@ -871,7 +1049,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * is given and what is already on disk.
    */
   function capture(): SaveV1 {
-    return captureAct1(state, meter, unlocked, settings, {
+    return descriptor.capture(state, meter, unlocked, settings, {
       meta: { createdAt, lastSavedAt: epochClock(), buildId: currentBuildId() },
       carried,
     });
@@ -912,6 +1090,21 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    */
   let sealed = false;
 
+  /**
+   * SEALED BEFORE THE FIRST FRAME WHEN THE ACT WAS REFUSED.
+   *
+   * V4 found this class the hard way: `beforeunload` fired during a post-import
+   * reload and autosaved a stale session over the file that had just been
+   * imported. A half-initialised session that writes is how a refusal turns into
+   * data loss, and this one is worse than the import case, because the file it
+   * would overwrite came from a build that knows more than this one does.
+   *
+   * Sealing here tears down nothing, because nothing has been armed yet: the
+   * autosave timer is armed by `start`, and `start` refuses while sealed. Every
+   * remaining write path already refuses. Both slots stay exactly as they were.
+   */
+  if (actRefused) sealed = true;
+
   function save(reason: SaveReason = 'manual'): WriteOutcome {
     if (autosave === null) {
       return { kind: 'failed', reason: 'persistence is disabled for this runtime', durable: false };
@@ -920,6 +1113,22 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       return { kind: 'failed', reason: 'this session has been replaced by an imported save', durable: false };
     }
     return autosave.saveNow(reason);
+  }
+
+  /**
+   * Every direct write in this file goes through here rather than through
+   * `autosave.saveNow`, so `sealed` cannot be bypassed.
+   *
+   * IT WAS BYPASSABLE UNTIL UPDATELOGV11.md STAGE 5. `save()` checked the flag
+   * and the eight purchase paths, the two settings writes and the first run all
+   * called `autosave?.saveNow` directly, so a sealed session that bought an
+   * unlock wrote anyway. Harmless while sealing only happened after an import,
+   * because an imported session reloads immediately; not harmless once a refused
+   * act seals a session the player can keep clicking in.
+   */
+  function writeNow(reason: SaveReason): void {
+    if (sealed) return;
+    autosave?.saveNow(reason);
   }
 
   /** Tear down every write path. Called once, and never undone. */
@@ -943,9 +1152,24 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
    * either, because until this stage there was nothing to see.
    */
   const FIRST_RUN_SEEN = 'firstRunSeen';
+  /** The second persisted UI setting, added by UPDATELOGV11.md stage 4. */
+  const BOUNDARY_SEEN = 'boundarySeen';
 
   function firstRunSeen(): boolean {
     return settings[FIRST_RUN_SEEN] === true;
+  }
+
+  function boundarySeen(): boolean {
+    return settings[BOUNDARY_SEEN] === true;
+  }
+
+  function markBoundarySeen(): void {
+    if (boundarySeen()) return;
+    settings = { ...settings, [BOUNDARY_SEEN]: true };
+    // Written now for the reason the first run is: a player who reads the act's
+    // ending and closes the tab inside the autosave interval should not be shown
+    // it again.
+    writeNow('setting');
   }
 
   function markFirstRunSeen(): void {
@@ -954,22 +1178,30 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     // Written now rather than at the next interval. A player who reads the card,
     // dismisses it and closes the tab inside thirty seconds should not be shown
     // it again, and thirty seconds is the autosave interval.
-    autosave?.saveNow('setting');
+    writeNow('setting');
   }
 
   return {
+    act: descriptor,
+    boundary,
     snapshot,
     state,
     loop,
     firstRunSeen,
     markFirstRunSeen,
+    boundarySeen,
+    markBoundarySeen,
 
     start(): void {
       if (running) return;
       running = true;
       lastNowMs = null;
       handle = schedule(pump);
-      autosave?.start();
+      // NOT WHEN SEALED. `save` and `saveNow` already refuse, but the autosave
+      // timer and the visibilitychange listener are armed here, and an armed
+      // timer on a sealed session is a write path waiting for a tab to be
+      // hidden. See `seal`.
+      if (!sealed) autosave?.start();
     },
 
     stop(): void {
@@ -982,7 +1214,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
 
     frame,
 
-    subscribe(listener: Act1SnapshotListener): () => void {
+    subscribe(listener: ActSnapshotListener): () => void {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
@@ -996,13 +1228,13 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     buyFerment(): boolean {
       if (snapshot.fermentUnlocked) return false;
       if (meter.atpProduced < FERMENT_ATP_THRESHOLD) return false;
-      setReactionEnabled(state, 'ferment', true);
+      setReactionEnabled(descriptor, state, 'ferment', true);
       snapshot.fermentUnlocked = true;
       unlocked.push(ACT1_UNLOCK_FERMENT);
       // Immediately, and not on the next timer tick. Losing a purchase is the
       // loss a player notices, and it is the one thing autosave should never be
       // thirty seconds late for.
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1024,10 +1256,10 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       if (!snapshot.fermentUnlocked) return false;
       if (snapshot.ethanolUnlocked) return false;
       if (meter.atpProduced < ETHANOL_ATP_THRESHOLD) return false;
-      setReactionEnabled(state, 'ferment_ethanol', true);
+      setReactionEnabled(descriptor, state, 'ferment_ethanol', true);
       snapshot.ethanolUnlocked = true;
       unlocked.push(ACT1_UNLOCK_FERMENT_ETHANOL);
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1054,11 +1286,11 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       if (snapshot.glycogenUnlocked) return false;
       if (meter.atpProduced < GLYCOGEN_ATP_THRESHOLD) return false;
       // Both, always. See ACT1_UNLOCK_GLYCOGEN.
-      setReactionEnabled(state, 'store', true);
-      setReactionEnabled(state, 'mobilise', true);
+      setReactionEnabled(descriptor, state, 'store', true);
+      setReactionEnabled(descriptor, state, 'mobilise', true);
       snapshot.glycogenUnlocked = true;
       unlocked.push(ACT1_UNLOCK_GLYCOGEN);
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1083,9 +1315,9 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       // Re-applied through the same function the ladder uses, at the rung the
       // player is on, so there is exactly one place that knows how a rung and
       // the enzymes compose. A second code path here is how the two drift.
-      applyGlycolysisStep(state, snapshot.glycolysisStep, true);
+      applyGlycolysisStep(descriptor, state, snapshot.glycolysisStep, true);
       unlocked.push(ACT1_UNLOCK_PFK1_PK);
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1101,10 +1333,10 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       if (next >= UPTAKE_VMAX_STEPS.length) return false;
       const threshold = UPTAKE_ATP_THRESHOLDS[snapshot.uptakeStep];
       if (threshold === undefined || meter.atpProduced < threshold) return false;
-      setReactionVmax(state, 'uptake', UPTAKE_VMAX_STEPS[next] as number);
+      setReactionVmax(descriptor, state, 'uptake', UPTAKE_VMAX_STEPS[next] as number);
       snapshot.uptakeStep = next;
       unlocked.push(act1UptakeUnlockId(next));
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1134,10 +1366,10 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       if (next >= GLYCOLYSIS_STEPS.length) return false;
       const threshold = GLYCOLYSIS_ATP_THRESHOLDS[snapshot.glycolysisStep];
       if (threshold === undefined || meter.atpProduced < threshold) return false;
-      applyGlycolysisStep(state, next, snapshot.pfk1PkBought);
+      applyGlycolysisStep(descriptor, state, next, snapshot.pfk1PkBought);
       snapshot.glycolysisStep = next;
       unlocked.push(act1GlycolysisUnlockId(next));
-      autosave?.saveNow('unlock');
+      writeNow('unlock');
       return true;
     },
 
@@ -1179,7 +1411,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       if (parsed.kind === 'future') return { kind: 'future', version: parsed.version };
       if (parsed.kind !== 'ok') return { kind: 'corrupt', reason: parsed.reason };
 
-      const mapped = restoreAct1(parsed.save);
+      const mapped = descriptor.restore(parsed.save);
       if (mapped.kind !== 'ok') return { kind: 'corrupt', reason: mapped.reason };
 
       const outcome = store.write(parsed.save);
@@ -1205,11 +1437,12 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
  * `Reaction.enabled` is mutable precisely so a later log could do this.
  */
 function setReactionEnabled(
+  descriptor: ActDescriptor,
   state: SimulationState,
-  id: Act1ReactionId,
+  id: string,
   enabled: boolean,
 ): void {
-  const reaction = state.reactions[reactionIndex(id)];
+  const reaction = state.reactions[descriptor.reactionIndex(id)];
   if (reaction === undefined) throw new Error(`runtime: no reaction "${id}"`);
   reaction.enabled = enabled;
 }
@@ -1230,8 +1463,13 @@ function setReactionEnabled(
  * save schema has to persist the unlock state or a reload will silently refund
  * every purchase. Flagged here rather than left for V4 to discover.
  */
-function setReactionVmax(state: SimulationState, id: Act1ReactionId, vmax: number): void {
-  const index = reactionIndex(id);
+function setReactionVmax(
+  descriptor: ActDescriptor,
+  state: SimulationState,
+  id: string,
+  vmax: number,
+): void {
+  const index = descriptor.reactionIndex(id);
   const reaction = state.reactions[index];
   if (reaction === undefined) throw new Error(`runtime: no reaction "${id}"`);
   const kinetics = reaction.kinetics;
@@ -1252,11 +1490,12 @@ function setReactionVmax(state: SimulationState, id: Act1ReactionId, vmax: numbe
  * old descriptor except Vmax is preserved rather than re-guessed.
  */
 function setReactionVmaxPreservingShape(
+  descriptor: ActDescriptor,
   state: SimulationState,
-  id: Act1ReactionId,
+  id: string,
   vmax: number,
 ): void {
-  const reaction = state.reactions[reactionIndex(id)];
+  const reaction = state.reactions[descriptor.reactionIndex(id)];
   if (reaction === undefined) throw new Error(`runtime: no reaction "${id}"`);
   const kinetics = reaction.kinetics;
   (reaction as { kinetics: Kinetics }).kinetics =
@@ -1275,6 +1514,7 @@ function setReactionVmaxPreservingShape(
  * function rather than four calls a caller could make three of.
  */
 function applyGlycolysisStep(
+  descriptor: ActDescriptor,
   state: SimulationState,
   step: number,
   /**
@@ -1293,31 +1533,34 @@ function applyGlycolysisStep(
   if (rung === undefined) throw new Error(`runtime: no glycolysis rung ${step}`);
   const factor = pfk1Pk ? PFK1_PK_VMAX_FACTOR : 1;
   const payoff = rung.payoff * factor;
-  setReactionVmaxPreservingShape(state, 'uptake', rung.uptake);
-  setReactionVmaxPreservingShape(state, 'prep', rung.prep * factor);
-  setReactionVmaxPreservingShape(state, 'payoff', payoff);
-  setReactionVmaxPreservingShape(state, 'ferment', payoff);
+  setReactionVmaxPreservingShape(descriptor, state, 'uptake', rung.uptake);
+  setReactionVmaxPreservingShape(descriptor, state, 'prep', rung.prep * factor);
+  setReactionVmaxPreservingShape(descriptor, state, 'payoff', payoff);
+  setReactionVmaxPreservingShape(descriptor, state, 'ferment', payoff);
   // The ethanol branch climbs with the lactate branch, at the same value, for
   // the reason the two ship at the same value: the choice between them is about
   // what the cell keeps and a ladder that raised only one would turn it into a
   // choice about speed. It is raised whether or not it has been bought, exactly
   // as `ferment` is, because a Vmax on a disabled reaction does nothing.
-  setReactionVmaxPreservingShape(state, 'ferment_ethanol', payoff);
+  setReactionVmaxPreservingShape(descriptor, state, 'ferment_ethanol', payoff);
 }
 
 
-/** Pool index by id, for a display that knows what it is looking at. */
-export function poolIndex(id: Act1PoolId): number {
-  return ACT1_POOL_IDS.indexOf(id);
-}
-
-/** Reaction index by id, same reason. */
-export function reactionIndex(id: Act1ReactionId): number {
-  return ACT1_REACTION_IDS.indexOf(id);
-}
+/*
+ * `poolIndex` and `reactionIndex` USED TO LIVE HERE AS MODULE FUNCTIONS AND ARE
+ * GONE. Both were `ACT1_POOL_IDS.indexOf(id)`, a linear scan, and `PoolCard`
+ * called one of them once per render. They were also the last two places in this
+ * file that answered for act 1 on everybody else's behalf.
+ *
+ * The replacement is `descriptor.poolIndex`, backed by a map built once at
+ * module load in src/content/acts.ts, reached from a component through
+ * `useAct()` and resolved once per component instance rather than once per
+ * render. src/sim/pools.ts and src/sim/steady.ts have held that rule for the
+ * kernel since V1; the runtime holds it now too.
+ */
 
 /** Game seconds from the snapshot's game milliseconds. The one conversion. */
-export function gameSeconds(snapshot: Act1Snapshot): number {
+export function gameSeconds(snapshot: ActSnapshot): number {
   return snapshot.elapsedMs / 1000;
 }
 
