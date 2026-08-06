@@ -121,7 +121,190 @@ id list. Confirm no code changed and no tuned number moved.
 
 ## Stage 1 Report
 
-_Pending._
+**The carbon dioxide question has a different answer than this log assumed, and it is the finding everything else in the stage is smaller than.** The log's Decisions section says CO2 goes into a pool "so carbon is conserved and the cell accumulates a real product", and asks stage 1 whether the pool is a sink or a reservoir. **It is a reservoir.** Act 4's pyruvate carboxylase consumes carbon dioxide, taking its carbon from bicarbonate to carboxylate pyruvate to oxaloacetate, and its larger use is anaplerotic rather than gluconeogenic, which makes it a net fixer rather than a step that gives the carbon straight back. Nothing in act 1 or act 2 draws the pool down and act 4 does. That is the five minutes the stage said were worth spending, and it costs nothing now and a migration later.
+
+**docs/SCIENCE.md covered one of the three unlocks in one sentence, one of them in a paragraph written for a different reason, and one of them not at all.** Glycogen appeared nowhere in the document before this stage. Four sections were added and one existing sentence was expanded. **No code was touched, no tuned number moved, and both canonical hashes are where V8 left them.**
+
+### Step 1. Ethanol fermentation. Present, and one sentence deep
+
+What was there, in Part 2 under "Fermentation", in full:
+
+    Ethanol fermentation, two steps. Pyruvate decarboxylase removes CO2 to give
+    acetaldehyde, then alcohol dehydrogenase reduces acetaldehyde to ethanol,
+    oxidizing NADH.
+
+Everything in that sentence is correct. Against the stage's minimum list it carries the two enzymes and the carbon dioxide and it carries nothing else. It does not give the stoichiometry, it does not state the zero ATP yield for this branch on its own, and it says nothing about which organisms do it, which is the one that mattered, because act 1 is an anaerobic prokaryote and the two named enzymes are the yeast route.
+
+**The zero yield was inherited rather than stated, and it should not have been.** The section's opening line says fermentation produces zero additional ATP, and the closing line says both branches give a net of 2 ATP per glucose overall. A reader can get there. But the game is about to put the two branches side by side as a choice, and a decarboxylation is exactly the step a player expects to cost or release something. The claim now sits under the ethanol branch's own heading rather than being reachable from the heading above it.
+
+**The organism question is the real gap and it does not resolve cleanly, which is why it is written out rather than waved at.** The textbook example is Saccharomyces cerevisiae, a eukaryote, so act 1 cannot lean on it. The pyruvate decarboxylase route is genuinely present in bacteria and it is uncommon there. Two cases were established:
+
+    Zymomonas mobilis    ferments to ethanol through PDC and ADH, but runs the
+                         Entner-Doudoroff pathway rather than glycolysis and
+                         therefore nets 1 ATP per glucose, not 2
+    Sarcina ventriculi   Gram-positive anaerobe, runs glycolysis, carries a
+                         pyruvate decarboxylase. The closer precedent
+
+**And the counterexample is worth as much as the examples.** Escherichia coli makes ethanol and does not make it this way: it has no pyruvate decarboxylase at all, and its fermentative route runs pyruvate through pyruvate formate-lyase to acetyl-CoA and formate, then through the bifunctional AdhE, consuming two NADH per ethanol rather than one. **That is already in this document**, in Part 3, written for the unrelated reason that AdhE is an oxidative damage target. So is Zymomonas, cited there for its two alcohol dehydrogenases. Part 2 was one sentence deep on a pathway Part 3 discusses at length, because Part 3 was written by an act 2 sourcing pass that had no reason to go back and widen it.
+
+So what act 1 claims by shipping this branch is stated in the document rather than left implicit: that a prokaryote running glycolysis can ferment to ethanol by decarboxylation and reduction, which is true of the class and uncommon within it. That is the same shape as Part 3's oxygen-stable PFOR, a real exception to a real rule, and the document already knows how to say it.
+
+### Step 2. Carbon dioxide. Not terminal, and act 4 is why
+
+Added as its own section in Part 2 rather than as a clause, because the question is about all four acts and Part 2 is where act 1 will look for it.
+
+The carbon does not leave the model. Decarboxylation turns one carbon of pyruvate into carbon dioxide, which is a real molecule with that carbon still in it, so a cell releasing it has moved carbon rather than destroyed it. A reaction that made it vanish would be wrong about chemistry rather than simplified about it, and the conservation property test should and would refuse it.
+
+Enumerated across the four acts:
+
+    produced   ethanol fermentation        1 per pyruvate    act 1
+               pyruvate dehydrogenase      1 per pyruvate    act 3, Part 4
+               TCA cycle                   2 per turn        act 3, Part 4
+    consumed   pyruvate carboxylase        1 per pyruvate    act 4, Part 5
+
+**Gluconeogenesis as a pathway is carbon dioxide neutral and one of its reactions is not.** Pyruvate carboxylase fixes the carbon and phosphoenolpyruvate carboxykinase releases it again one step later, so the round trip nets zero. They are separate reactions and only one of them consumes, which is the distinction that decides the pool's type.
+
+**The anaplerotic use is the one that makes it a real consumer.** Pyruvate carboxylase's main job is topping the TCA cycle back up with oxaloacetate when intermediates are drawn off for biosynthesis, and used that way there is no matching decarboxylation. Part 4 already records that the cycle is amphibolic. This is what that costs, and it was not written down.
+
+**The consequence, stated so no later stage has to rediscover it.** Carbon dioxide is a reservoir rather than a sink. It cannot be treated as write-only accounting because a later act reads from it, it cannot be capped, and it cannot be discarded to keep a number small. The offline path is the place that would have done the third one: `src/sim/jump.ts` retires spent pools, which is the only place in the project that discards matter, and a pool that only ever grows is not at risk from it. Recorded because a future act that drains CO2 puts it back in range.
+
+docs/SCIENCE.md Part 5 gained the three gluconeogenic bypasses by name in the same edit, because the CO2 answer is unciteable without them and Part 5 said only that three steps are irreversible and need bypassing.
+
+### Step 3. The enzymes. Three, and the honest answer to the real question
+
+**The three regulated steps check out verbatim and the document did not have to be argued with.** Part 2, "Regulation", already says PFK-1 is the primary control point and the committed step, that hexokinase is inhibited by its own product, and, in as many words, that "Pyruvate kinase is the third regulated step". The log's Decisions section reached the same three by reasoning about ratios. They agree, and the document is the reason rather than the ratio.
+
+**The Hill attribution checks out too.** `src/content/act1/tuning.ts` says the cooperativity being modeled is PFK-1's and `reactions.ts` calls the attachment "correct about which enzyme is cooperative, wrong about what the cooperativity is attached to". Part 2 says PFK-1 shows cooperative sigmoidal kinetics and is the one enzyme where the Hill form is used. The claim in the code is the claim in the document.
+
+**Now the real question, which is step 3's third clause: does upgrading a single named enzyme in a lumped two-reaction model say anything true?**
+
+**It is not a lie and it is a claim, and the difference is what the document now records.** The claim is that this enzyme is where control of its phase concentrates. Three things decide whether that survives contact with the science:
+
+**One. The seven unregulated steps run near equilibrium and follow their substrates.** Raising one of those raises nothing, in the model and in a cell. So a game that sold all ten would be selling seven upgrades that do nothing, and the honest version of "individual glycolytic enzymes" is three rather than ten before any argument about pool counts. **This is the strongest reason for the log's own decision and it is not the reason the log gave**, which was the ratio of nine intermediate pools to one teaching beat. That reason is also true and it is the weaker one.
+
+**Two. Flux control is distributed, so "raising PFK-1 raises flux by the same factor" is false.** Metabolic control analysis assigns each enzyme a control coefficient and the coefficients over a pathway sum to one, and for glycolysis no single enzyme holds all of it. The game is claiming concentration and it must not claim exclusivity. Part 2 has a new subsection saying so, and it is the one place in this stage where the science narrows what the log wanted rather than confirming it.
+
+**Three. None of it touches yield, and that is arithmetic rather than a promise.** No change to any rate anywhere in the ten steps produces more than 4 ATP gross per glucose, because the yield is fixed by stoichiometry. So the act's central claim is safe from this unlock by construction, which is why stage 4's assertion across every new configuration should pass rather than merely be checked.
+
+**What would be a lie, so stage 4 knows what it must not build.** An enzyme upgrade that moved yield. An enzyme attached to a step that carries no control, triose phosphate isomerase being the standard example, since it runs close to the diffusion limit. And an upgrade whose effect on the phase is presented as the enzyme's own effect with no disclosure, which is the failure `reactions.ts` already avoided once for the Hill exponent and should avoid again the same way.
+
+**The parameter each enzyme should move, decided here so stage 4 builds rather than chooses.** Each maps onto the regulatory character the document actually gives that enzyme:
+
+    hexokinase        lowers prep's K            affinity. Part 2 now records
+                                                 that hexokinase's defining
+                                                 property is a low Km and that
+                                                 glucokinase is the same
+                                                 chemistry at a higher one
+    PFK-1             raises prep's Vmax         the committed step, so the
+                                                 phase's throughput
+    pyruvate kinase   raises payoff's Vmax       the third regulated step, and
+                                                 it lives in the payoff phase
+
+**And the V5 constraint reaches this stage, which stage 4 asked about.** `payoff` Vmax must strictly exceed twice `prep` Vmax. PFK-1 raises `prep` and pyruvate kinase raises `payoff`, so **the two upgrades push the constraint in opposite directions and the order they are bought in matters**, which is a thing no capacity ladder in this game has ever done. The available answer is the one V5 used: make the order unbuyable in the wrong sequence, by gating PFK-1 behind pyruvate kinase rather than by selling them together. Stage 4 measures whether the existing headroom makes the gate unnecessary, and ships the gate if it does not. Hexokinase moves a K rather than a Vmax so it does not enter the constraint as written, and it does raise realized `prep` flux, which stage 4 has to measure against realized `payoff` flux rather than against the nameplate ratio.
+
+### Step 4. Glycogen. Absent from the document, and the cost is not symmetric
+
+Glycogen appears nowhere in docs/SCIENCE.md before this stage. A whole section was written.
+
+**The route in and the route out are different pathways with different enzymes, which is the stage's own hypothesis and it is correct.**
+
+    in    glucose -> G6P                 1 ATP     hexokinase
+          G6P -> G1P                     free      phosphoglucomutase
+          G1P + ATP -> ADP-glucose       1 ATP     ADP-glucose pyrophosphorylase
+          ADP-glucose -> glycogen        free      glycogen synthase
+                                         -----
+                                         2 ATP equivalents per glucosyl unit
+
+    out   glycogen + Pi -> G1P           free      glycogen phosphorylase
+          G1P -> G6P                     free      phosphoglucomutase
+                                         -----
+                                         0 ATP, and the unit re-enters
+                                         glycolysis past hexokinase
+
+**Net cost of a full store and retrieve cycle is 1 ATP equivalent per glucose unit.** Two spent going in, one saved coming out, because glycogen phosphorylase cleaves with inorganic phosphate rather than water and hands back an already phosphorylated sugar. **A glucose that went through storage returns 1 net ATP through glycolysis where a glucose that did not returns 2.** The pyrophosphate released at the activation step is hydrolysed, which is what makes that step irreversible and why it counts as a whole ATP equivalent rather than a fraction.
+
+The bacterial route uses ADP-glucose and the eukaryotic route uses UDP-glucose. The donor differs and the accounting does not, so act 1 takes the bacterial one and nothing downstream cares.
+
+**What the game should model, and where it has to depart.** The model has no glucose-6-phosphate pool, so the saving on re-entry has nowhere to be realised: a mobilised unit lands in the `glucose` pool and pays `prep`'s full 2 ATP entry cost like any other. **So the game charges the net cost at storage time rather than the gross cost at storage and a refund on the way out.** One ATP in, nothing out.
+
+    store      glucose + atp  ->  glycogen + adp + pi
+    mobilise   glycogen       ->  glucose
+
+That is a DEPARTURE and stage 3 owes it a row. What is faithful is the net, which is exactly 1 ATP equivalent per unit cycled. What departs is where it is charged, and the one observable consequence is that a unit stored and never retrieved cost 1 where a real cell paid 2. In act 1 the buffer exists to be drawn down, so the mobilised case is the ordinary one and the departure is invisible in it.
+
+**Conservation of the two reactions was checked here rather than left to stage 3**, since the whole point of naming the pools in this stage is that stage 3 should not be discovering a problem with them. Glycogen carries carbon 6, redox 2 and phosphate 0, being a glucosyl residue with no phosphate on it:
+
+    store      carbon 6 = 6, redox 2 = 2, adenylate 1 = 1,
+               phosphate 3 = 2 + 1, nicotinamide 0 = 0
+    mobilise   carbon 6 = 6, redox 2 = 2, everything else 0 = 0
+
+**And the ethanol branch balances all five exactly, which is worth reporting now because it fixes the two new weights stage 2 needs.** With `co2` at carbon 1 and redox 0, since carbon dioxide is fully oxidized and carries no reducing power, and `ethanol` at carbon 2 and redox 1:
+
+    ferment_ethanol   pyruvate + nadh  ->  ethanol + co2 + nad
+
+    carbon        3  =  2 + 1
+    redox     0 + 1  =  1 + 0 + 0
+    nicotinamide  1  =  1
+    phosphate     0  =  0
+    adenylate     0  =  0
+
+**Drop the co2 and carbon fails at 3 against 2**, which is the deliberate failure stage 2 is told to write and quote. It fails on carbon alone and on nothing else, which is the cleanest possible version of that test.
+
+**One problem is flagged rather than solved, and it belongs to stage 3.** Real glycogen synthesis and degradation are reciprocally regulated so they do not run hard at once, and the bacterial control point is ADP-glucose pyrophosphorylase being allosterically activated by glycolytic intermediates and inhibited by AMP. **This engine cannot express that.** `computeFlux` in `src/sim/reactions.ts` takes the minimum of per-substrate saturation terms and there is no inhibition term anywhere in `Kinetics`, so a reaction can be slowed by a scarce substrate and never by an abundant regulator. **So act 1 will ship a futile cycle**: with both reactions running, storage and mobilisation cycle the same carbon and burn ATP for nothing at the rate of the slower one.
+
+The honest reading is that this is a real failure mode of a real cell rather than a modeling artifact, and docs/SCIENCE.md Part 5 already names it for glycolysis against gluconeogenesis. The thing that suppresses it is allosteric regulation, which is act 4's theme. **Act 1 gets a cost it cannot regulate away and act 4 is the act that would fix it**, which is a better outcome than an invented gate. What stage 3 has to do is bound it: storage is gated on intracellular glucose through a high K, which is the one signal the min rule can carry and which is also what the real allosteric activation is a proxy for, and mobilisation's Vmax sets both how fast the buffer discharges and how large the permanent tax is. Those pull against each other and stage 3 measures the trade rather than assuming it.
+
+### Step 5. docs/PROGRESSION.md. Two drifts in one line, and both were real
+
+The act 1 unlock list still says what this log is going to build for seven of its nine items. Item 5 had drifted in two ways and both were corrected.
+
+**"Individual glycolytic enzymes" implied ten.** Corrected to name the three regulated steps, with the reason pointing at docs/SCIENCE.md Part 2, Regulation, rather than at the log's Decisions section.
+
+**"Efficiency upgrades" implied yield, and it contradicted the same page three lines below.** The wall paragraph says "Enzyme upgrades increase throughput, never yield". Efficiency is the word for yield. Corrected to throughput.
+
+Three other corrections, none of them a drift but all of them things a later stage would have had to work out:
+
+**The list is ordered by dependency and not by the clock, and nothing said so.** Items 6 and 7 are the NAD+ wall and its answer and they arrive in the first seconds of the act, while items 3 to 5 are not affordable for minutes. A reader taking the numbering as a timeline gets act 1 backwards.
+
+**Item 8 is a choice and not an upgrade**, and the difference is what the cell keeps rather than which is better. It is also the first reaction in the game to release carbon, and the carbon is a real product rather than a deletion.
+
+**Item 9 is a buffer and a buffer is not a yield.** It costs ATP, returns none, and the round trip returns less than it took.
+
+**No number was added.** That file says it contains no tuned numbers and it still does not.
+
+### Step 6. The permanent id list
+
+Named here and permanent from here. docs/SAVE_SCHEMA.md Part 3 makes pool ids permanent and V4 made act 1 unlock ids contract surface.
+
+    pools        co2                       carbon 1, redox 0
+                 ethanol                   carbon 2, redox 1
+                 glycogen                  carbon 6, redox 2, phosphate 0
+
+    unlocks      ferment-ethanol
+                 glycogen-storage
+                 enzyme-hexokinase
+                 enzyme-pfk1
+                 enzyme-pyruvate-kinase
+
+    reactions    ferment_ethanol
+                 store
+                 mobilise
+
+**The unlock ids take the existing shape rather than a better one.** V4 minted `ferment` for the lactate branch, before there was a second branch to distinguish it from, and `ACT1_UNLOCK_FERMENT` in `src/content/act1/save.ts` exports that literal. It cannot be renamed to `ferment-lactate` without a migration and it would be a rename that buys nothing a comment cannot buy, so **`ferment` means lactate permanently and `ferment-ethanol` sits beside it**. The three enzyme ids take an `enzyme-` prefix so they group the way `uptake-capacity-` and `glycolysis-capacity-` do, and they are enumerated rather than indexed because they are three named things rather than a ladder.
+
+**Reaction ids are not contract surface and are listed anyway.** They are never persisted: `progression.unlocked` is the single source of truth and enabled flags are derived from it at load. They are listed because they end up in test names, harness output and the divergence table's `Where` column, and choosing them twice is worse than choosing them once. `ferment_ethanol` takes the underscore that `glucose_env` already established for a two-word id.
+
+**No pool id is a display name and none of them should be read as one.** `co2` is the id. What a player sees is stage 6's problem and docs/CONTENT_STYLE.md's.
+
+### Verify
+
+**docs/SCIENCE.md covers all three unlocks with citations.** Ethanol fermentation was expanded from one sentence to a full subsection with stoichiometry, yield, redox, organisms and the E. coli counterexample. Carbon dioxide got its own section answering the sink-or-reservoir question across all four acts. Glycogen got a section from nothing. Flux control got a subsection under Regulation. Part 5 gained the three gluconeogenic bypasses by name. Four new source blocks were added and **no URL was guessed**: the new entries carry title, journal and year, the author lists that were not independently checked say so, and the verification note for this pass is separate from the 2026-07-28 one because it was a different kind of pass, textbook-level rather than contested-primary.
+
+**No code changed and no tuned number moved.** `git diff --stat` across the whole stage is two files, `docs/PROGRESSION.md` and `docs/SCIENCE.md`. No file under `src/` was opened for writing. Both canonical hashes are untouched at `172f83fb` and `49ea08d3` because nothing they hash was touched.
+
+**The suite is green at 504 tests across 41 files.** One note against NOW.md, which records V8 as ending at 503 across 41: the suite reports 504 on this commit with nothing modified under `src/`. The file count agrees and the test count is one out, so the discrepancy predates this log. Recorded rather than corrected, since stage 6 re-counts and NOW.md is stage 6's to edit.
+
+**Hard rule 2 is now closed for the rest of this log.** docs/SCIENCE.md was edited in this stage, which stage 1 permits, and every stage from here is forbidden to touch it. Stage 6 reports the diff as evidence.
 
 ---
 
