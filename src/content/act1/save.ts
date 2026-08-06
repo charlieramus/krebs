@@ -95,6 +95,22 @@ export const ACT1_UNLOCK_FERMENT = 'ferment';
 export const ACT1_UNLOCK_FERMENT_ETHANOL = 'ferment-ethanol';
 
 /**
+ * Glycogen storage. One purchase turning on BOTH `store` and `mobilise`, added
+ * by UPDATELOGV10.md stage 3.
+ *
+ * ONE ID FOR TWO REACTIONS, on the precedent V5 set for the glycolytic ladder
+ * and for the same kind of reason. A cell that can charge a reserve and not draw
+ * it down has bought a permanent tax on its own throughput and nothing else,
+ * which is a purchasable configuration that makes the cell worse, and V5's rule
+ * is that one does not ship. A cell that can draw down a reserve it can never
+ * charge has bought a reaction that never runs. Neither half is a thing on its
+ * own.
+ *
+ * ADDITIVE, SO NO SCHEMA BUMP, on the same reading as `ferment-ethanol` above.
+ */
+export const ACT1_UNLOCK_GLYCOGEN = 'glycogen-storage';
+
+/**
  * One id per rung of the uptake capacity ladder, numbered by its index into
  * `UPTAKE_VMAX_STEPS`. Step 0 is the shipped default and is not purchasable, so
  * the first id a save can carry is `uptake-capacity-1`.
@@ -160,6 +176,11 @@ export interface Act1Unlocks {
    * never removes the other.
    */
   readonly ethanolEnabled: boolean;
+  /**
+   * Whether `store` and `mobilise` run. One flag, because one purchase turns on
+   * both. See ACT1_UNLOCK_GLYCOGEN.
+   */
+  readonly glycogenEnabled: boolean;
   /** Index into the interface's capacity ladder. 0 is the shipped default. */
   readonly uptakeStep: number;
   /**
@@ -186,6 +207,7 @@ export interface Act1Unlocks {
 export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
   let fermentEnabled = false;
   let ethanolEnabled = false;
+  let glycogenEnabled = false;
   let uptakeStep = 0;
   let glycolysisStep = 0;
   const unknown: string[] = [];
@@ -197,6 +219,10 @@ export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
     }
     if (id === ACT1_UNLOCK_FERMENT_ETHANOL) {
       ethanolEnabled = true;
+      continue;
+    }
+    if (id === ACT1_UNLOCK_GLYCOGEN) {
+      glycogenEnabled = true;
       continue;
     }
     const uptake = parseAct1UptakeUnlockId(id);
@@ -212,7 +238,7 @@ export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
     unknown.push(id);
   }
 
-  return { fermentEnabled, ethanolEnabled, uptakeStep, glycolysisStep, unknown };
+  return { fermentEnabled, ethanolEnabled, glycogenEnabled, uptakeStep, glycolysisStep, unknown };
 }
 
 /* ===========================================================================
@@ -414,8 +440,8 @@ export function restoreAct1(save: SaveV1): Act1RestoreResult {
   const unlocks = deriveAct1Unlocks(save.progression.unlocked);
 
   /**
-   * The two fermentation branches are switched from the unlock list and nothing
-   * else is. Every other reaction's flag comes from ACT1_ENABLED, which is the
+   * The two fermentation branches and the two glycogen reactions are switched
+   * from the unlock list and nothing else is. Every other reaction's flag comes from ACT1_ENABLED, which is the
    * shipped pathway, so a save cannot turn on a reaction the build does not ship
    * enabled or off one it does. The uptake capacity step is a Vmax rather than a
    * flag and belongs to the interface's ladder, so it is reported here and
@@ -426,6 +452,8 @@ export function restoreAct1(save: SaveV1): Act1RestoreResult {
     enabled: {
       ferment: unlocks.fermentEnabled,
       ferment_ethanol: unlocks.ethanolEnabled,
+      store: unlocks.glycogenEnabled,
+      mobilise: unlocks.glycogenEnabled,
     },
     seed: save.rng.seed,
   });

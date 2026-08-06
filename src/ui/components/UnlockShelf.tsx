@@ -39,6 +39,7 @@ import { PANEL_AFFORDANCE, SHELF, UNLOCKS } from '../content';
 import {
   ETHANOL_ATP_THRESHOLD,
   FERMENT_ATP_THRESHOLD,
+  GLYCOGEN_ATP_THRESHOLD,
   GLYCOLYSIS_ATP_THRESHOLDS,
   GLYCOLYSIS_STEPS,
   TUNING_BADGES,
@@ -208,6 +209,7 @@ export function UnlockShelf() {
   const [bought, setBought] = useState({
     ferment: runtime.snapshot.fermentUnlocked,
     ethanol: runtime.snapshot.ethanolUnlocked,
+    glycogen: runtime.snapshot.glycogenUnlocked,
     uptakeStep: runtime.snapshot.uptakeStep,
     glycolysisStep: runtime.snapshot.glycolysisStep,
   });
@@ -216,18 +218,21 @@ export function UnlockShelf() {
     ethanol: false,
     uptake: false,
     glycolysis: false,
+    glycogen: false,
   });
 
   useSnapshotEffect((snapshot) => {
     setBought((current) =>
       current.ferment === snapshot.fermentUnlocked &&
       current.ethanol === snapshot.ethanolUnlocked &&
+      current.glycogen === snapshot.glycogenUnlocked &&
       current.uptakeStep === snapshot.uptakeStep &&
       current.glycolysisStep === snapshot.glycolysisStep
         ? current
         : {
             ferment: snapshot.fermentUnlocked,
             ethanol: snapshot.ethanolUnlocked,
+            glycogen: snapshot.glycogenUnlocked,
             uptakeStep: snapshot.uptakeStep,
             glycolysisStep: snapshot.glycolysisStep,
           },
@@ -245,23 +250,29 @@ export function UnlockShelf() {
     // Asked of the runtime rather than recomputed here. The sequencing rule
     // between the two ladders lives in one place and this is a mirror of it.
     const nextGlycolysis = runtime.canBuyGlycolysisStep();
+    // Asked of the runtime for the same reason as the two above it: the gate is
+    // a rule about the glycolytic ladder rather than a threshold.
+    const nextGlycogen = runtime.canBuyGlycogen();
     setAffordable((current) =>
       current.ferment === nextFerment &&
       current.ethanol === nextEthanol &&
       current.uptake === nextUptake &&
-      current.glycolysis === nextGlycolysis
+      current.glycolysis === nextGlycolysis &&
+      current.glycogen === nextGlycogen
         ? current
         : {
             ferment: nextFerment,
             ethanol: nextEthanol,
             uptake: nextUptake,
             glycolysis: nextGlycolysis,
+            glycogen: nextGlycogen,
           },
     );
   });
 
   const fermentBought = bought.ferment;
   const ethanolBought = bought.ethanol;
+  const glycogenBought = bought.glycogen;
   const uptakeStep = bought.uptakeStep;
   const glycolysisStep = bought.glycolysisStep;
 
@@ -359,6 +370,27 @@ export function UnlockShelf() {
           buyLabel={SHELF.glycolysisBuy.text}
           onBuy={() => {
             runtime.buyGlycolysisStep();
+          }}
+        />
+
+        {/*
+          THE LAST SLOT IN THE ACT. UPDATELOGV10.md stage 3.
+
+          It stays locked until the glycolytic ladder is finished, because the
+          reserve is charged out of the spare intracellular glucose the top of
+          that ladder produces, and because a buffer against the food running
+          out only means anything once the food running out is in sight.
+        */}
+        <Slot
+          title={UNLOCKS.glycogenStorage.text}
+          badge={UNLOCKS.glycogenStorage.badge}
+          detail={atTopOfGlycolysis ? SHELF.glycogenDetail.text : SHELF.glycogenLocked.text}
+          threshold={glycogenBought || !atTopOfGlycolysis ? null : GLYCOGEN_ATP_THRESHOLD}
+          bought={glycogenBought}
+          affordable={affordable.glycogen}
+          buyLabel={SHELF.glycogenBuy.text}
+          onBuy={() => {
+            runtime.buyGlycogen();
           }}
         />
       </div>

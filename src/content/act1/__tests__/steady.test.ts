@@ -103,6 +103,52 @@ const CONFIGURATIONS: readonly Configuration[] = [
       return state;
     },
   })),
+  /**
+   * THE THREE GLYCOGEN CASES. UPDATELOGV10.md stage 3 step 4.
+   *
+   * A pool that fills and drains is a pool the detector has an opinion about,
+   * and the reserve has two distinct dynamics rather than one. Charging is a
+   * pool climbing toward an equilibrium it has not reached. Discharging is a
+   * pool draining while the reaction that fills it has stopped. Settled is
+   * neither.
+   *
+   * The detector tests the SECOND difference, so a pool changing at a constant
+   * rate is fine and only a pool whose rate is still changing is not. What was
+   * worth measuring rather than assuming is whether the reserve's approach to
+   * equilibrium is slow enough to look linear inside the window, and it is: see
+   * the printed settle ticks.
+   */
+  {
+    name: 'glycogen, charging from empty',
+    build: (): SimulationState => {
+      const state = createAct1({ enabled: { ferment: true, store: true, mobilise: true } });
+      applyGlycolyticRung(state, 4);
+      return state;
+    },
+  },
+  {
+    name: 'glycogen, deep reserve, food running out',
+    build: (): SimulationState => {
+      const state = createAct1({
+        enabled: { ferment: true, store: true, mobilise: true },
+        initial: { glycogen: 2800, glucose_env: 3000 },
+      });
+      applyGlycolyticRung(state, 4);
+      return state;
+    },
+  },
+  {
+    name: 'glycogen, discharging with no food left',
+    build: (): SimulationState => {
+      const state = createAct1({
+        enabled: { ferment: true, store: true, mobilise: true },
+        initial: { glycogen: 2800, glucose_env: 0 },
+      });
+      applyGlycolyticRung(state, 4);
+      for (let i = 0; i < 600; i += 1) tick(state);
+      return state;
+    },
+  },
 ];
 
 describe('act 1 settles, from every configuration it reaches', () => {

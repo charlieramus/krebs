@@ -1,12 +1,14 @@
 /**
- * The pathway. Six act 1 reactions as arrows between the pool blobs, on the
+ * The pathway. Eight act 1 reactions as arrows between the pool blobs, on the
  * cream working surface.
  *
- * Four rows, in the order UPDATELOGV3.md settles plus the branch V10 adds:
+ * Six rows, in the order UPDATELOGV3.md settles plus the three V10 adds:
  *
  *     glucose_env -> uptake  -> glucose  -> prep    -> g3p
  *     g3p         -> payoff  -> pyruvate -> ferment -> lactate
  *     pyruvate    -> ferment_ethanol     -> ethanol + co2
+ *     glucose     -> store   -> glycogen
+ *     glycogen    -> mobilise-> glucose
  *     atp         -> maintain-> adp + pi
  *
  * g3p ends the first row and starts the second, drawn twice on purpose. The
@@ -45,6 +47,7 @@ const SEEDS: Readonly<Record<string, number>> = {
   lactate: 59,
   ethanol: 97,
   co2: 103,
+  glycogen: 109,
   nad: 67,
   nadh: 67,
   atp: 73,
@@ -60,6 +63,7 @@ const FILLS: Readonly<Record<string, string>> = {
   lactate: SUBSTRATE,
   ethanol: SUBSTRATE,
   co2: SUBSTRATE,
+  glycogen: SUBSTRATE,
   atp: ATP_ORANGE,
   adp: ATP_ORANGE,
   pi: 'var(--color-white)',
@@ -171,6 +175,24 @@ export function PathwayCard() {
         <Row
           groups={[['pyruvate'], ['ethanol', 'co2']]}
           reactions={['ferment_ethanol']}
+          reducedMotion={reducedMotion}
+        />
+        {/*
+          The reserve, added by UPDATELOGV10.md stage 3. Two arrows between the
+          same two pools, drawn as two rows rather than as one double-headed
+          arrow, because they are two enzymes doing two different chemistries at
+          two different costs and a double head would say they are one reversible
+          step. They are not: one spends ATP and the other spends nothing, and
+          that asymmetry is the entire teaching beat.
+        */}
+        <Row
+          groups={[['glucose'], ['glycogen']]}
+          reactions={['store']}
+          reducedMotion={reducedMotion}
+        />
+        <Row
+          groups={[['glycogen'], ['glucose']]}
+          reactions={['mobilise']}
           reducedMotion={reducedMotion}
         />
         {/*

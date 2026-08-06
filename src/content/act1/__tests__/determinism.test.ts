@@ -156,6 +156,21 @@ describe('act 1 determinism', () => {
     // kinetic form, and the ledger of 4 ATP gross and 2 net per glucose, which
     // __tests__/stoichiometry.test.ts asserts down both branches to nine
     // decimal places.
-    expect(hashState(runScript(CANONICAL_SEED, CANONICAL_TICKS))).toBe('2b18a4bc');
+    //
+    // 65b43d27, UPDATELOGV10.md stage 3, and it moved for the same reason
+    // 2b18a4bc did rather than for a new one. Act 1 gained one more pool,
+    // `glycogen`, which is the reserve, and it sits between `co2` and `nad` in
+    // ACT1_POOL_IDS. It starts at zero, the script below never enables `store`
+    // or `mobilise`, and every one of the twelve amounts this fixture already
+    // had is unchanged. **Verified the same way**: the same script run against
+    // the stage 2 code gives every shared pool identical to seventeen
+    // significant figures, the same tick count and the same PRNG state.
+    //
+    // Stage 3 DID move a number, and it is worth saying which one is not in
+    // here: `ACT1_STORE_HILL_N` is 3 rather than the Michaelis-Menten form
+    // storage was first built with. That is a kinetic form on a reaction this
+    // fixture never runs, so it cannot reach the hash. It reaches
+    // __tests__/bootstrap.test.ts instead, which is where it matters.
+    expect(hashState(runScript(CANONICAL_SEED, CANONICAL_TICKS))).toBe('65b43d27');
   });
 });

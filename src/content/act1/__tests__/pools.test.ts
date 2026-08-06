@@ -32,6 +32,7 @@ const PROBE: Readonly<Record<Act1PoolId, number>> = {
   lactate: 5,
   ethanol: 13,
   co2: 17,
+  glycogen: 19,
   nad: 6,
   nadh: 2,
   atp: 9,
@@ -40,9 +41,9 @@ const PROBE: Readonly<Record<Act1PoolId, number>> = {
 };
 
 describe('act 1 pools', () => {
-  it('constructs a registry over the twelve act 1 pools', () => {
+  it('constructs a registry over the thirteen act 1 pools', () => {
     const pools = new PoolRegistry(act1PoolDefinitions());
-    expect(pools.count).toBe(12);
+    expect(pools.count).toBe(13);
     expect(pools.ids).toEqual([...ACT1_POOL_IDS]);
     expect(pools.labels[pools.indexOf('nad')]).toBe('NAD+');
   });
@@ -72,21 +73,23 @@ describe('act 1 pools', () => {
     const pools = new PoolRegistry(act1PoolDefinitions(PROBE));
 
     // carbon: glucose_env 6*100=600, glucose 6*7=42, g3p 3*4=12,
-    //         pyruvate 3*3=9, lactate 3*5=15, ethanol 2*13=26, co2 1*17=17.
-    //         Carriers carry no carbon.
-    expect(pools.totalConserved('carbon')).toBe(721);
+    //         pyruvate 3*3=9, lactate 3*5=15, ethanol 2*13=26, co2 1*17=17,
+    //         glycogen 6*19=114. Carriers carry no carbon.
+    expect(pools.totalConserved('carbon')).toBe(835);
 
     // phosphate: g3p 1*4=4, atp 3*9=27, adp 2*8=16, pi 1*11=11.
     //            Glucose is unphosphorylated, pyruvate and lactate are not.
     expect(pools.totalConserved('phosphate')).toBe(58);
 
     // redox: glucose_env 2*100=200, glucose 2*7=14, g3p 1*4=4,
-    //        lactate 1*5=5, ethanol 1*13=13, nadh 1*2=2. NAD+, pyruvate and
+    //        lactate 1*5=5, ethanol 1*13=13, glycogen 2*19=38, nadh 1*2=2.
+    //        Glycogen matches glucose at 6 carbon and 2 redox, because a stored
+    //        glucosyl residue IS a glucose. NAD+, pyruvate and
     //        CARBON DIOXIDE carry zero. The last of those is the one worth
     //        checking rather than assuming: CO2 is the most oxidised form
     //        carbon takes, so it holds no reducing power at all, and it is what
     //        forces ethanol to 1 for the ethanol branch to balance.
-    expect(pools.totalConserved('redox')).toBe(238);
+    expect(pools.totalConserved('redox')).toBe(276);
 
     // nicotinamide: nad 6 + nadh 2. Nothing else touches it.
     expect(pools.totalConserved('nicotinamide')).toBe(8);
@@ -135,5 +138,6 @@ describe('act 1 pools', () => {
     expect(pools.get('lactate')).toBe(0);
     expect(pools.get('ethanol')).toBe(0);
     expect(pools.get('co2')).toBe(0);
+    expect(pools.get('glycogen')).toBe(0);
   });
 });

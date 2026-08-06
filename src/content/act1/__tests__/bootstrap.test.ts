@@ -30,7 +30,7 @@ import {
   type Act1Meter,
 } from '../meter';
 import { createAct1, type Act1ReactionId } from '../reactions';
-import { ACT1_HILL_N, ACT1_MAINTAIN_HILL_N } from '../tuning';
+import { ACT1_HILL_N, ACT1_MAINTAIN_HILL_N, ACT1_STORE_HILL_N } from '../tuning';
 import { ACT1_INITIAL } from '../pools';
 
 setShortfallLogging(false);
@@ -48,10 +48,13 @@ function start(options: {
   env?: number;
   atp?: number;
   ferment?: boolean;
+  /** Turns on `store` and `mobilise` together, exactly as the purchase does. */
+  glycogen?: boolean;
 }): Run {
   const atp = options.atp;
+  const glycogen = options.glycogen ?? false;
   const state = createAct1({
-    enabled: { ferment: options.ferment ?? true },
+    enabled: { ferment: options.ferment ?? true, store: glycogen, mobilise: glycogen },
     initial: {
       ...(options.env === undefined ? {} : { glucose_env: options.env }),
       ...(atp === undefined ? {} : { atp, adp: ADENYLATE_TOTAL - atp }),
@@ -98,16 +101,82 @@ describe('the ATP bootstrap trap', () => {
     // accident, it is an ordering fact, and it was act 1's blocking item 1.
     //
     // If this fails, the trap is back. Do not retune around it: raise the order.
-    const maintain = kineticsOf(fresh.state, 'maintain');
+    //
+    // AMENDED BY UPDATELOGV10.md STAGE 3, WHICH BROKE THE PREMISE ABOVE. The
+    // sentence "`maintain` is the only thing spending ATP that produces none"
+    // stopped being true when glycogen storage arrived. `store` spends ATP and
+    // produces none, and built as Michaelis-Menten it was first order against
+    // `prep`'s second, so the trap came straight back: measured over 600
+    // game-seconds from a starting ATP of 0.01, a cell without storage settles
+    // at 9.304 and produces 19048 ATP while a cell with it fell to 8.937e-29 and
+    // produced nothing.
+    //
+    // So the assertion is written over EVERY ATP-consuming reaction that
+    // produces no ATP rather than over `maintain` by name. A third one added in
+    // some later act is covered the moment it exists, which is the difference
+    // between a property and a case.
     const prep = kineticsOf(fresh.state, 'prep');
-
     expect(prep.kind).toBe('hill');
-    expect(maintain.kind).toBe('hill');
-    if (prep.kind !== 'hill' || maintain.kind !== 'hill') return;
-
+    if (prep.kind !== 'hill') return;
     expect(prep.n).toBe(ACT1_HILL_N);
-    expect(maintain.n).toBe(ACT1_MAINTAIN_HILL_N);
-    expect(maintain.n).toBeGreaterThan(prep.n);
+
+    const atpIndex = fresh.state.pools.indexOf('atp');
+    const spendsAtpAndMakesNone = fresh.state.reactions.filter((r) => {
+      const consumes = r.substrates.some((t) => t.poolIndex === atpIndex);
+      const produces = r.products.some((t) => t.poolIndex === atpIndex);
+      return consumes && !produces;
+    });
+
+    // `prep` consumes ATP too and is excluded because it is the PRODUCER side of
+    // this comparison: the trap is about things that spend without the pathway
+    // getting anything back, and `prep` is how the pathway starts.
+    const drains = spendsAtpAndMakesNone.filter((r) => r.id !== 'prep');
+    expect(drains.map((r) => r.id)).toEqual(['store', 'maintain']);
+
+    for (const drain of drains) {
+      const kinetics = kineticsOf(fresh.state, drain.id as Act1ReactionId);
+      expect(kinetics.kind, `${drain.id} must be Hill, not Michaelis-Menten`).toBe('hill');
+      if (kinetics.kind !== 'hill') continue;
+      expect(kinetics.n, `${drain.id} must fall off faster in ATP than prep does`).toBeGreaterThan(
+        prep.n,
+      );
+    }
+
+    // And the two named constants are still where they were, so a change that
+    // satisfied the property by moving `prep` up rather than a drain up is
+    // visible here rather than silent.
+    expect(kineticsOf(fresh.state, 'maintain')).toMatchObject({ n: ACT1_MAINTAIN_HILL_N });
+    expect(kineticsOf(fresh.state, 'store')).toMatchObject({ n: ACT1_STORE_HILL_N });
+  });
+
+  /* ===================================================================== */
+
+  it('does not reopen the trap when the reserve is running', () => {
+    /**
+     * THE MEASUREMENT THAT FOUND THE REGRESSION, KEPT PERMANENTLY.
+     * UPDATELOGV10.md stage 3.
+     *
+     * Storage was built as Michaelis-Menten first and this is the run that
+     * caught it. Both halves are asserted, so a future change that drops
+     * `store` back to a first-order form fails here rather than shipping a
+     * purchase that kills the player's cell.
+     */
+    for (const atp of [1, 0.5, 0.1, 0.05]) {
+      const without = start({ atp });
+      const with_ = start({ atp, glycogen: true });
+      without.advance(600);
+      with_.advance(600);
+
+      expect(without.meter.atpProduced).toBeGreaterThan(1000);
+      expect(
+        with_.meter.atpProduced,
+        `a cell with storage starting at ${atp} ATP must recover too`,
+      ).toBeGreaterThan(1000);
+
+      // Not merely alive. Within a few percent of the cell that never stored,
+      // because the reserve costs throughput and must not cost the recovery.
+      expect(with_.meter.atpProduced).toBeGreaterThan(0.9 * without.meter.atpProduced);
+    }
   });
 
   /* ===================================================================== */

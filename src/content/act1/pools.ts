@@ -1,7 +1,7 @@
 /**
  * Act 1 pools. The first content in this repository that is not synthetic.
  *
- * Twelve pools covering glucose uptake, both phases of glycolysis, the two
+ * Thirteen pools covering glucose uptake, both phases of glycolysis, the two
  * fermentation branches and what each of them leaves behind, the nicotinamide
  * carrier pair, the adenylate pair and free phosphate. Every conserved weight
  * below traces to docs/SCIENCE.md Part 2. UPDATELOGV2.md settles the balance
@@ -61,6 +61,7 @@ export type Act1PoolId =
   | 'lactate'
   | 'ethanol'
   | 'co2'
+  | 'glycogen'
   | 'nad'
   | 'nadh'
   | 'atp'
@@ -84,6 +85,7 @@ export const ACT1_POOL_IDS: readonly Act1PoolId[] = [
   'lactate',
   'ethanol',
   'co2',
+  'glycogen',
   'nad',
   'nadh',
   'atp',
@@ -115,6 +117,7 @@ const LABELS: Readonly<Record<Act1PoolId, string>> = {
   lactate: 'Lactate',
   ethanol: 'Ethanol',
   co2: 'Carbon dioxide',
+  glycogen: 'Glycogen',
   nad: 'NAD+',
   nadh: 'NADH',
   atp: 'ATP',
@@ -160,6 +163,28 @@ const LABELS: Readonly<Record<Act1PoolId, string>> = {
  * consumes it, so a later act reads this pool. It must not be capped, discarded,
  * or treated as write-only accounting. docs/SCIENCE.md Part 2, "Carbon dioxide,
  * and whether anything in this game consumes it".
+ *
+ * ---------------------------------------------------------------------------
+ * GLYCOGEN IS GLUCOSE, COUNTED IN GLUCOSYL UNITS
+ * ---------------------------------------------------------------------------
+ *
+ * Added by UPDATELOGV10.md stage 3. docs/SCIENCE.md Part 2, "Glycogen, and what
+ * storage costs": glycogen is a branched polymer of glucose, alpha-1,4 linked
+ * along the chain with alpha-1,6 branch points.
+ *
+ *   glycogen  carbon 6, redox 2, phosphate 0
+ *
+ * The pool is measured in glucosyl residues rather than in polymer molecules,
+ * so one unit of glycogen is one unit of glucose that happens to be attached to
+ * a chain. Carbon and redox therefore match `glucose` exactly, which is the
+ * whole point: storing changes where a glucose is, not what it is.
+ *
+ * PHOSPHATE 0, AND IT IS NOT AN OVERSIGHT. The residue in the chain carries no
+ * phosphate. Glucose-1-phosphate exists on the way in and on the way out and it
+ * is not this pool: on the way in the phosphate leaves with the activated
+ * donor, and on the way out glycogen phosphorylase puts one back on. Act 1 has
+ * no glucose-6-phosphate pool for either to live in, which is the reason the
+ * storage cost is charged where it is. See `store` in reactions.ts.
  */
 const CONSERVED: Readonly<Record<Act1PoolId, Readonly<Record<string, number>>>> = {
   glucose_env: { carbon: 6, redox: 2 },
@@ -169,6 +194,7 @@ const CONSERVED: Readonly<Record<Act1PoolId, Readonly<Record<string, number>>>> 
   lactate: { carbon: 3, redox: 1 },
   ethanol: { carbon: 2, redox: 1 },
   co2: { carbon: 1 },
+  glycogen: { carbon: 6, redox: 2 },
   nad: { nicotinamide: 1 },
   nadh: { nicotinamide: 1, redox: 1 },
   atp: { phosphate: 3, adenylate: 1 },
@@ -211,6 +237,7 @@ export const ACT1_INITIAL: Readonly<Record<Act1PoolId, number>> = {
   lactate: 0,
   ethanol: 0,
   co2: 0,
+  glycogen: 0,
   nad: ACT1_NICOTINAMIDE_TOTAL,
   nadh: 0,
   atp: ACT1_ATP_INITIAL,
@@ -219,7 +246,7 @@ export const ACT1_INITIAL: Readonly<Record<Act1PoolId, number>> = {
 };
 
 /**
- * The twelve pool definitions, in ACT1_POOL_IDS order.
+ * The thirteen pool definitions, in ACT1_POOL_IDS order.
  *
  * `initial` overrides let a test or a harness scenario start from anywhere
  * without a second definition table. The conservation property test in stage 5

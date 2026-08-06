@@ -172,14 +172,14 @@ describe('a net rate says which way it is going without colour', () => {
 });
 
 describe('every act 1 reaction is on the pathway card', () => {
-  it('names all six, so none is drawn without a label', () => {
+  it('names all eight, so none is drawn without a label', () => {
     for (const reaction of ACT1_REACTION_IDS) {
       expect(render(reaction, false)).toContain(REACTIONS[reaction].text);
     }
-    // Six since UPDATELOGV10.md stage 2 added the ethanol branch. The count is
-    // written down on purpose: a reaction added without a name would otherwise
-    // pass the loop above vacuously, since the loop iterates the list rather
-    // than the card.
-    expect(ACT1_REACTION_IDS).toHaveLength(6);
+    // Eight since UPDATELOGV10.md stage 3 added glycogen storage to stage 2's
+    // ethanol branch. The count is written down on purpose: a reaction added
+    // without a name would otherwise pass the loop above vacuously, since the
+    // loop iterates the list rather than the card.
+    expect(ACT1_REACTION_IDS).toHaveLength(8);
   });
 });

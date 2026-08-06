@@ -79,6 +79,7 @@ export const MOLECULES: Readonly<Record<Act1PoolId, Entry>> = {
   lactate: { text: 'Lactate', badge: sourced(PART2) },
   ethanol: { text: 'Ethanol', badge: sourced(`${PART2}, ethanol fermentation`) },
   co2: { text: 'Carbon dioxide', badge: sourced(`${PART2}, ethanol fermentation`) },
+  glycogen: { text: 'Glycogen', badge: sourced(`${PART2}, glycogen and what storage costs`) },
   nad: { text: 'NAD+', badge: sourced(PART2) },
   nadh: { text: 'NADH', badge: sourced(PART2) },
   atp: { text: 'ATP', badge: sourced(PART2) },
@@ -127,6 +128,20 @@ export const REACTIONS: Readonly<Record<Act1ReactionId, Entry>> = {
     // `payoff` take for five each. The badge names the pathway rather than an
     // enzyme, because naming one of the two would say the other is not there.
     badge: sourced(`${PART2}, ethanol fermentation`),
+  },
+  store: {
+    text: 'Glycogen synthesis',
+    // The stoichiometry is sourced and the placement of the cost is not. See
+    // the `store` comment in src/content/act1/reactions.ts and the structural departure in docs/ECONOMY.md: the
+    // real cycle costs 2 ATP in and refunds 1 on the way out, this charges the
+    // net of 1 at the front, and the badge says which half is which.
+    badge: tuned(
+      'Storing and retrieving a glucose really costs 1 ATP equivalent, which is sourced. Charging all of it at the storing end is not',
+    ),
+  },
+  mobilise: {
+    text: 'Glycogen breakdown',
+    badge: sourced(`${PART2}, glycogen phosphorylase spends no ATP`),
   },
   maintain: {
     text: 'Maintenance',
@@ -201,6 +216,16 @@ export const UNLOCKS = {
     // player is actually buying. The detail line names the other one.
     badge: sourced(
       `${PART2}, pyruvate decarboxylase removes CO2 to give acetaldehyde and alcohol dehydrogenase reduces it to ethanol`,
+    ),
+  },
+  glycogenStorage: {
+    text: 'Glycogen synthase',
+    // Named for the enzyme that builds the chain. ADP-glucose pyrophosphorylase
+    // is the committed and regulated step and is the harder name; glycogen
+    // phosphorylase is the other half of the purchase and is in the detail
+    // line. docs/CONTENT_STYLE.md Part 5 gives a card title four words.
+    badge: sourced(
+      `${PART2}, glycogen synthase transfers a glucosyl unit onto the chain and glycogen phosphorylase takes it back off`,
     ),
   },
   uptakeCapacity: {
@@ -282,6 +307,21 @@ export const SHELF = {
     // same two words side by side is the defect V3 stage 4 found on the two
     // capacity slots, and it is worse read aloud than on screen.
     text: 'Open the other route',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+
+  glycogenDetail: {
+    // The beat is that a buffer is not a yield. Two sentences, and the second
+    // one is the whole point: it says what the purchase does not do.
+    text: 'Stores glucose while there is spare and gives it back when there is not. Costs ATP and makes none.',
+    badge: sourced(`${PART2}, a store and retrieve cycle costs 1 ATP equivalent and yields nothing`),
+  },
+  glycogenLocked: {
+    text: 'Opens once glycolysis is at the top of its ladder.',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  glycogenBuy: {
+    text: 'Build a reserve',
     badge: tuned(ABOUT_THE_BUILD),
   },
 

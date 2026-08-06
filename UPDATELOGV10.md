@@ -572,7 +572,147 @@ from step 4 against V8's.
 
 ## Stage 3 Report
 
-_Pending._
+**Storage reopened NOW.md blocking item 1 and the measurement is the most important thing in this stage.** `bootstrap.test.ts` says in as many words that "`maintain` is the only thing spending ATP that produces none". Glycogen synthesis spends ATP and produces none. Built as Michaelis-Menten it is first order in ATP against `prep`'s second, which is exactly the ordering V5 proved fatal, and the trap came straight back:
+
+    starting ATP 0.01, 600 game-seconds, fermentation running
+      without storage    ATP settles at 9.304   19048.4 ATP produced
+      with storage       ATP falls to 8.937e-29       0.0 ATP produced
+
+**That test also says what to do about it: "Do not retune around it: raise the order."** `store` is Hill of order 3 now, `ACT1_STORE_HILL_N`, matching `ACT1_MAINTAIN_HILL_N` because the two reactions are in the same position. The same cell recovers to 9.305 and makes 19013.7.
+
+**And the assertion that caught it is rewritten as a property rather than repaired as a case.** It used to name `maintain`. It now finds every reaction that consumes ATP and produces none, excludes `prep` as the producer side of the comparison, and requires each of them to be Hill of an order above `prep`'s. A third ATP drain in some later act is covered the moment it exists.
+
+**The headline result is that the buffer works and that it is provably not a yield.** Measured at the top glycolytic rung over a full 80000 environment:
+
+    without storage    food runs out at 75.12 min, tail 0.00 min, 5 more ATP
+    with storage       food runs out at 75.12 min, tail 29.03 min, 11355 more ATP
+
+    total gross ATP produced, both:   320000
+
+**The cell survives half an hour past the end of its food and makes not one ATP more in total.** 320000 is 80000 glucose times the sourced gross of 4, and it is the same figure with and without the reserve because the reserve moves carbon in time and does not create it.
+
+### Step 1. The pool and the two reactions
+
+    glycogen   carbon 6, redox 2, phosphate 0
+
+    store      glucose + atp  ->  glycogen + adp + pi
+    mobilise   glycogen       ->  glucose
+
+**The pool is measured in glucosyl residues rather than in polymer molecules**, so one unit of glycogen is one unit of glucose that happens to be on a chain. Carbon and redox therefore match `glucose` exactly, which is the point: storing changes where a glucose is and not what it is. The blob has six sides for the same reason and the rail says so without a sentence.
+
+**Phosphate 0 is a decision rather than an omission.** The residue in the chain carries none. Glucose-1-phosphate exists on the way in and on the way out and is not this pool.
+
+**The asymmetry stage 1 decided, built as it decided it.** The real cycle costs 2 ATP equivalents going in, 1 at hexokinase and 1 at ADP-glucose pyrophosphorylase, and refunds 1 coming out because glycogen phosphorylase hands back an already phosphorylated sugar that skips the hexokinase step. Net 1 per glucose cycled. **This model has no glucose-6-phosphate pool for the refund to be realised at**, so `store` charges the net of 1 at the front and `mobilise` charges nothing. The net is faithful and the placement is not, and the one observable consequence is that a unit stored and never retrieved cost 1 where a real cell paid 2. It is written up under Structural departures rather than as a row, because no tuned number carries it: the coefficient is stoichiometry.
+
+Conservation across both, exact, and covered by the same property test as everything else:
+
+    store      carbon 6 = 6   redox 2 = 2   phosphate 3 = 2 + 1   adenylate 1 = 1
+    mobilise   carbon 6 = 6   redox 2 = 2   everything else 0 = 0
+
+### Step 2. What it is FOR, and the measurement
+
+The stage said to decide the purpose before tuning it, and to say plainly if the tuning cannot make it useful. It can.
+
+**The baseline is the number that makes the case.** Without a reserve, a cell at the top rung drops under half an ATP per second **on the tick the environment empties** and produces 5 more ATP in total. There is no decline. The food ends and the cell ends.
+
+Swept at the top rung over a full environment, run past the end of the food:
+
+    Vs   Ks   Vm    Km    throughput   stored at    tail        ATP after
+                            cost       food out                 food out
+     -    -    -     -          0.00%          0     0.00 min           5
+     8   12    4   900          4.39%       2836    29.03 min       11355
+     8   12    6   900           ----       1101    13.21 min        4415
+     8   12    8   900           ----        283     6.20 min        1143
+     8   12    6  1800           ----       2119    25.97 min        8488
+     4   12    4  3000          2.81%       2041    46.29 min        8173
+     8   12    4  3000          6.15%       4466    66.35 min       17876
+     8   12    2  3000          8.56%       6455   139.38 min       25690
+
+**Shipped: Vs 8, Ks 12, Vm 4, Km 900.** About half an hour of running on reserves for about four percent of throughput across the act.
+
+**The larger buffers were rejected on NOW.md's own argument against the act's existing empty tail.** 66 or 139 minutes of a cell trickling along is a new dead zone rather than a rescue from one, and the throughput cost is paid for the whole act rather than at the end of it.
+
+**One behaviour was not designed and is the best thing in the stage.** Peak glycogen is 3713 and the reserve holds 2836 when the food runs out, so **it starts discharging before the environment is empty.** As uptake falls with the draining environment, intracellular glucose falls, storage falls below mobilisation, and the reserve begins covering the shortfall. The buffer smooths the decline rather than waiting for a cliff, which is what a buffer is for, and it falls out of two Michaelis-Menten curves rather than out of a rule.
+
+**Honest about the rate.** 11355 ATP over 29.03 minutes is 6.5 ATP per second against 75 while the food lasted, so the cell survives at under a tenth of its speed. That is survival rather than continuation and the report should not dress it up.
+
+### Step 3. What it must not become, checked rather than promised
+
+**Not a second currency.** It is a pool on the rail with a net rate and a stock, drawn with the same six-sided blob as glucose because it is glucose. Nothing spends it but the pathway.
+
+**Not an idle accumulator that pays out while away.** It has no offline behaviour of its own. The jump advances it exactly as it advances every other pool, and step 4 is the check that this is true rather than assumed.
+
+**Not a yield, and this is the one that is measured rather than argued.** Total gross ATP over a full run is 320000 with the reserve and 320000 without it. The ledger of 4 gross and 2 net per glucose is untouched, because `store` is a separate reaction in the same position as `maintain` and neither appears in the per-glucose derivation.
+
+**It does not raise the ceiling and it does lower the rate**, which is the honest shape of a buffer: the four percent is real and it is paid while the reserve charges.
+
+### Step 4. The offline path, checked rather than assumed
+
+Three glycogen configurations were added to the settle report and two to the validation sweep, because charging and discharging are different dynamics and a pool that fills and drains is a pool the detector has an opinion about.
+
+    settle tick, against a SETTLE_MAX_TICKS of 1200
+      walled, fresh                               1015     84.6%   <- still the worst
+      fermenting, fresh                            386     32.2%
+      glycolytic rung 4                            460     38.3%
+      glycogen, charging from empty                385     32.1%
+      glycogen, deep reserve, food running out     392     32.7%
+      glycogen, discharging with no food left      251     20.9%
+
+**Nothing moved.** Every glycogen configuration settles well inside the budget, and the worst configuration in the whole set is still `walled, fresh` at 1015, exactly where V8 left it.
+
+**The reason is the one V8's correction to Part 3 step 2 predicted.** The detector tests the second difference, so a pool changing at a constant rate is fine and only a pool whose rate is still changing is not. The reserve's approach to its equilibrium is slow, and a slow exponential has very small curvature, so it reads as steady and the jump extrapolates it linearly. That is not a loophole: it is linear over the horizon, which is why the extrapolation is right.
+
+    npm run offline:validate, 48 cases, fourteen configurations
+      worst ATP disagreement        3.903e-3  at glycogen-charged, 24.6 min
+      worst misplaced fraction      1.923e-2  at glycolytic-4
+      worst conservation drift      1.417e-10 at glycolytic-4
+      fallbacks                     0
+      budget exhaustions            0
+
+**Zero fallbacks and zero budget exhaustions, and every case inside tolerance.** The worst ATP disagreement in the sweep is now on a glycogen case, at 3.903e-3 against a tolerance of 2e-2, which is a fifth of the budget. **That is a finding about glycogen rather than about the offline path**: a discharging reserve is the hardest thing in act 1 to extrapolate, because it is the one pool whose rate depends on its own level over a long horizon. It is comfortably inside and it is the case to watch if the tolerance is ever tightened.
+
+### Step 5. Tuning, and every scalar has its row
+
+Five new scalars in `src/content/act1/tuning.ts` and one in `src/ui/tuning.ts`, all with rows written in this stage rather than deferred, because `divergenceTable.test.ts` counts scalars and would have failed otherwise.
+
+    C20  ACT1_VMAX.store        8      how fast the reserve charges
+    C21  ACT1_VMAX.mobilise     4      how fast it discharges
+    C22  ACT1_KM.store         12      a Hill K, shared across glucose and ATP
+    C23  ACT1_KM.mobilise     900      THE SIZE OF THE RESERVE
+    C24  ACT1_STORE_HILL_N      3      the bootstrap repair
+    U21  GLYCOGEN_ATP_THRESHOLD 230000 provisional, stage 5 re-derives it
+
+**C23 is the row worth reading.** Storage grows until mobilisation matches it and then stops, and mobilisation is `Vmax * g / (900 + g)`, so this constant decides where that balance lands. **A pool that would otherwise grow for as long as there is food is bounded by arithmetic rather than by a cap**, which matters because CLAUDE.md hard rule 3 forbids infinite scaling and a reserve with no ceiling is infinite scaling wearing a useful name.
+
+The counts move from 40 to 46, and from 27 and 13 to **32 DEPARTURE and 14 UNSOURCED**.
+
+### The problem stage 1 flagged, as built
+
+**Act 1 ships a futile cycle and cannot regulate it away.** A real cell controls synthesis and degradation reciprocally, and the bacterial control point is ADP-glucose pyrophosphorylase being allosterically activated by glycolytic intermediates. `computeFlux` takes the minimum of per-substrate saturation terms and `Kinetics` has no inhibition term, so a reaction can be slowed by a scarce substrate and never by an abundant regulator. With storage bought, both directions run and the same carbon is cycled at 1 ATP a turn.
+
+**What bounds it is substrate saturation, and it does more than expected.** The Hill order 3 the bootstrap repair required is shared across glucose as well as ATP, so a cell short of either stops storing sharply rather than gradually. That is the shape of the regulation the engine cannot express, arrived at from the other direction. **The repair and the regulation turned out to be the same change**, which was not designed and is the reason to trust it.
+
+**It is not written off as a modeling artifact.** docs/SCIENCE.md Part 5 names the same futile cycle for glycolysis against gluconeogenesis, and what suppresses it is allosteric control, which is act 4's theme. Act 1 gets a cost it cannot regulate away and act 4 is the act that would fix it.
+
+### The canonical hash
+
+**`2b18a4bc` becomes `65b43d27`**, and it moved for the same reason stage 2's move did rather than a new one. One more pool, `glycogen`, starting at zero, sitting between `co2` and `nad`. **Verified the same way**: every one of the twelve amounts the fixture already had is identical to seventeen significant figures, with the same tick count and the same PRNG state.
+
+**Stage 3 did move a kinetic form and it is not in the hash.** `ACT1_STORE_HILL_N` is on a reaction this fixture never enables, so it cannot reach the canonical state. It reaches `bootstrap.test.ts` instead, which is where it matters, and the assertion comment says so.
+
+### Verify
+
+**Conservation holds** across all five quantities, 1.819e-15 worst on carbon in `npm run sim:act1`, and the property test covers both new reactions without needing to know they exist.
+
+**The ledger is unchanged.** Gross 4 and net 2, asserted down both fermentation branches to nine decimal places and as float identity, untouched by this stage.
+
+**The offline sweep is green with glycogen unlocked**, 0 fallbacks, 0 budget exhaustions, every case inside tolerance, and settle times unmoved.
+
+**Every new scalar has a row** and `divergenceTable.test.ts` agrees with the document's own stated counts.
+
+**The suite is 531 tests across 41 files**, up from stage 2's 517. `npm run typecheck`, `npm run lint` and `npm run build` are clean. Bundle 283.84 kB, 88.19 kB gzipped.
+
+**The extended bootstrap guard was probed by breaking what it guards.** Reverting `store` to Michaelis-Menten fails both halves: the mechanism assertion with "store must be Hill, not Michaelis-Menten", and the outcome assertion with a recovering cell producing 16438 ATP against the 17143 the storage-free cell makes. **A guard that has never seen the failure it exists to catch is a guard nobody has checked**, and this one has now seen it twice, once as a discovery and once as a probe.
 
 ---
 

@@ -12,6 +12,8 @@
  *   payoff           g3p + nad + 2 adp + pi  ->  pyruvate + nadh + 2 atp
  *   ferment          pyruvate + nadh         ->  lactate + nad          disabled
  *   ferment_ethanol  pyruvate + nadh         ->  ethanol + co2 + nad    disabled
+ *   store            glucose + atp           ->  glycogen + adp + pi    disabled
+ *   mobilise         glycogen                ->  glucose                disabled
  *   maintain         atp                     ->  adp + pi
  *
  * Net per glucose across uptake, prep and two turns of payoff: 2 ATP net, 4
@@ -51,7 +53,13 @@ import { PoolRegistry } from '../../sim/pools';
 import { createPrng } from '../../sim/prng';
 import { createSimulation, type SimulationState } from '../../sim/state';
 import { act1PoolDefinitions, type Act1PoolId } from './pools';
-import { ACT1_HILL_N, ACT1_KM, ACT1_MAINTAIN_HILL_N, ACT1_VMAX } from './tuning';
+import {
+  ACT1_HILL_N,
+  ACT1_KM,
+  ACT1_MAINTAIN_HILL_N,
+  ACT1_STORE_HILL_N,
+  ACT1_VMAX,
+} from './tuning';
 
 export type Act1ReactionId =
   | 'uptake'
@@ -59,6 +67,8 @@ export type Act1ReactionId =
   | 'payoff'
   | 'ferment'
   | 'ferment_ethanol'
+  | 'store'
+  | 'mobilise'
   | 'maintain';
 
 export const ACT1_REACTION_IDS: readonly Act1ReactionId[] = [
@@ -67,6 +77,8 @@ export const ACT1_REACTION_IDS: readonly Act1ReactionId[] = [
   'payoff',
   'ferment',
   'ferment_ethanol',
+  'store',
+  'mobilise',
   'maintain',
 ];
 
@@ -96,6 +108,8 @@ export const ACT1_ENABLED: Readonly<Record<Act1ReactionId, boolean>> = {
   payoff: true,
   ferment: false,
   ferment_ethanol: false,
+  store: false,
+  mobilise: false,
   maintain: true,
 };
 
@@ -311,6 +325,106 @@ export function createAct1(options: Partial<Act1Options> = {}): SimulationState 
       ],
       kinetics: michaelisMenten(v('ferment_ethanol'), k('ferment_ethanol')),
       enabled: on('ferment_ethanol'),
+    },
+
+    /**
+     * Glycogen synthesis. The way in. UPDATELOGV10.md stage 3.
+     * docs/SCIENCE.md Part 2, "Glycogen, and what storage costs".
+     *
+     * THE REAL COST IS 2 ATP EQUIVALENTS AND THIS CHARGES 1. That is a
+     * departure, it has a row, and here is the whole of it.
+     *
+     * A real cell pays twice going in: 1 ATP at hexokinase to make
+     * glucose-6-phosphate, and 1 ATP equivalent at ADP-glucose
+     * pyrophosphorylase to activate the donor, the released pyrophosphate being
+     * hydrolysed, which is what makes that step irreversible and why it counts
+     * as a whole ATP rather than a fraction. Coming out it pays nothing:
+     * glycogen phosphorylase cleaves with inorganic phosphate rather than water
+     * and hands back an already phosphorylated sugar, which re-enters glycolysis
+     * PAST the hexokinase step. So one of the two is refunded on the way out and
+     * a full store-and-retrieve cycle costs exactly 1 ATP equivalent.
+     *
+     * This model has no glucose-6-phosphate pool. A mobilised unit lands in
+     * `glucose` and pays `prep`'s full 2 ATP entry cost like any other, so the
+     * refund has nowhere to be realised. Charging 2 here would make a stored
+     * glucose yield nothing at all, which is wrong by a factor the real cell
+     * does not pay. Charging 1 here reproduces the real NET cost of the cycle
+     * exactly and moves only WHERE it is charged.
+     *
+     * The one observable consequence, disclosed rather than hidden: a unit
+     * stored and never retrieved cost 1 where a real cell paid 2. In act 1 the
+     * buffer exists to be drawn down, so the retrieved case is the ordinary one.
+     *
+     * IT PRODUCES NO ATP AND IT NEVER WILL. Look at the sides: a glucose and an
+     * ATP go in, a glucosyl residue and the spent adenylate come out. A buffer
+     * is not a yield, and docs/PROGRESSION.md act 1 item 9 says so.
+     *
+     * THE THIRD HILL FORM IN ACT 1, AND THE SECOND THAT IS A REPAIR RATHER THAN
+     * A CLAIM. This reaction is the second thing in act 1 that spends ATP and
+     * produces none, which is the position `bootstrap.test.ts` says only
+     * `maintain` was in. Built as Michaelis-Menten it is first order in ATP
+     * against `prep`'s second, and NOW.md blocking item 1 came straight back: a
+     * cell starting at an ATP of 0.01 fell to 8.937e-29 and produced nothing,
+     * where the same cell without storage recovered to 9.304. Order 3 loses to
+     * order 2 at low ATP instead, so the collapse does not start. Read
+     * ACT1_STORE_HILL_N in tuning.ts before changing the form here.
+     */
+    {
+      id: 'store',
+      substrates: [
+        { poolIndex: at('glucose'), coefficient: 1 },
+        { poolIndex: at('atp'), coefficient: 1 },
+      ],
+      products: [
+        { poolIndex: at('glycogen'), coefficient: 1 },
+        { poolIndex: at('adp'), coefficient: 1 },
+        { poolIndex: at('pi'), coefficient: 1 },
+      ],
+      kinetics: hill(v('store'), k('store'), ACT1_STORE_HILL_N),
+      enabled: on('store'),
+    },
+
+    /**
+     * Glycogen mobilisation. The way out, and it costs nothing, which is the
+     * asymmetry the entry is about. docs/SCIENCE.md Part 2, "Glycogen".
+     *
+     * Glycogen phosphorylase spends no ATP. The inorganic phosphate it uses and
+     * the one phosphoglucomutase carries through both belong to the
+     * glucose-1-phosphate this model has no pool for, so nothing on either side
+     * of this reaction touches phosphate at all and it balances trivially.
+     *
+     * NOTHING GATES THIS AND NOTHING CAN, WHICH IS A REAL LIMITATION OF THE
+     * ENGINE AND IS RECORDED RATHER THAN WORKED AROUND.
+     *
+     * A real cell regulates synthesis and degradation reciprocally so they do
+     * not run hard at once, and the bacterial control point is ADP-glucose
+     * pyrophosphorylase being allosterically activated by glycolytic
+     * intermediates and inhibited by AMP. `computeFlux` in src/sim/reactions.ts
+     * takes the minimum of per-substrate saturation terms and there is no
+     * inhibition term anywhere in `Kinetics`, so a reaction can be slowed by a
+     * scarce substrate and never by an abundant regulator. Act 1 therefore ships
+     * a futile cycle: with both reactions running, the same carbon is stored and
+     * retrieved and the cell burns ATP for nothing at the rate of the slower one.
+     *
+     * THAT IS A REAL FAILURE MODE OF A REAL CELL RATHER THAN A MODELING
+     * ARTIFACT. docs/SCIENCE.md Part 5 names the same thing for glycolysis
+     * against gluconeogenesis. What suppresses it is allosteric regulation,
+     * which is act 4's theme and not act 1's, so act 1 gets a cost it cannot
+     * regulate away and act 4 is the act that would fix it.
+     *
+     * What bounds it instead is arithmetic. Storage runs on glucose, which is
+     * scarce whenever the cell is short of it, so the cycle throttles itself
+     * exactly when it would hurt. And the two Vmax values set where the pool
+     * settles: glycogen grows until mobilisation matches storage and then stops,
+     * so the buffer is self-limiting and CLAUDE.md hard rule 3 is not touched by
+     * a pool that would otherwise grow forever.
+     */
+    {
+      id: 'mobilise',
+      substrates: [{ poolIndex: at('glycogen'), coefficient: 1 }],
+      products: [{ poolIndex: at('glucose'), coefficient: 1 }],
+      kinetics: michaelisMenten(v('mobilise'), k('mobilise')),
+      enabled: on('mobilise'),
     },
 
     /**

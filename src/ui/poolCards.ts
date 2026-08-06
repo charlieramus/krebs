@@ -1,5 +1,5 @@
 /**
- * Twelve pools, nine cards, and where each blob's geometry comes from.
+ * Thirteen pools, ten cards, and where each blob's geometry comes from.
  *
  * THE TWO CARRIER PAIRS SHARE A CARD EACH. Their sum is what is conserved and
  * the sum is what teaches. NAD+ draining while NADH fills, on one card, is the
@@ -176,6 +176,22 @@ export const POOL_CARDS: readonly PoolCardSpec[] = [
       { poolId: 'ethanol', fill: SUBSTRATE, seed: 97 },
       { poolId: 'co2', fill: SUBSTRATE, seed: 103 },
     ],
+  },
+  {
+    id: 'glycogen',
+    kind: 'simple',
+    title: MOLECULES.glycogen,
+    // Pink. DESIGN.md, Colour: sky is substrate cards and pink is pools and
+    // stores. Every other carbon pool on this rail is sky because every other
+    // one is on its way somewhere. This one is the only store in act 1 and it
+    // is the card the rule was written for.
+    surface: 'pink',
+    stocks: ['glycogen'],
+    headline: 'glycogen',
+    // Six sides, exactly like both glucose cards, because a stored glucosyl
+    // residue IS a glucose. The shape saying so is the encoding doing its job:
+    // storing changes where a glucose is and not what it is.
+    blobs: [{ poolId: 'glycogen', fill: SUBSTRATE, seed: 109 }],
   },
   {
     id: 'nicotinamide',

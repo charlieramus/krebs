@@ -141,6 +141,22 @@ export const FERMENT_ATP_THRESHOLD = 55;
 export const ETHANOL_ATP_THRESHOLD = 35000;
 
 /**
+ * Cumulative gross ATP before glycogen storage can be bought. Added by
+ * UPDATELOGV10.md stage 3 and derived from a clock in stage 5.
+ *
+ * IT IS THE LAST PURCHASE IN THE ACT AND THAT IS WHAT THE NUMBER SAYS. The
+ * glycolytic ladder's last rung lands at 61m57s on 195000 cumulative ATP, and
+ * `canBuyGlycogen` refuses until that ladder is finished, so this number only
+ * ever binds after it. It is placed so the reserve is offered while there is
+ * still food left to charge it out of, which at the top rung means before about
+ * 75 game-minutes.
+ *
+ * PROVISIONAL, like ETHANOL_ATP_THRESHOLD, and for the same reason: stage 3 has
+ * no instrumented run of the whole act to read it off. Stage 5 re-derives it.
+ */
+export const GLYCOGEN_ATP_THRESHOLD = 230000;
+
+/**
  * Uptake Vmax by capacity step. ENUMERATED, NOT A MULTIPLIER.
  *
  * CLAUDE.md hard rule 3 forbids infinite scaling, and an upgrade with no last
@@ -335,6 +351,9 @@ export const TUNING_BADGES = {
   dashSpeed: tuned('How fast the pathway looks. Chosen by watching it'),
   fermentThreshold: tuned(
     'Bounded above by the measured cumulative-ATP ceiling of a walled cell, which is 60. Above that the unlock is unbuyable',
+  ),
+  glycogenThreshold: tuned(
+    'Placed so the reserve is offered while there is still food left to charge it out of. The last purchase in the act',
   ),
   ethanolThreshold: tuned(
     'A spacing decision rather than a constraint. The branch answers nothing, so it can land wherever the act needs a beat',

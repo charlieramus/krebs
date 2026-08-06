@@ -33,6 +33,7 @@ import type { SimulationState } from '../sim/state';
 import {
   ETHANOL_ATP_THRESHOLD,
   FERMENT_ATP_THRESHOLD,
+  GLYCOGEN_ATP_THRESHOLD,
   GLYCOLYSIS_ATP_THRESHOLDS,
   GLYCOLYSIS_STEPS,
   UPTAKE_ATP_THRESHOLDS,
@@ -60,6 +61,7 @@ import {
   ACT1_NO_CARRIED_COUNTERS,
   ACT1_UNLOCK_FERMENT,
   ACT1_UNLOCK_FERMENT_ETHANOL,
+  ACT1_UNLOCK_GLYCOGEN,
   act1GlycolysisUnlockId,
   act1UptakeUnlockId,
   captureAct1,
@@ -170,6 +172,12 @@ export interface Act1Snapshot {
    * for the first time is offered one answer and not a fork.
    */
   ethanolUnlocked: boolean;
+  /**
+   * Whether glycogen storage has been bought. One flag for two reactions: a
+   * reserve that can only be charged is a permanent tax and a reserve that can
+   * only be drawn down never fills, so neither half is sold on its own.
+   */
+  glycogenUnlocked: boolean;
   /** Index into UPTAKE_VMAX_STEPS. 0 is the shipped default and is not bought. */
   uptakeStep: number;
   /**
@@ -348,6 +356,15 @@ export interface Act1Runtime {
    * option rather than an upgrade.
    */
   buyEthanol(): boolean;
+  /**
+   * Buy glycogen storage, which turns on both `store` and `mobilise`.
+   *
+   * It refuses until the glycolytic ladder is finished, because the reserve is
+   * charged out of the intracellular glucose the top of that ladder is what
+   * produces, and because a buffer against the food running out is only a beat
+   * once the food running out is in sight.
+   */
+  buyGlycogen(): boolean;
   /** Buy the next uptake capacity step, under the same rules. */
   buyUptakeStep(): boolean;
   /**
@@ -358,6 +375,7 @@ export interface Act1Runtime {
   /** Whether the meter has reached each threshold. Display only. */
   canBuyFerment(): boolean;
   canBuyEthanol(): boolean;
+  canBuyGlycogen(): boolean;
   canBuyUptakeStep(): boolean;
   canBuyGlycolysisStep(): boolean;
 
@@ -567,6 +585,7 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
     frameCount: 0,
     fermentUnlocked: state.reactions[reactionIndex('ferment')]?.enabled ?? false,
     ethanolUnlocked: state.reactions[reactionIndex('ferment_ethanol')]?.enabled ?? false,
+    glycogenUnlocked: state.reactions[reactionIndex('store')]?.enabled ?? false,
     uptakeStep: 0,
     glycolysisStep: 0,
     walled: false,
@@ -978,6 +997,31 @@ export function createAct1Runtime(options: Act1RuntimeOptions = {}): Act1Runtime
       setReactionEnabled(state, 'ferment_ethanol', true);
       snapshot.ethanolUnlocked = true;
       unlocked.push(ACT1_UNLOCK_FERMENT_ETHANOL);
+      autosave?.saveNow('unlock');
+      return true;
+    },
+
+    canBuyGlycogen(): boolean {
+      // LAST IN THE ACT, AND GATED ON THE LADDER RATHER THAN ONLY ON A NUMBER.
+      // Storage charges out of intracellular glucose, and the amount of that a
+      // cell has to spare is what the two capacity ladders decide. Offered
+      // earlier it is a tax on a cell that has nothing spare, which is a
+      // purchase that makes the cell worse. Offered here it is the answer to a
+      // problem the player can already see coming.
+      if (snapshot.glycolysisStep < GLYCOLYSIS_STEPS.length - 1) return false;
+      if (snapshot.glycogenUnlocked) return false;
+      return meter.atpProduced >= GLYCOGEN_ATP_THRESHOLD;
+    },
+
+    buyGlycogen(): boolean {
+      if (snapshot.glycolysisStep < GLYCOLYSIS_STEPS.length - 1) return false;
+      if (snapshot.glycogenUnlocked) return false;
+      if (meter.atpProduced < GLYCOGEN_ATP_THRESHOLD) return false;
+      // Both, always. See ACT1_UNLOCK_GLYCOGEN.
+      setReactionEnabled(state, 'store', true);
+      setReactionEnabled(state, 'mobilise', true);
+      snapshot.glycogenUnlocked = true;
+      unlocked.push(ACT1_UNLOCK_GLYCOGEN);
       autosave?.saveNow('unlock');
       return true;
     },
