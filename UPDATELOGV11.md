@@ -922,7 +922,107 @@ NOW.md diff summary.
 
 ## Stage 7 Report
 
-_Pending._
+**The schema decision: NO BUMP. Version 1 still, and this is the third log to decide that rather than to assume it.**
+
+The only persisted state V11 added is `settings.boundarySeen`. A save written by V10 has no such key and defaults it to false, which is right rather than tolerated: that player has not seen the act 1 ending either, because until stage 4 there was nothing to see. docs/SAVE_SCHEMA.md Part 1 makes a field new code can default an additive change, and the project has now proved it three times, with V5's two unlock id families and V6's `settings.firstRunSeen`.
+
+**`progression.act` needed nothing, which is the more interesting half.** It was in the version 1 shape from the start, documented as 1 to 4. V11 reads it and refuses an act it does not have; it did not add it. The same is true of everything else stage 5 touched. The version 1 shape was written for four acts and it is holding.
+
+**The named next exercise, because a decision that does not name its own expiry is a silence.**
+
+```
+  WHEN     the act 2 log
+  WHAT     per-reaction Vmax varying dynamically as hashed simulation state
+  WHY      ROS damage makes each reaction carry a current Vmax that is part of
+           the simulation rather than a constant read from a tuning file. A save
+           has to carry it or a reload silently repairs the cell, and there is no
+           correct default for how damaged an enzyme is: the honest answers are
+           the saved value or a different game
+```
+
+**Two things that will NOT force it, recorded so they are not mistaken for it.** The oxygen schedule index is already reserved under `environment`. And a new act's unlock ids are additive in both directions by V5's argument: an older save carries no id with the new prefix and derives the base state, while `Act1Unlocks.unknown` carries ids this build does not recognise through capture untouched.
+
+Written into **docs/SAVE_SCHEMA.md Part 1** under a new heading, "The version 1 window, and when it is expected to close", rather than only into NOW.md, because a decision that lives in a state file is a decision that goes stale. The forward-compatibility section also gained the act refusal beside the schema-version one, since they are the same posture.
+
+**The regression bar, confirmed one final time across the whole log.** Stages 1 to 3 and 5 to 7, with stage 4 reported separately in its own report as the declared exception.
+
+```
+  both canonical hashes    172f83fb  and  65b43d27      unchanged from V10
+  npm test                 624 across 47 files, green   was 540 across 42
+  git diff, V10's tip to V11's:
+    src/content/act1/tuning.ts    empty
+    src/ui/tuning.ts              empty
+    src/save/tuning.ts            empty
+    docs/SCIENCE.md               empty
+    docs/ECONOMY.md               empty
+  npm run offline:validate  47 cases green, 0 fallbacks, 0 budget exhaustions
+  reload determinism sweep  36 cases green
+```
+
+**The five diffs are empty for the whole log including stage 4**, which is worth stating because an act boundary is exactly the kind of feature that acquires a tuned threshold on the way in, and docs/SCIENCE.md was not touched in any stage at all.
+
+**Full verify, everything run.**
+
+```
+  npm run typecheck        clean
+  npm run lint             clean
+  npm run build            290.65 kB, 89.92 kB gzipped
+  npm test                 624 tests, 47 files, 4.7 s
+  npm run sim              green
+  npm run sim:act1         green
+  npm run offline:validate green, every case inside tolerance
+  the playthrough          118 ms continuous, 107 ms across an absence
+```
+
+**Against V10: 540 tests to 624, 42 files to 47, and 285.18 kB to 290.65 kB.** Five new test files, and 5.47 kB of bundle, which is the ending screen, its copy and the boundary machinery. The whole suite went from 4.6 s to 4.7 s with the playthrough in it.
+
+**NOW.md, updated.** Its diff summary:
+
+```
+  Status                    rewritten. The project can run an act rather than
+                            the act, and act 1 has an ending
+  Build state table         V11 done, with its "does not" column, and V11+
+                            becomes V12, Spine B
+  What act 1 contains       gains the act boundary row
+  What the interface does   content/ as a directory, boundary.ts, the three
+                            new hooks
+  What the save layer does  the future-act refusal beside the future-schema one,
+                            and the sealing hole that stage 5 closed
+  What the act layer does   NEW. Sibling to the kernel, content, interface, save,
+                            economy, teaching, accessibility and offline sections
+  What the guards do        NEW. Seven of them, what the widened one found, and
+                            the one residual hole
+  What the playthrough      NEW. What it asserts and what it refuses to claim
+    proves
+  What V11 did not do       NEW, in the shape V10's has
+  What a second act         NEW. The list this log exists to shorten
+    would still need
+  The schema decision       NEW, with the named next exercise
+  Settled 2026-08-06,       NEW. Fourteen entries
+    by V11
+  Next, in order            item 1 is V12, Spine B, with the art spike named as
+                            the thing that gates part of it
+  What exists               UPDATELOGV11.md added to the index
+```
+
+**965 lines, up from 780.** That is a real cost and it is the item NOW.md's own rule warns about, which the log's stage list flagged as "NOW.md restructured to its own rule" and which this stage did not do. Reported rather than quietly skipped: the file grew by five sections and the restructure is not one of them. It is the first thing V12 should do to this file.
+
+---
+
+## What a second act would still need
+
+The log's whole purpose is to shorten this list and the honest measure is how short it is. Not a plan, a list. It is also in NOW.md so it survives this file.
+
+1. **`src/content/act2/`**, to the shape act 1's has: pools, reactions, tuning, meter, save mapping, offline observer. One entry added to `ACTS`.
+2. **Three descriptor fields it does not have**, each an addition rather than a redesign: a wall that is not a NAD+ level, which `isWalled` already accommodates because it is a predicate; an oxygen schedule, which is a boundary in wall-clock rather than in a pool level; and a damage model.
+3. **A kernel concept that does not exist**: per-reaction Vmax varying dynamically as hashed state. `Reaction.kinetics` is readonly and the runtime already casts through it in one place for unlocks.
+4. **A schema bump with a migration**, and the version 1 fixture it migrates from, which is already committed. This is the log the bump is expected in.
+5. **Two `src/ui/` map entries**, a card layout and a boundary condition, both keyed by act number and both a literal.
+6. **Act 2's unlocks, on the runtime.** The largest remaining item, and the one V11 deliberately left: two acts is the sample size at which a general unlock model can be designed rather than guessed.
+7. **The offline fallback repaired first.** NOW.md blocking item 6. Act 2 breaks both halves of the reason it is harmless today, and the design doc already makes the repair a precondition rather than a standing defect.
+8. **And the part that is not code.** docs/PROGRESSION.md still lists act 2's shape as an open question for the prototype, and act 2 introduces damage, the first mechanic that can take something away from a player. Whether that reads as a metabolic consequence or as a punishment is a comprehension question and this project still has 0 readers out of 0 asked.
+
+**Six of those eight are a file, a field or a map entry.** Before this log, item 1 would additionally have required copying or renaming `src/ui/runtime.ts`, which is 1142 lines with act 1 in every exported type, and item 5 would have required editing a `CardKind` union that named molecules. That is the deliverable, and the two items that did not shrink are the two this log was explicitly forbidden to guess at.
 
 ---
 

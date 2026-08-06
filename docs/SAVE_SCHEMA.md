@@ -35,6 +35,18 @@ Migrations are never edited after release. If a released migration is wrong, the
 
 If schemaVersion exceeds the current version, the save came from a newer build. Do not attempt to load it. Do not attempt to guess. Show a clear message and preserve the file untouched.
 
+**The same rule applies to `progression.act`, added by V11.** A save naming an act this build does not have is a well-formed file from a newer build, exactly as a higher schemaVersion is, and it gets the same treatment: refused, not loaded, not changed, with a message that says so. It is specifically not clamped to the highest known act, because that loads successfully and silently rewrites somebody's progress, which is worse than refusing. An act value that is not a whole number of 1 or more is a different thing and is malformed, rejected by the codec alongside every other malformed field.
+
+## The version 1 window, and when it is expected to close
+
+**No bump has been needed yet and V11 is the third log to decide that rather than to assume it.** V5 added two unlock id families, V6 added `settings.firstRunSeen` and V11 added `settings.boundarySeen`, and all three are additive changes new code can default, so all three shipped at version 1. The version 1 shape was written for four acts: `progression.act` is documented as 1 to 4, `transitionTaken` and `shuttleChoice` are labelled act 3, `enzymes[].damage` and `environment.scheduleIndex` are labelled act 2, and `settings` is an open bag of scalars.
+
+**A decision that never names its own expiry is a silence, so this one names it.** The next bump is expected in **the act 2 log**, and the thing that forces it is per-reaction Vmax varying dynamically as hashed simulation state. `docs/designs/game-spine-and-four-acts.md` lists it as a kernel concept that does not yet exist: ROS damage means each reaction carries a current Vmax that is part of the simulation's state rather than a constant read from a tuning file, so a save has to carry it or a reload silently repairs the cell. That is not a field new code can default, because there is no correct default for "how damaged is this enzyme"; the honest answers are the saved value or a different game.
+
+Two things that will NOT force a bump, recorded so they are not mistaken for it. The oxygen schedule index is already reserved under `environment`. And a new act's unlock ids are additive by the V5 argument: a save from an older build carries no id with the new prefix and derives the base state, while `Act1Unlocks.unknown` carries ids this build does not recognise through capture untouched.
+
+`schemaVersionGate.test.ts` is the mechanism behind CLAUDE.md hard rule 7 and it asserts a committed fixture for every version from 1 to `SCHEMA_VERSION`, a migration for every step, and every fixture loading through the chain. Until the act 2 log it exercises one version, which is the correct answer and not a dormant one.
+
 ## Corruption handling
 
 Before writing a save, write to a temporary key, verify it reads back and parses, then swap. Never overwrite a known-good save with an unverified write.
