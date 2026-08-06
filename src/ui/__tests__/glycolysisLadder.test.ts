@@ -18,7 +18,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { TICK_MS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
 import { createAct1Runtime, poolIndex, type Act1Runtime } from '../runtime';
-import { GLYCOLYSIS_ATP_THRESHOLDS, GLYCOLYSIS_STEPS, UPTAKE_VMAX_STEPS } from '../tuning';
+import {
+  GLYCOLYSIS_ATP_THRESHOLDS,
+  GLYCOLYSIS_STEPS,
+  PFK1_PK_VMAX_FACTOR,
+  UPTAKE_VMAX_STEPS,
+} from '../tuning';
 
 beforeAll(() => {
   setShortfallLogging(false);
@@ -127,6 +132,20 @@ describe('the glycolytic capacity ladder', () => {
     }
   });
 
+  it('keeps the invariant when the two named enzymes are bought', () => {
+    // UPDATELOGV10.md stage 4. PFK-1 raises `prep` and pyruvate kinase raises
+    // `payoff`, by the SAME factor, which is the whole reason they are one
+    // purchase: the condition above is about the ratio, and one factor on both
+    // sides of a ratio cannot change it. Asserted at every rung rather than
+    // argued, because "cannot change it" is exactly the kind of sentence that is
+    // true until somebody gives the two enzymes different factors.
+    for (const rung of GLYCOLYSIS_STEPS) {
+      expect(rung.payoff * PFK1_PK_VMAX_FACTOR).toBeGreaterThan(
+        2 * rung.prep * PFK1_PK_VMAX_FACTOR,
+      );
+    }
+  });
+
   it('does not open until the uptake ladder is finished', () => {
     // Both ladders raise uptake and this one always raises it further, so
     // offering them at once would let a player buy a rung that immediately
@@ -145,6 +164,7 @@ describe('the glycolytic capacity ladder', () => {
       GLYCOLYSIS_ATP_THRESHOLDS[0] as number,
     );
     expect(runtime.snapshot.uptakeStep).toBeLessThan(UPTAKE_VMAX_STEPS.length - 1);
+    expect(runtime.canBuyPfk1Pk()).toBe(false);
     expect(runtime.canBuyGlycolysisStep()).toBe(false);
     expect(runtime.buyGlycolysisStep()).toBe(false);
     expect(runtime.snapshot.glycolysisStep).toBe(0);
@@ -156,10 +176,14 @@ describe('the glycolytic capacity ladder', () => {
     for (let t = 0; t < 2000; t += 1) runtime.frame(runtime.snapshot.elapsedMs + TICK_MS);
     runtime.buyFerment();
 
-    // Climb both ladders as fast as the thresholds allow, then keep asking.
+    // Climb the whole act as fast as the thresholds allow, then keep asking.
+    // The enzyme purchase sits between the ladders since UPDATELOGV10.md stage
+    // 4 and this ladder is gated behind it, so a loop that skipped it would
+    // never reach the top.
     for (let t = 0; t < 300000; t += 1) {
       runtime.frame(runtime.snapshot.elapsedMs + TICK_MS);
       runtime.buyUptakeStep();
+      runtime.buyPfk1Pk();
       runtime.buyGlycolysisStep();
       if (runtime.snapshot.glycolysisStep === GLYCOLYSIS_STEPS.length - 1) break;
     }

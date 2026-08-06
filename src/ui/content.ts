@@ -218,6 +218,16 @@ export const UNLOCKS = {
       `${PART2}, pyruvate decarboxylase removes CO2 to give acetaldehyde and alcohol dehydrogenase reduces it to ethanol`,
     ),
   },
+  pfk1Pk: {
+    text: 'PFK-1 and pyruvate kinase',
+    // Two enzymes in one slot, and the badge says which claim is sourced: that
+    // these are two of the three regulated steps. That they have to be bought
+    // together is a fact about this model's stability, not about a cell, and it
+    // is in the detail line rather than dressed up as biology here.
+    badge: sourced(
+      `${PART2}, phosphofructokinase-1 is the committed step and pyruvate kinase is the third regulated step`,
+    ),
+  },
   glycogenStorage: {
     text: 'Glycogen synthase',
     // Named for the enzyme that builds the chain. ADP-glucose pyrophosphorylase
@@ -310,6 +320,22 @@ export const SHELF = {
     badge: tuned(ABOUT_THE_BUILD),
   },
 
+  pfk1PkDetail: {
+    // The teaching beat, and it is the third time the act makes this claim.
+    text: 'Both at once, because the exit has to widen before the entrance can. Drains the glucose the cell could not use.',
+    badge: tuned(
+      'That these are two of the three regulated steps is sourced. That raising one without the other kills this cell is measured, not biology',
+    ),
+  },
+  pfk1PkLocked: {
+    text: 'Opens once uptake is at the top of its ladder.',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+  pfk1PkBuy: {
+    text: 'Express both',
+    badge: tuned(ABOUT_THE_BUILD),
+  },
+
   glycogenDetail: {
     // The beat is that a buffer is not a yield. Two sentences, and the second
     // one is the whole point: it says what the purchase does not do.
@@ -347,8 +373,12 @@ export const SHELF = {
     badge: sourced(`${PART2}, the payoff phase runs twice per preparatory turn`),
   },
   glycolysisLocked: {
-    text: 'Opens once uptake is at the top of its ladder.',
-    badge: tuned(`${ABOUT_THE_BUILD}. The two ladders are sequential by design`),
+    // WAS "Opens once uptake is at the top of its ladder". Correct until
+    // UPDATELOGV10.md stage 4 put the two enzyme purchases between the ladders
+    // and gated this one behind them, because this ladder raises transport and
+    // drops the enzymes from 12.96 percent to 2.37 the moment it does.
+    text: 'Opens once the named enzymes are running.',
+    badge: tuned(`${ABOUT_THE_BUILD}. The ladders and the enzymes are sequential by design`),
   },
   glycolysisDone: {
     text: 'At the top of the ladder. Both phases are running as fast as act 1 allows.',

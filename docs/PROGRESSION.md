@@ -33,7 +33,7 @@ Unlock order:
 2. Glycolysis, unlocked as a single pathway initially, then decomposed into the preparatory and payoff phases
 3. Uptake capacity, a finite ladder of transport steps
 4. Glycolytic capacity, a finite ladder raising both phases of glycolysis together
-5. The three regulated glycolytic enzymes, sold by name, each raising the throughput of the phase it belongs to
+5. The regulated glycolytic enzymes, sold by name. Phosphofructokinase-1 and pyruvate kinase together, raising both phases at once
 6. NAD+ pool visibility
 7. Lactate fermentation
 8. Ethanol fermentation as an alternate branch, which releases carbon dioxide
@@ -44,6 +44,8 @@ Unlock order:
 Items 3 and 4 are the two capacity ladders. They are sequential rather than side by side, because both raise uptake and the second always raises it further.
 
 **Item 5 is three enzymes and not ten, and it is throughput and not efficiency.** The wording was corrected on 2026-08-06 by UPDATELOGV10.md stage 1, having drifted in two ways. "Individual glycolytic enzymes" implied the pathway's ten steps, where the three worth selling are hexokinase, phosphofructokinase-1 and pyruvate kinase, which are the three regulated steps and the only three where flux control concentrates. See docs/SCIENCE.md Part 2, Regulation. And "efficiency upgrades" reads as yield, which contradicts the wall paragraph three lines below saying enzyme upgrades increase throughput and never yield. The rest of the pathway runs near equilibrium and follows its substrates, so an upgrade there would move nothing.
+
+**Corrected again on 2026-08-06 by UPDATELOGV10.md stage 4, which built all three and could ship one purchase.** Stage 1's wording said all three would be sold and that each would raise the throughput of its own phase. Measurement overturned both halves. **Pyruvate kinase raises no throughput on its own**, at any configuration, because the payoff phase is not the bottleneck in this act; its function is to give the preparatory phase the headroom to be raised safely, so the two are one purchase. **Hexokinase is not sold at all**: the game models a phase rather than an enzyme and shares one half-saturation constant across a reaction's substrates, and in the regime act 1 runs in the preparatory phase's glucose term is already pinned at saturation, so an affinity upgrade there moves the ATP term instead. That is not what hexokinase does. Stage 4's report carries the figures. **Stage 1's correction was itself a prediction, and this is the second time in one log that a sentence held until something was built on top of it.**
 
 **Item 8 is a choice and not an upgrade, and it is the first one in the game.** Lactate and ethanol both regenerate NAD+ and neither yields any ATP, so neither branch is the right answer. What differs is what the cell is left holding: three carbons of lactate kept, or two carbons of ethanol and one carbon released as gas. Ethanol fermentation is therefore the first reaction in the game to release carbon from the cell, and the carbon it releases is a real product rather than a deletion. See docs/SCIENCE.md Part 2, "Carbon dioxide, and whether anything in this game consumes it".
 

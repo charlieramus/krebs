@@ -770,7 +770,138 @@ against the trap.
 
 ## Stage 4 Report
 
-_Pending._
+**Three enzymes were built, all eight combinations were measured at all five glycolytic rungs, and one purchase ships.** Phosphofructokinase-1 and pyruvate kinase, together. **Hexokinase is not in the game**, and the reason it is not is the most useful thing in this stage.
+
+**Stage 1 asked whether a named enzyme upgrade on a lumped reaction is a lie and said the log should take the other path if the honest answer was yes.** For hexokinase the honest answer is yes, and it is measurable rather than a matter of taste:
+
+    the preparatory phase at the top of the uptake ladder, ten minutes settled
+                    prep K     glucose        atp   sat(glucose)   sat(atp)      ATP/s
+      no upgrade      4.00     2816.24    10.8080       0.999998   0.879530    42.2175
+      hexokinase      3.00     2431.98    11.1906       0.999998   0.932951    44.7816
+
+**The glucose saturation term is 0.999998 in both rows.** Hexokinase's defining property is affinity for glucose, and modelled here it moves that by nothing at all, because the phase's glucose term is pinned at saturation in the regime act 1 runs in. **Every bit of its 6.07 percent came from the ATP term**, 0.879530 to 0.932951, which is the preparatory phase gripping ATP harder.
+
+**And that is the exact property V5's bootstrap repair depends on.** The repair works by `prep` backing off faster than maintenance as ATP falls. An upgrade that stops it backing off erodes it, and climbed live it did: hexokinase alone killed the cell at glycolytic rung 4, and alongside the other two it killed it at rung 1.
+
+**The cause is a simplification this project disclosed in July.** docs/SCIENCE.md Part 1, "One Km per reaction, shared across all of its substrates". It has been a paragraph since 2026-07-29 and it has never cost anything. It costs an enzyme now.
+
+### Step 1. The upgrades, and the two that could not be sold
+
+Built all three first, then swept. `prep` K for hexokinase, `prep` Vmax for PFK-1, `payoff` Vmax for pyruvate kinase, each mapped to the regulatory character docs/SCIENCE.md gives that enzyme.
+
+**Measured at glycolytic rung 0, ATP per second, five game-minutes settled:**
+
+    combo         ATP/s      gain     payoff - 2*prep    glucose
+    none        42.2175     0.00%                2.00     499.92
+    hexokinase  44.7816    +6.07%                2.00     269.57
+    PK          42.2175     0.00%                5.90     499.50
+    PFK-1        0.0000   -100.00%              -1.60!   3838.58
+    PK + PFK-1  47.6868   +12.96%                2.30      10.08
+
+**PFK-1 alone kills the cell**, and it is the exact failure V5 found when it tried to sell the preparatory phase on its own. It raises `prep` Vmax and V5's stability condition is that `payoff` Vmax strictly exceeds twice `prep` Vmax. At the top of the uptake ladder that margin is 2.00, so any rise in `prep` spends it. 3838 glucose piled up inside a corpse.
+
+**Pyruvate kinase alone buys exactly nothing.** 0.00 percent at every rung. The payoff phase has headroom by construction and raising a ceiling nothing is touching changes no flux.
+
+**So the stage prompt's question answers itself.** It said to apply V5's reasoning or show why it does not reach here. It reaches here exactly: the intermediate configurations are a cell that dies and a cell that paid for nothing, and neither ships. **Pyruvate kinase's function in this game is to make phosphofructokinase-1 safe**, which is a true statement about the pathway rather than a bookkeeping convenience. The exit has to be widened before the entrance can be.
+
+**The constraint is held by construction rather than by a table lookup.** One factor on both phases cannot change their ratio, so it survives every rung:
+
+    rung   prep   payoff   payoff - 2*prep
+       0   13.8     29.9              2.30
+       1   16.1     34.5              2.30
+       2   18.4     41.4              4.60
+       3   20.7     46.0              4.60
+       4   23.0     50.6              4.60
+
+`glycolysisLadder.test.ts` asserts that at every rung rather than arguing it, because "one factor on both sides of a ratio cannot change it" is exactly the kind of sentence that stays true until somebody gives the two enzymes different factors.
+
+### Step 2. Yield, unmoved, across every purchasable configuration
+
+**Nine configurations, and the count is nine rather than fifteen for a reason worth stating.** Three uptake rungs, the enzyme purchase, and five glycolytic rungs with the enzymes. The glycolytic ladder is gated behind the enzyme purchase, so a player is never on a glycolytic rung without it, and **the enzyme-free rungs 1 to 4 that the arithmetic allows are configurations nobody can reach.** Asserting over them would be asserting about a game nobody can play.
+
+Gross 4.000000000 and net 2.000000000 in every one of them. **Both figures are measured off the run** by `atpPerCompletedGlucose` and `netAtpPerCompletedGlucose`, which divide the cumulative counters by the glucose that actually finished the pathway, so this is not a constant being compared to itself.
+
+ATP per second across the nine, eight game-minutes settled, drain-free larder:
+
+    uptake rung 0                    31.795
+    uptake rung 1                    39.744
+    uptake rung 2                    42.217
+    enzymes, no glycolytic rung      47.998
+    glycolytic rung 0, enzymes       47.998
+    glycolytic rung 1, enzymes       51.997
+    glycolytic rung 2, enzymes       59.997
+    glycolytic rung 3, enzymes       67.997
+    glycolytic rung 4, enzymes       75.996
+
+### Step 3. Diminishing returns, and they are not the curve saturating
+
+**The purchase is worth 17.6 percent at rung 0 and nothing at all at rung 4.** Measured on a live climb through the whole ladder, drain-free larder, settled fifteen minutes into each rung:
+
+    factor    rung 0   rung 1   rung 2   rung 3   rung 4
+      1.00    42.217   50.462   58.849   67.384   76.093
+      1.05    44.676   53.381   62.244   71.279   80.527
+      1.10    47.147   56.317   65.665   67.997   75.996
+      1.15    49.631   59.272   59.997   67.997   75.996
+      1.20    52.128   51.997   59.997   67.997   75.996
+
+**51.997, 59.997, 67.997 and 75.996 are four times 13, 15, 17 and 19, which are the uptake Vmax values of rungs 1 to 4.** That is the ceiling. Above a factor of about 1.10 the preparatory phase consumes everything transport delivers and more enzyme buys nothing, because there is nothing left to buy. The figures above the ceiling, like 80.527, are a cell eating its own stockpile: real ATP, and not a rate.
+
+**So the diminishing return is a control coefficient moving rather than a curve flattening**, which is what docs/SCIENCE.md's new "Flux control is distributed" section says happens. The enzymes matter exactly while the preparatory phase is the bottleneck, and the capacity ladder raises transport, which makes transport the bottleneck again. That is the honest answer to docs/BRIEF.md line 110's second question that this stage can give: **the player buys a thing that stops mattering, and the reason it stops mattering is that they bought something else.**
+
+**And it closes an open item NOW.md has carried since V5.** "The top of the uptake ladder over-delivers, permanently", pushing intracellular glucose up by about 87 a minute forever, recorded as a feature with a purchase attached. This is that purchase. At 1.15 the pile at rung 0 falls from 3454 to 1786 over fifteen minutes and keeps falling.
+
+**1.15 rather than 1.20** because 1.20 puts rung 1 straight onto the transport ceiling and the purchase stops being visible one rung earlier.
+
+### Step 4. The trap, and the test is narrower than it looks
+
+The stage said this outcome would be more important than the enzymes. It is.
+
+**`bootstrap.test.ts` never varied the capacity.** Its argument for probing at an ATP of 0.05 is written in the file: "a repaired cell with no food at all bottoms out at an ATP of roughly 0.13 to 0.18, so 0.05 is below every state a run can actually arrive at". That was measured at the shipped default Vmax. Across the glycolytic ladder:
+
+    capacity                      floor when dry   climbs out from 0.20
+    shipped default, uptake 8             2.0457   yes
+    glycolytic rung 0, uptake 12          0.6292   yes
+    glycolytic rung 1                     0.5131   yes
+    glycolytic rung 2                     0.3863   yes
+    glycolytic rung 3                     0.3244   yes
+    glycolytic rung 4                     0.2895   NO
+
+**A faster cell holds less ATP and falls closer to its own boundary.** At the top of the ladder the margin between the worst state starvation produces and the worst state the cell can return from is under a tenth of an ATP unit, where at the shipped default it is more than one and a half units.
+
+**The top rung already sat there before this log existed.** At a factor of 1, with no enzyme in the game, rung 4 fails the artificial 0.05 probe. The enzyme purchase moves that boundary up by one rung and does not create it, which is why it ships.
+
+**What is not true is the sentence rather than the property.** Nothing in act 1 crosses the boundary: the floor is above it at every rung, and every configuration recovers from the floor starvation actually produces. `enzymes.test.ts` asserts exactly that, by running each configuration's larder dry and then refeeding it, and every one restarts. `bootstrap.test.ts` gained an assertion that pins the floor at the top rung above 0.2, so a later balance pass that lowers it fails there rather than shipping a cell that cannot come back.
+
+**Recorded for NOW.md in stage 6**, because "the worst reachable state and the worst recoverable state are half a tenth of an ATP unit apart at the top of the ladder" is a fact about the shipped game that nobody had measured.
+
+### Step 5. Rows, and the two that were deleted rather than written
+
+    U22  PFK1_PK_VMAX_FACTOR      1.15                    DEPARTURE
+    U23  PFK1_PK_ATP_THRESHOLD    34000, provisional      UNSOURCED
+
+The counts move from 46 to 48, and from 32 and 14 to **33 DEPARTURE and 15 UNSOURCED**.
+
+**Hexokinase's two rows were written and then deleted, which is the right outcome and not waste.** A row describes a number the game has. The measurements that killed it are in the Structural departures section instead, because what they record is a decision rather than a value.
+
+**Two unlock ids were named in stage 1 and are not minted.** `enzyme-hexokinase`, `enzyme-pfk1` and `enzyme-pyruvate-kinase` become the single `enzyme-pfk1-pk`. Stage 1 called its list permanent from that stage; **an id is permanent from the moment something ships with it**, and none of these ever existed in a build. Recorded rather than quietly corrected.
+
+**docs/PROGRESSION.md item 5 was corrected a second time, by the same log that corrected it the first time.** Stage 1 wrote "the three regulated glycolytic enzymes, sold by name, each raising the throughput of the phase it belongs to". Measurement overturned both halves: pyruvate kinase raises no throughput at any configuration, and hexokinase cannot be modelled here at all. **Stage 1's correction was itself a prediction**, which is the second time in one log that a sentence held until something was built on top of it.
+
+### Verify
+
+**Yield unchanged across every configuration**, gross 4.000000000 and net 2.000000000, measured rather than derived.
+
+**`bootstrap.test.ts` green against all of them**, and widened: it now measures the ATP floor at the top of the capacity ladder as well as at the shipped default, and prints both.
+
+**The payoff-over-twice-prep constraint holds** at every rung with and without the purchase, asserted in `glycolysisLadder.test.ts` rather than argued.
+
+**Every scalar has a row** and `divergenceTable.test.ts` agrees with the document's own counts.
+
+**The suite is 539 tests across 42 files**, up from stage 3's 531 across 41. `npm run typecheck`, `npm run lint` and `npm run build` clean. Bundle 285.11 kB, 88.55 kB gzipped. `npm run offline:validate` green, 0 fallbacks, every case inside tolerance.
+
+**One test outside this stage's scope had to change and it is worth naming.** `persistence.test.ts`'s glycolytic rung reload now buys the enzyme purchase, because the ladder is gated behind it, and asserts the rung and the enzyme factor are restored **together**. Restoring the rung and silently dropping the factor would be the same silent refund that test exists for, one level up, and it would leave `prep` and `payoff` in a ratio the player never bought.
+
+**The canonical hash did not move and could not have.** This stage changed no pool, no coefficient and no starting amount. Everything it touched is a Vmax applied by the interface, which is not hashed state, which is precisely why the reload test above is the only thing that can catch a mistake in it.
 
 ---
 

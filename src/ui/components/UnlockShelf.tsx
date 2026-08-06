@@ -40,6 +40,7 @@ import {
   ETHANOL_ATP_THRESHOLD,
   FERMENT_ATP_THRESHOLD,
   GLYCOGEN_ATP_THRESHOLD,
+  PFK1_PK_ATP_THRESHOLD,
   GLYCOLYSIS_ATP_THRESHOLDS,
   GLYCOLYSIS_STEPS,
   TUNING_BADGES,
@@ -210,6 +211,7 @@ export function UnlockShelf() {
     ferment: runtime.snapshot.fermentUnlocked,
     ethanol: runtime.snapshot.ethanolUnlocked,
     glycogen: runtime.snapshot.glycogenUnlocked,
+    pfk1Pk: runtime.snapshot.pfk1PkBought,
     uptakeStep: runtime.snapshot.uptakeStep,
     glycolysisStep: runtime.snapshot.glycolysisStep,
   });
@@ -219,6 +221,7 @@ export function UnlockShelf() {
     uptake: false,
     glycolysis: false,
     glycogen: false,
+    pfk1Pk: false,
   });
 
   useSnapshotEffect((snapshot) => {
@@ -226,6 +229,7 @@ export function UnlockShelf() {
       current.ferment === snapshot.fermentUnlocked &&
       current.ethanol === snapshot.ethanolUnlocked &&
       current.glycogen === snapshot.glycogenUnlocked &&
+      current.pfk1Pk === snapshot.pfk1PkBought &&
       current.uptakeStep === snapshot.uptakeStep &&
       current.glycolysisStep === snapshot.glycolysisStep
         ? current
@@ -233,6 +237,7 @@ export function UnlockShelf() {
             ferment: snapshot.fermentUnlocked,
             ethanol: snapshot.ethanolUnlocked,
             glycogen: snapshot.glycogenUnlocked,
+            pfk1Pk: snapshot.pfk1PkBought,
             uptakeStep: snapshot.uptakeStep,
             glycolysisStep: snapshot.glycolysisStep,
           },
@@ -253,12 +258,14 @@ export function UnlockShelf() {
     // Asked of the runtime for the same reason as the two above it: the gate is
     // a rule about the glycolytic ladder rather than a threshold.
     const nextGlycogen = runtime.canBuyGlycogen();
+    const nextPfk1Pk = runtime.canBuyPfk1Pk();
     setAffordable((current) =>
       current.ferment === nextFerment &&
       current.ethanol === nextEthanol &&
       current.uptake === nextUptake &&
       current.glycolysis === nextGlycolysis &&
-      current.glycogen === nextGlycogen
+      current.glycogen === nextGlycogen &&
+      current.pfk1Pk === nextPfk1Pk
         ? current
         : {
             ferment: nextFerment,
@@ -266,6 +273,7 @@ export function UnlockShelf() {
             uptake: nextUptake,
             glycolysis: nextGlycolysis,
             glycogen: nextGlycogen,
+            pfk1Pk: nextPfk1Pk,
           },
     );
   });
@@ -273,6 +281,7 @@ export function UnlockShelf() {
   const fermentBought = bought.ferment;
   const ethanolBought = bought.ethanol;
   const glycogenBought = bought.glycogen;
+  const pfk1PkBought = bought.pfk1Pk;
   const uptakeStep = bought.uptakeStep;
   const glycolysisStep = bought.glycolysisStep;
 
@@ -350,13 +359,35 @@ export function UnlockShelf() {
           }}
         />
 
+        {/*
+          THE ENZYME SLOT, BETWEEN THE LADDERS. UPDATELOGV10.md stage 4.
+
+          It is here rather than after the glycolytic ladder because that is the
+          only place it does anything: measured, the purchase is worth 17.6
+          percent at glycolytic rung 0 and nothing at rung 4, since the ladder
+          raises transport and transport is the bottleneck again the moment it
+          does.
+        */}
+        <Slot
+          title={UNLOCKS.pfk1Pk.text}
+          badge={UNLOCKS.pfk1Pk.badge}
+          detail={atTopOfLadder ? SHELF.pfk1PkDetail.text : SHELF.pfk1PkLocked.text}
+          threshold={pfk1PkBought || !atTopOfLadder ? null : PFK1_PK_ATP_THRESHOLD}
+          bought={pfk1PkBought}
+          affordable={affordable.pfk1Pk}
+          buyLabel={SHELF.pfk1PkBuy.text}
+          onBuy={() => {
+            runtime.buyPfk1Pk();
+          }}
+        />
+
         <Slot
           title={UNLOCKS.glycolyticCapacity.text}
           badge={UNLOCKS.glycolyticCapacity.badge}
           detail={
             atTopOfGlycolysis
               ? SHELF.glycolysisDone.text
-              : atTopOfLadder
+              : pfk1PkBought
                 ? SHELF.glycolysisDetail.text
                 : SHELF.glycolysisLocked.text
           }

@@ -111,6 +111,26 @@ export const ACT1_UNLOCK_FERMENT_ETHANOL = 'ferment-ethanol';
 export const ACT1_UNLOCK_GLYCOGEN = 'glycogen-storage';
 
 /**
+ * Phosphofructokinase-1 and pyruvate kinase, one purchase.
+ *
+ * TWO ENZYMES AND ONE ID, AND STAGE 4 MEASURED WHY. PFK-1 raises the
+ * preparatory phase and pyruvate kinase raises the payoff phase, and V5's
+ * stability condition is that payoff Vmax strictly exceeds twice prep Vmax. Sold
+ * alone, PFK-1 spends that margin and the cell dies: 42.2175 ATP per second to
+ * zero, measured. Sold alone, pyruvate kinase buys exactly nothing, because the
+ * payoff phase is not the bottleneck in any configuration act 1 reaches. One
+ * purchase is the only shape where both are true and neither is a lie.
+ *
+ * **STAGE 1 NAMED THREE IDS AND STAGE 4 SHIPS ONE.** That list was declared
+ * permanent from stage 1, and an id is permanent from the moment something SHIPS
+ * with it rather than from the moment it is written down. Nothing ever wrote
+ * `enzyme-hexokinase`, `enzyme-pfk1` or `enzyme-pyruvate-kinase` into a save,
+ * because none of them existed in a build. Recorded rather than quietly
+ * corrected. Hexokinase is not shipped at all and stage 4's report says why.
+ */
+export const ACT1_UNLOCK_PFK1_PK = 'enzyme-pfk1-pk';
+
+/**
  * One id per rung of the uptake capacity ladder, numbered by its index into
  * `UPTAKE_VMAX_STEPS`. Step 0 is the shipped default and is not purchasable, so
  * the first id a save can carry is `uptake-capacity-1`.
@@ -181,6 +201,11 @@ export interface Act1Unlocks {
    * both. See ACT1_UNLOCK_GLYCOGEN.
    */
   readonly glycogenEnabled: boolean;
+  /**
+   * Phosphofructokinase-1 and pyruvate kinase, one purchase. A capacity factor
+   * rather than a flag, so the runtime applies it the way it applies a rung.
+   */
+  readonly pfk1PkBought: boolean;
   /** Index into the interface's capacity ladder. 0 is the shipped default. */
   readonly uptakeStep: number;
   /**
@@ -208,6 +233,7 @@ export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
   let fermentEnabled = false;
   let ethanolEnabled = false;
   let glycogenEnabled = false;
+  let pfk1PkBought = false;
   let uptakeStep = 0;
   let glycolysisStep = 0;
   const unknown: string[] = [];
@@ -225,6 +251,10 @@ export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
       glycogenEnabled = true;
       continue;
     }
+    if (id === ACT1_UNLOCK_PFK1_PK) {
+      pfk1PkBought = true;
+      continue;
+    }
     const uptake = parseAct1UptakeUnlockId(id);
     if (uptake !== null) {
       if (uptake > uptakeStep) uptakeStep = uptake;
@@ -238,7 +268,15 @@ export function deriveAct1Unlocks(unlocked: readonly string[]): Act1Unlocks {
     unknown.push(id);
   }
 
-  return { fermentEnabled, ethanolEnabled, glycogenEnabled, uptakeStep, glycolysisStep, unknown };
+  return {
+    fermentEnabled,
+    ethanolEnabled,
+    glycogenEnabled,
+    pfk1PkBought,
+    uptakeStep,
+    glycolysisStep,
+    unknown,
+  };
 }
 
 /* ===========================================================================

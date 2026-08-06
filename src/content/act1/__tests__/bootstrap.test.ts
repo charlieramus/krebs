@@ -217,6 +217,72 @@ describe('the ATP bootstrap trap', () => {
 
   /* ===================================================================== */
 
+  it('names the ATP level a run can actually reach, which is not the same at every capacity', () => {
+    /**
+     * THE NARROWING UPDATELOGV10.md STAGE 4 FOUND, AND IT IS ABOUT THIS FILE
+     * RATHER THAN ABOUT THAT STAGE'S ENZYMES.
+     *
+     * The test below starts a cell at an ATP of 0.05 and asserts it climbs out,
+     * on the stated argument that "a repaired cell with no food at all bottoms
+     * out at an ATP of roughly 0.13 to 0.18, so 0.05 is below every state a run
+     * can actually arrive at". **That was measured at the shipped default Vmax
+     * and this file never varied the capacity.** Measured across the glycolytic
+     * capacity ladder, the floor moves and so does the boundary:
+     *
+     *     capacity                      floor when dry   climbs out from 0.20
+     *     shipped default, uptake 8             2.0457   yes
+     *     glycolytic rung 0, uptake 12          0.6292   yes
+     *     glycolytic rung 1                     0.5131   yes
+     *     glycolytic rung 2                     0.3863   yes
+     *     glycolytic rung 3                     0.3244   yes
+     *     glycolytic rung 4                     0.2895   NO
+     *
+     * The first and last rows are re-measured by this test. The middle four come
+     * from the same sweep run through the interface runtime, which is where the
+     * capacity ladder lives, and are recorded here rather than re-run because
+     * content may not import the interface.
+     *
+     * **A faster cell holds less ATP and falls closer to its own boundary.** At
+     * the top of the ladder the margin between the worst state starvation
+     * produces and the worst state the cell can return from is under a tenth of
+     * an ATP unit, where at the default it is more than half a unit.
+     *
+     * Nothing in act 1 crosses it, which is why this is a narrowing rather than
+     * a defect: the floor is still above the boundary at every rung, and the
+     * refeed test in `src/ui/__tests__/enzymes.test.ts` asserts recovery from the
+     * real floor across every purchasable configuration. What is no longer true
+     * is the SENTENCE: 0.05 is not "below every state a run can reach" by a
+     * comfortable margin at every capacity, it is below it by 0.24 at the top
+     * rung. This assertion pins the floor so a later balance pass that lowers it
+     * fails here rather than shipping a cell that cannot come back.
+     */
+    const floors: string[] = [];
+    for (const [name, vmax] of [
+      ['shipped default', null],
+      ['glycolytic rung 4', { uptake: 19, prep: 20, payoff: 44 }],
+    ] as const) {
+      const state = createAct1({
+        enabled: { ferment: true },
+        initial: { glucose_env: 2000 },
+        ...(vmax === null ? {} : { vmax: { ...vmax, ferment: vmax.payoff } }),
+      });
+      const meter = createAct1Meter();
+      const probes = createAct1MeterProbes(state);
+      for (let i = 0; i < 10 * 60 * TICK_RATE_HZ; i += 1) {
+        tick(state);
+        recordAct1Tick(state, probes, meter);
+      }
+      const floor = state.pools.get('atp');
+      floors.push(`    ${name.padEnd(20)} ${floor.toFixed(4)}`);
+      // Above the boundary, which is what makes the collapse not happen. The bar
+      // is 0.2 because that is where the top rung was measured to fail.
+      expect(floor, `${name} starves past its own recovery boundary`).toBeGreaterThan(0.2);
+    }
+    console.log(`\n  ATP floor when the environment runs dry:\n${floors.join('\n')}\n`);
+  });
+
+  /* ===================================================================== */
+
   it('restarts from an ATP level below anything a run can reach, at any food level', () => {
     // "At or near zero" has to mean something measurable. A repaired cell with
     // no food at all bottoms out at an ATP of roughly 0.13 to 0.18 out of an
