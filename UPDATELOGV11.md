@@ -807,7 +807,53 @@ the honest coverage statement from step 5.
 
 ## Stage 6 Report
 
-_Pending._
+**`src/ui/__tests__/playthrough.test.ts`. A fresh cell, played to the end of act 1's content, twice: once live and once with ten game-minutes of it resolved through the offline path.**
+
+**No new toolchain, and no Playwright.** It runs through vite-node under Vitest exactly as `harness.ts`, `drain.ts`, `validate.ts` and `unlockPacing.report.test.ts` already do. Act 1's playthrough is not the job a browser runner exists for: there is no layout to measure, no font to load and no click to dispatch, and the runtime's frame driver is injectable precisely so 70 game-minutes can be spent without waiting for them.
+
+**The assertions chosen, and why timings are not among them.**
+
+```
+  every purchase made, once each, in the order the shelf offers them
+    ferment, uptake-1, uptake-2, glycogen, ethanol, pfk1-pk,
+    glycolysis-1, glycolysis-2, glycolysis-3, glycolysis-4      10, no repeats
+  both ladders reach the top, counted from the ladders
+  all three of V10's unlocks bought
+  the NAD+ wall arrived, and was recovered from
+  the act boundary fired EXACTLY ONCE
+  the ledger held at 4 gross and 2 net THROUGHOUT, worst error < 1e-6
+```
+
+Timings are excluded because a tuning change is expected to move them. `unlockPacing.report.test.ts` is where they belong and it already reports them; a suite that fails on an intended balance change teaches people to edit the expectation rather than read it. What is asserted here is the set of things a tuning change must not move at all.
+
+**The ledger is sampled on every tick rather than at the end**, which is the assertion that would have been easiest to get wrong. An end-of-run check passes on a run that broke the yield in the middle and recovered, and ten purchases go past in between.
+
+**Two runs, and the comparison is only meaningful because both make the same decisions.** The offline run spends ticks 30000 to 42000 away and resolves them through `resolveOffline`; the continuous run **also skips buying inside that window**. Without that the offline run would miss purchases the live run made, and the two end states would diverge for a reason with nothing to do with the offline path.
+
+**Measured.**
+
+```
+  continuous          118 ms real
+  across an absence   107 ms real
+  credited            12000 ticks, exactly the window, 0 fallbacks
+  final tick          84000, IDENTICAL on both runs
+  cumulative ATP      228226.225 live
+                      228210.962 across the absence
+  disagreement        0.0067 percent, against a 2 percent tolerance
+  every pool          within the same tolerance against the largest pool
+```
+
+**Not bit-identical, and that is asserted as a claim rather than left as a permission.** docs/SIMULATION.md Part 5's Scope says an offline jump agrees within tolerance and is not bit-identical. The test asserts both halves, because a run that came out bit-identical would mean the resolution had quietly replayed instead of jumping, and the entire argument for the offline path is that it does not. The tick count is asserted exactly, because the jump moves it by whole ticks and asserting that loosely would hide a real defect.
+
+**One finding, and it is about the measurement rather than the game.** The first version had the player buy on the exact frame a threshold was crossed. Lactate dehydrogenase costs 55 cumulative ATP, which lands at about 3.0 game-seconds, and the NAD+ wall forms at about 3.05. **So the instant-buy player bought the answer before the problem existed, and `walled` was never true across a whole 70-minute run: act 1 was completed without its own teaching beat ever happening.** The player now looks once a game-second, which is the coarsest cadence that still makes every purchase in order and is the honest one, because no human clicks inside 50 milliseconds of a counter crossing and the coach mark that explains the wall fires on the wall.
+
+A second, smaller one: both runs execute while the file is being evaluated, so `beforeAll(setShortfallLogging(false))` fired after them and the whole act was played with shortfall logging on, at several thousand lines of stderr from a starved cell in the tail. It is a module-scope call now, with the reason written beside it.
+
+**Placement: `npm test`, in the fast band.** The rule the project already applies is that a suite taking a minute is a suite people stop running. This costs **225 ms for both runs**, and the whole suite went from 4.6 s to 4.7 s. Nothing about that argues for a second command, and a slow-band test is one that runs in CI rather than under the fingers of whoever is changing the code, which is the wrong place for the only end-to-end assertion in the project.
+
+**What it covers and what it does not.** It proves act 1 is completable from a fresh cell without intervention, that every gate opens in the right order, that the wall arrives and is recovered from, that the boundary fires once, that the ledger holds throughout, and that the offline path reaches the same end state as living through the time. **It proves nothing whatsoever about whether any of it reads.** NOW.md's standing caveat applies to this log exactly as to every other: 0 cold readers out of 0 asked, and a green playthrough is not a comprehension result and must never be reported as one. That sentence is in the file itself rather than only here.
+
+**Verify.** **624 tests across 47 files**, all green, up from stage 5's 612. `npm run typecheck` and `npm run lint` clean. Both canonical hashes unchanged, the regression bar clean.
 
 ---
 
