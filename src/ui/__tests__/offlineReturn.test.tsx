@@ -44,6 +44,7 @@ function report(overrides: Partial<ActOfflineReport> = {}): ActOfflineReport {
     poolIds: ACT1_POOL_IDS,
     fellBack: false,
     budgetExhausted: false,
+    stoppedAtBoundary: false,
     elapsedRealMs: 24.6,
     ...overrides,
   };

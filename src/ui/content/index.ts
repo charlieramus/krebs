@@ -19,6 +19,7 @@
  *     teaching.ts       the coach marks and the teaching panel
  *     about.ts          the first run, the about panel, the disclosure
  *     offline.ts        the offline return
+ *     endOfContent.ts   the act boundary, and what it says
  *     save.ts           the save panel
  *
  * THIS FILE IS A RE-EXPORT AND NOTHING ELSE. No string is declared here. Every
@@ -38,4 +39,5 @@ export * from './announcements';
 export * from './teaching';
 export * from './about';
 export * from './offline';
+export * from './endOfContent';
 export * from './save';

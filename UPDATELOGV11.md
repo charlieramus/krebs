@@ -530,7 +530,114 @@ lands, and the announcement count across a full act against V8's sixteen.
 
 ## Stage 4 Report
 
-_Pending._
+**Act 1 has an ending. It fires on the tenth purchase, it stops the offline jump rather than becoming an event kind, and the state on the other side of it is authored.**
+
+**The boundary condition, and why it is a content condition.** Every purchase made: both fermentation branches, glycogen storage, the two enzymes, and both capacity ladders to the top. Ten of ten, counted from the ladders rather than written down, so adding a rung moves the boundary with it.
+
+```
+  ACT1_CONTENT_PURCHASES = 4 + (UPTAKE_VMAX_STEPS.length - 1)
+                             + (GLYCOLYSIS_STEPS.length - 1)   =  10
+```
+
+Not a time and not an ATP total. docs/PROGRESSION.md says every branch must complete before the act boundary, and a clock would end the act with content still on the shelf while a cumulative ATP figure would end it for a player who never bought anything. Both are also the kind of number CLAUDE.md hard rule 2 sends to docs/ECONOMY.md, and an act ending is not a balance decision. A test asserts all six flags are load-bearing one at a time, because a condition that quietly ignored the ethanol branch would pass the obvious test and end the act early.
+
+**It lives in `src/ui/boundary.ts` and not in the descriptor, for the same reason the card layout does.** Act 1's ladders, thresholds and lengths are in `src/ui/tuning.ts`, and content may not import the interface, so a boundary that counts rungs cannot live in `src/content/acts.ts` until the rungs do. The descriptor answers what the act is; this table answers when it is finished, keyed by the same act number. `boundaryFor(act)` throws on an act with no end condition, because a game that silently never ends is the worst way to report a missing entry.
+
+**`snapshot.actComplete` is derived, exactly like `walled`.** Six boolean comparisons in `fill()`, no allocation and no lookup. Recomputed per frame rather than set by the purchase that completes the act, for two reasons: a flag written by six call sites is six places to forget it, and reading it in `fill()` means a restored save that is already complete arrives complete rather than waiting for a purchase that will never come. Asserted.
+
+**The offline path: the boundary stops the jump, and `jump.ts` gained an interface rather than an event kind.** `OfflineStop` has one method, `ticksUntil(state)`, and `OfflineOutcome` gained `stoppedEarly`. Nothing about `nextHorizon`, the substrate mask or the closed-form event location changed, which was the constraint: every event that file finds is a pool crossing a level, the mask is computed once per absence on that assumption, and its own header says an unlock threshold crossing is explicitly not a simulation event.
+
+`ticksUntil` is asked **twice per iteration**, once before the settle and once after it, and that is the design rather than a belt-and-braces call. The caller learns the rate of its own counter from the settle: the runtime's stop converts "ATP still owed" into ticks using the delta in the meter over the delta in the tick count since it was last asked, so the first call has no history and returns Infinity while the second, after up to 1200 real metered ticks, returns a real estimate. Under one tick counts as reached, both because a sub-tick credit is not a thing the loop can spend and because a budget below one tick makes `replayUntilSteady` run zero ticks and spin forever.
+
+**The five cases, all tested, driven against `resolveOffline` directly with a synthetic stop so the boundary can sit on an exact tick.**
+
+```
+  crosses before the next pool event   stoppedEarly, ticksResolved exactly 5000
+                                       of a 576000 tick window, resolved true
+  does not cross                       stoppedEarly false, whole window, and
+                                       byte-identical event list to no stop
+  crosses at the end of the window     window wins, stoppedEarly FALSE
+  crosses at tick zero                 stoppedEarly, 0 credited, all owed
+  boundary already behind it           resolves normally, whole window
+  plus: conservation across a stopped resolution equals a fresh cell on all five
+```
+
+The end-of-window case is reported as **not** stopped on purpose. Reached and finished on the same tick means nothing is owed, and flagging it would put a boundary notice on a return screen that has nothing to notice.
+
+**And four more, end to end through the runtime's own stop**: a whole hour credited while the act has content left, a stop with only the last purchase remaining, a whole hour credited again once the act is complete, and a finished save arriving finished.
+
+**One thing was wrong first and the suite caught it in the same minute.** The boundary's `nextContentAtp` originally returned the act's last threshold whenever the act was incomplete, so any cell that made 158000 ATP while away had its credit stopped regardless of what it had bought. `persistence.test.ts` failed instantly: an eight-hour absence on a cell holding one purchase of ten credited 4951000 ms of 28800000. That was the wrong reading of the boundary. An act ending is not an unlock crossing, and `jump.ts` is explicit that an ordinary crossing must not interrupt anything. The stop now exists only when the **last** purchase is the one being waited for, and a test asserts Infinity in the other two cases.
+
+**The gap between "made" and "available", stated rather than papered over.** The boundary is the last purchase being MADE, and a purchase is a player action, so it can never happen during an absence. What the offline path can see is the moment the last purchase becomes POSSIBLE, and that is what it stops at. The two are deliberately different quantities and the code says so at both ends. The player comes back, buys it, and the authored moment plays live, which is what the stage asked for and is better than reading a summary row of it.
+
+**Time past the stop is dropped, not deferred, and that is a decision with a reason.** The obvious alternative is to leave the remainder pending so a later load credits it once the act has ended. It does not work: the stop fires on the meter having reached the act's last threshold, so a player who returns and does not buy the last unlock would hit the same stop at zero ticks on every subsequent load and accrue no offline time at all until they clicked the right button. A game that quietly stops crediting is worse than one that says the act ended. So it is dropped, reported as `uncreditedMs` with `stoppedAtBoundary` true, and the return screen has both numbers. It is reachable at most once per save, in the window between the last purchase becoming available and being made.
+
+**The end-of-content state.** `src/ui/content/endOfContent.ts` and `src/ui/components/EndOfContent.tsx`, three paragraphs under docs/CONTENT_STYLE.md Part 5's one-screen ceiling:
+
+```
+  That is all of act 1
+
+  Every enzyme act 1 has to offer has been built. The cell is running the
+  fastest anaerobic glycolysis it can, down both fermentation branches, with a
+  glycogen reserve behind it.
+
+  The yield did not move. It is still 2 net ATP per glucose, exactly as it was
+  at the first purchase, because nothing on the shelf changes what one glucose
+  is worth without oxygen.
+
+  The cell keeps running from here, and this build ends here. Act 2 is where
+  the oxygen arrives.
+
+  [Keep watching it]
+```
+
+**The overlay is undimmed and the simulation keeps ticking under it**, which is `FirstRunCard`'s rule at the other end of the act and for the same reason: an idle game that stops when its content stops has told the player something false about what it is. The third paragraph is checkable rather than reassuring, because the top bar is still counting behind the card. It does not congratulate, does not use an exclamation mark, and does not say "soon", because a build with no date attached saying soon is a claim nobody has made. What it says is where the game currently ends, which is true and is what a player at this point wants to know.
+
+**The middle paragraph is the one worth having.** The act's whole claim is that the yield does not move, and the last screen of act 1 is the last chance to say it while the player is still looking at the ledger that proves it.
+
+**The test that removes it.** `actBoundary.test.tsx` asserts `ACTS.length === 1` and that the copy names act 2. The moment a second act is in the registry that build fails, so the placeholder is removed by a build failure rather than by memory, which is the mechanism `schemaVersionGate.test.ts` already uses for hard rule 7.
+
+**The four interface cases.**
+
+```
+  foreground                    the purchase flips actComplete on the next
+                                frame and the screen opens
+  same tick as a purchase       the same case: completing the act IS a
+                                purchase. A ref makes it one event rather than
+                                one per frame, which matters because the
+                                subscription runs at frame rate
+  during an absence             cannot happen. The credit stops at the point
+                                where the last purchase became available and
+                                the moment plays live on return
+  with an overlay already open  not rendered underneath one. actComplete stays
+                                true, so it opens when the other closes rather
+                                than stacking or being lost
+```
+
+The last two are asserted structurally, by reading `App.tsx` for the gate expression and the ref guard, because the test environment is `node` with no DOM and an overlay cannot be opened and closed in a string. Same limit `keyboard.test.tsx` states about focus and the same response: assert the structure that makes the behaviour true rather than fake the behaviour.
+
+**`settings.boundarySeen` is the second persisted UI setting and it needed no schema bump.** Without it the ending would reopen on every launch forever, because `actComplete` is derived and a completed save arrives complete on its first frame. docs/SAVE_SCHEMA.md Part 3 makes it presentation, Part 1 makes a defaultable missing field additive, and it defaults to false, which is right rather than tolerated: a player whose save predates this build has not seen it either. Both halves are tested, including that a V10-shaped save carries no such key.
+
+**Announced once.** One key, `act-complete`, pushed last so the purchase that completed the act is spoken first, which is the order the two happened in. It does not narrate the set piece: what is on screen is a card the player can read, and a live region describing it would be the same words twice. `ACT1_ANNOUNCEMENT_COUNT` moves from **16 to 17**, still derived from the ladders, and `screenReader.test.tsx` asserts the arithmetic rather than the number. Against roughly 74000 ticks in a full act, and against V8's sixteen, the most significant event in the game so far costs exactly one utterance.
+
+**Verify.** `npm run typecheck` clean, `npm run lint` clean, **597 tests across 45 files**, all green, up from stage 3's 572. `npm run offline:validate` green: 47 cases, **0 fallbacks, 0 budget exhaustions, worst ATP disagreement 3.903e-3 against a 2e-2 tolerance**, identical to V10, which is the number that matters most here because a stop that changed the resolution would move it. Both canonical hashes unchanged. Bundle **289.94 kB, 89.65 kB gzipped**, up 3.52 kB from stage 3's 286.42 kB, which is the ending screen and its content.
+
+**The stage 4 diff, reported separately as the log's declared exception.**
+
+```
+  src/sim/jump.ts                      +80  -8   OfflineStop, stoppedEarly
+  src/ui/runtime.ts                   +154  -5   actComplete, the stop, boundarySeen
+  src/App.tsx                          +51  -2   the four cases
+  src/ui/components/Announcer.tsx      +39  -8   one more announcement
+  src/ui/boundary.ts                   new      the condition
+  src/ui/content/endOfContent.ts       new      the copy
+  src/ui/components/EndOfContent.tsx   new      the screen
+  src/ui/__tests__/actBoundary.test.tsx new     25 tests
+  three existing tests updated: the report shape, the announcement count,
+  and the offline return's fixture
+```
+
+`git diff` is still empty across the three tuning files, docs/SCIENCE.md and docs/ECONOMY.md. **This stage adds behaviour and it still moves no tuned number**, which is worth stating because an act boundary is exactly the kind of feature that acquires a threshold on the way in.
 
 ---
 

@@ -62,7 +62,13 @@ import { serializeReadable } from '../save/codec';
 import { currentBuildId, epochNow } from '../save/meta';
 import { parseAndMigrate } from '../save/migrations';
 import { computeOfflineDelta } from '../save/offline';
-import { coarseReplay, resolveOffline, type OfflineEventRecord } from '../sim/jump';
+import {
+  coarseReplay,
+  resolveOffline,
+  type OfflineEventRecord,
+  type OfflineStop,
+} from '../sim/jump';
+import { boundaryFor, type ActBoundary } from './boundary';
 import { createSteadyDetector } from '../sim/steady';
 import type { SaveSettingsV1, SaveV1 } from '../save/schema';
 import {
@@ -189,6 +195,21 @@ export interface ActSnapshot {
    * against the flux the tick applied rather than the flux it intended.
    */
   walled: boolean;
+
+  /**
+   * The act's content is exhausted. UPDATELOGV11.md stage 4.
+   *
+   * DERIVED, LIKE `walled`, AND FOR THE SAME REASON. Nothing in the simulation
+   * knows what an act is and it must not: an act boundary is a reading of what
+   * the player has bought, not a state the pools are in. The condition is the
+   * running act's, in src/ui/boundary.ts, and it is a content condition rather
+   * than a time or an ATP total.
+   *
+   * It goes true once and never goes back, because nothing sells an unlock back.
+   * The edge is what fires the authored moment; this flag is what the edge is
+   * read off.
+   */
+  actComplete: boolean;
 }
 
 export type ActSnapshotListener = (snapshot: ActSnapshot) => void;
@@ -280,6 +301,14 @@ export interface ActOfflineReport {
   readonly fellBack: boolean;
   /** Whether EVENT_BUDGET ran out. Not the same thing as falling back. */
   readonly budgetExhausted: boolean;
+  /**
+   * Whether the credit stopped because the act's content ran out rather than
+   * because the window did. UPDATELOGV11.md stage 4.
+   *
+   * The remaining time is reported as `uncreditedMs` and is NOT carried
+   * forward. See `creditPendingOffline` for why deferring it is a trap.
+   */
+  readonly stoppedAtBoundary: boolean;
   /** How long the credit took, in real milliseconds. Measured, not estimated. */
   readonly elapsedRealMs: number;
 }
@@ -303,6 +332,11 @@ export interface ActRuntimeOptions {
 }
 
 export interface ActRuntime {
+  /**
+   * The running act's end condition, so the interface can ask what it is rather
+   * than restating it. See src/ui/boundary.ts.
+   */
+  readonly boundary: ActBoundary;
   /**
    * The act this runtime is running.
    *
@@ -417,6 +451,22 @@ export interface ActRuntime {
    * waiting for the autosave interval.
    */
   markFirstRunSeen(): void;
+
+  /* ===== The act boundary, UPDATELOGV11.md stage 4 ===== */
+
+  /**
+   * Whether the act's ending has been shown. Persisted under `settings`,
+   * alongside `firstRunSeen` and for the same reasons.
+   *
+   * WITHOUT THIS THE ENDING FIRES ON EVERY RELOAD. `snapshot.actComplete` is
+   * derived from what has been bought, so a completed save arrives complete on
+   * its first frame and would reopen the screen every launch forever. It is
+   * presentation, docs/SAVE_SCHEMA.md Part 3, and it defaults to false, which is
+   * right rather than tolerated: a player whose save predates this build has not
+   * seen it either.
+   */
+  boundarySeen(): boolean;
+  markBoundarySeen(): void;
 }
 
 export function createActRuntime(
@@ -591,6 +641,7 @@ export function createActRuntime(
     uptakeStep: 0,
     glycolysisStep: 0,
     walled: false,
+    actComplete: false,
   };
 
   /**
@@ -648,6 +699,15 @@ export function createActRuntime(
     applyGlycolysisStep(descriptor, state, 0, true);
   }
 
+  /**
+   * The running act's end condition. Resolved once, at construction, like every
+   * other act question in this file.
+   *
+   * It has to be in place before the offline credit runs, because the credit is
+   * what stops at it, and the credit happens before the first frame.
+   */
+  const boundary = boundaryFor(descriptor);
+
   /* =========================================================================
      THE OFFLINE DELTA, AND SPENDING IT. docs/SIMULATION.md Part 3.
      ========================================================================= */
@@ -702,6 +762,7 @@ export function createActRuntime(
         poolIds: descriptor.poolIds,
         fellBack: false,
         budgetExhausted: false,
+        stoppedAtBoundary: false,
         elapsedRealMs: 0,
       };
     }
@@ -712,6 +773,7 @@ export function createActRuntime(
       createSteadyDetector(state.pools.count),
       windowTicks,
       observer,
+      boundaryStop(),
     );
 
     let coveredTicks = outcome.ticksResolved;
@@ -733,7 +795,26 @@ export function createActRuntime(
     }
 
     const creditedMs = coveredTicks * TICK_MS;
-    state.diagnostics.pendingOfflineMs = pendingMs - creditedMs;
+    const uncreditedMs = pendingMs - creditedMs;
+    state.diagnostics.pendingOfflineMs = uncreditedMs;
+
+    /*
+     * TIME PAST THE BOUNDARY IS NOT CARRIED FORWARD, AND DEFERRING IT IS A TRAP.
+     *
+     * The obvious alternative is to leave the remainder pending so a later load
+     * credits it once the act has actually ended. It does not work: the stop
+     * fires on the meter having reached the act's last threshold, so a player
+     * who comes back and does not buy the last unlock would hit the same stop at
+     * zero ticks on every subsequent load and accrue no offline time at all
+     * until they did. A game that quietly stops crediting until you click the
+     * right button is worse than one that says the act ended.
+     *
+     * So it is dropped, reported as `uncreditedMs` with `stoppedAtBoundary`
+     * true, and the return screen has both numbers. It is reachable at most once
+     * per save, in the window between the last purchase becoming available and
+     * being made.
+     */
+    if (outcome.stoppedEarly) state.diagnostics.pendingOfflineMs = 0;
     carried = {
       ...carried,
       offlineCreditedMs: carried.offlineCreditedMs + creditedMs,
@@ -743,13 +824,50 @@ export function createActRuntime(
 
     return {
       creditedMs,
-      uncreditedMs: state.diagnostics.pendingOfflineMs,
+      // Read from the subtraction rather than from the field, because the
+      // boundary case zeroes the field and the report still has to say how much
+      // was owed and not credited.
+      uncreditedMs,
       atpProduced: meter.atpProduced - atpBefore,
       events: outcome.events,
       poolIds: descriptor.poolIds,
       fellBack,
       budgetExhausted: outcome.budgetExhausted,
+      stoppedAtBoundary: outcome.stoppedEarly,
       elapsedRealMs: clock() - startedAt,
+    };
+  }
+
+  /**
+   * The act boundary, as something the offline resolution can stop at.
+   *
+   * RATE FROM MEASUREMENT RATHER THAN FROM A MODEL. Converting "how much ATP is
+   * still owed" into "how many ticks" needs a rate, and the honest one is the
+   * rate the resolution has just been running at: the delta in the meter over
+   * the delta in the tick count since the last time this was asked. The first
+   * call has no history and returns Infinity, which is why `resolveOffline` asks
+   * twice per iteration, once before the settle and once after it. By the second
+   * call a full-fidelity settle has metered real ticks.
+   *
+   * It reads `meter.atpProduced` and nothing else about the act, so no pool id
+   * appears in this file for it.
+   */
+  function boundaryStop(): OfflineStop {
+    let lastTick = state.tickCount;
+    let lastAtp = meter.atpProduced;
+    return {
+      ticksUntil(current) {
+        const threshold = boundary.nextContentAtp(snapshot, meter);
+        if (!Number.isFinite(threshold)) return Number.POSITIVE_INFINITY;
+        const owed = threshold - meter.atpProduced;
+        if (owed <= 0) return 0;
+        const ticks = current.tickCount - lastTick;
+        const made = meter.atpProduced - lastAtp;
+        lastTick = current.tickCount;
+        lastAtp = meter.atpProduced;
+        if (ticks <= 0 || made <= 0) return Number.POSITIVE_INFINITY;
+        return owed / (made / ticks);
+      },
     };
   }
 
@@ -818,6 +936,18 @@ export function createActRuntime(
      * nothing, which is why the predicate takes arrays rather than the snapshot.
      */
     snapshot.walled = descriptor.isWalled(state.pools.amounts, snapshot.appliedFlux, STOPPED_FLUX);
+
+    /*
+     * The act boundary, read the same way and on the same path.
+     *
+     * Six boolean comparisons, no allocation and no lookup, so it costs what
+     * `walled` costs. Recomputed every frame rather than set at the purchase
+     * that completes the act, because a flag written by six call sites is six
+     * places to forget it, and because reading it here means a restored save
+     * that is already complete arrives complete rather than waiting for a
+     * purchase that will never come.
+     */
+    snapshot.actComplete = boundary.isComplete(snapshot);
   }
 
   function notify(): void {
@@ -932,9 +1062,24 @@ export function createActRuntime(
    * either, because until this stage there was nothing to see.
    */
   const FIRST_RUN_SEEN = 'firstRunSeen';
+  /** The second persisted UI setting, added by UPDATELOGV11.md stage 4. */
+  const BOUNDARY_SEEN = 'boundarySeen';
 
   function firstRunSeen(): boolean {
     return settings[FIRST_RUN_SEEN] === true;
+  }
+
+  function boundarySeen(): boolean {
+    return settings[BOUNDARY_SEEN] === true;
+  }
+
+  function markBoundarySeen(): void {
+    if (boundarySeen()) return;
+    settings = { ...settings, [BOUNDARY_SEEN]: true };
+    // Written now for the reason the first run is: a player who reads the act's
+    // ending and closes the tab inside the autosave interval should not be shown
+    // it again.
+    autosave?.saveNow('setting');
   }
 
   function markFirstRunSeen(): void {
@@ -948,11 +1093,14 @@ export function createActRuntime(
 
   return {
     act: descriptor,
+    boundary,
     snapshot,
     state,
     loop,
     firstRunSeen,
     markFirstRunSeen,
+    boundarySeen,
+    markBoundarySeen,
 
     start(): void {
       if (running) return;

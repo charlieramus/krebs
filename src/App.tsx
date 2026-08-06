@@ -32,11 +32,12 @@
  * shelf, because they sit in different columns and there is one panel.
  */
 
-import { useState } from 'react';
-import { RuntimeProvider, useRuntime } from './ui/RuntimeContext';
+import { useRef, useState } from 'react';
+import { RuntimeProvider, useRuntime, useSnapshotEffect } from './ui/RuntimeContext';
 import { About } from './ui/components/About';
 import { Announcer } from './ui/components/Announcer';
 import { FirstRunCard } from './ui/components/FirstRunCard';
+import { EndOfContent } from './ui/components/EndOfContent';
 import { OfflineReturn } from './ui/components/OfflineReturn';
 import { OverlayOpenProvider } from './ui/components/Overlay';
 import { PathwayCard } from './ui/components/PathwayCard';
@@ -69,6 +70,46 @@ function ActScreen() {
     () => runtime.session.offline.creditedMs >= OFFLINE_REPORT_THRESHOLD_MS,
   );
 
+  /**
+   * THE ACT BOUNDARY, AND ALL FOUR OF THE CASES IT HAS TO SURVIVE.
+   * UPDATELOGV11.md stage 4.
+   *
+   * REACHED IN THE FOREGROUND is the ordinary one: the purchase that completes
+   * the act flips `snapshot.actComplete` on the next frame and this opens.
+   *
+   * REACHED ON THE SAME TICK AS A PURCHASE is the same case and needs nothing,
+   * because completing the act IS a purchase. The ref below is what makes it one
+   * event rather than one per frame: the subscription runs at frame rate and
+   * `setState` on every frame would re-render the tree sixty times a second,
+   * which is the one thing the whole runtime exists to prevent.
+   *
+   * REACHED DURING AN ABSENCE cannot happen, because a purchase is a player
+   * action. What the offline path does instead is stop crediting at the point
+   * where the last purchase became available, so the player comes back, buys it
+   * and sees this live. Watching it beats reading a summary row of it.
+   *
+   * REACHED WITH AN OVERLAY ALREADY OPEN is handled by not rendering underneath
+   * one. `actComplete` stays true, so this opens the moment the other overlay
+   * closes rather than stacking on it or being lost.
+   */
+  const [boundary, setBoundary] = useState(false);
+  const boundaryFired = useRef(false);
+
+  useSnapshotEffect((snapshot) => {
+    if (boundaryFired.current) return;
+    if (!snapshot.actComplete) return;
+    boundaryFired.current = true;
+    // Seen on a previous session. The flag is persisted for exactly this: the
+    // act stays complete forever, so without it this would open on every launch.
+    if (runtime.boundarySeen()) return;
+    setBoundary(true);
+  });
+
+  function dismissBoundary() {
+    runtime.markBoundarySeen();
+    setBoundary(false);
+  }
+
   function dismissFirstRun() {
     runtime.markFirstRunSeen();
     setFirstRun(false);
@@ -78,7 +119,7 @@ function ActScreen() {
     // The NAD+ coach mark fires automatically on the wall, which arrives about
     // three seconds in, so on a fresh run it would open underneath the first run
     // card and spend its one firing unseen. See Overlay.tsx.
-    <OverlayOpenProvider open={firstRun || about || panel || offlineReturn}>
+    <OverlayOpenProvider open={firstRun || about || panel || offlineReturn || boundary}>
       <TeachingPanelProvider onOpen={() => setPanel(true)}>
         {/*
           THE TOP BAR IS A SIBLING OF main, NOT A CHILD OF IT. UPDATELOGV7.md
@@ -120,6 +161,10 @@ function ActScreen() {
           />
         ) : null}
         {firstRun ? <FirstRunCard onDismiss={dismissFirstRun} /> : null}
+        {/* Never underneath another overlay. See the four cases above. */}
+        {boundary && !offlineReturn && !firstRun && !about && !panel ? (
+          <EndOfContent onDismiss={dismissBoundary} />
+        ) : null}
         {about ? <About onDismiss={() => setAbout(false)} /> : null}
         {panel ? <TeachingPanel content={YIELD_PANEL} onDismiss={() => setPanel(false)} /> : null}
       </TeachingPanelProvider>

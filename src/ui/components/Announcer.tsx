@@ -41,7 +41,14 @@
 import { useRef, useState } from 'react';
 import { useRuntime, useSnapshotEffect } from '../RuntimeContext';
 import type { ActSnapshot } from '../runtime';
-import { ANNOUNCEMENTS, LANDMARKS, UNLOCKS, unlockAffordable, unlockBought } from '../content';
+import {
+  ACT_COMPLETE_ANNOUNCEMENT,
+  ANNOUNCEMENTS,
+  LANDMARKS,
+  UNLOCKS,
+  unlockAffordable,
+  unlockBought,
+} from '../content';
 import {
   FERMENT_ATP_THRESHOLD,
   GLYCOLYSIS_ATP_THRESHOLDS,
@@ -75,12 +82,27 @@ function events(snapshot: ActSnapshot, canBuyGlycolysis: boolean): string[] {
   if (snapshot.glycolysisStep > 0) keys.push(`bought:glycolysis:${snapshot.glycolysisStep}`);
   if (canBuyGlycolysis) keys.push(`afford:glycolysis:${snapshot.glycolysisStep}`);
 
+  /*
+   * LAST, AND ONCE. UPDATELOGV11.md stage 4.
+   *
+   * The act ending is the single most significant event in the game so far and
+   * it is still one sentence, because the rule has not changed: announce events,
+   * expose rates on demand, never narrate the tick. It is pushed last so the
+   * purchase that completed the act is spoken first, which is the order the two
+   * happened in and the order a player would expect.
+   *
+   * It does not narrate the set piece. What is on screen is a card the player
+   * can read; a live region describing it would be the same words twice.
+   */
+  if (snapshot.actComplete) keys.push('act-complete');
+
   return keys;
 }
 
 function sentence(key: string): string {
   if (key === 'walled') return ANNOUNCEMENTS.walled.text;
   if (key === 'recovered') return ANNOUNCEMENTS.recovered.text;
+  if (key === 'act-complete') return ACT_COMPLETE_ANNOUNCEMENT.text;
   const [kind, which] = key.split(':') as [string, string];
   const name =
     which === 'ferment'
@@ -138,13 +160,18 @@ export function Announcer() {
  * How many announcements a full act 1 produces, as an upper bound the code can
  * be checked against rather than a number in a comment.
  *
- * One stall, one recovery, and one affordable plus one bought for each of the
- * seven purchases in act 1: the fermentation unlock, two uptake rungs and four
- * glycolytic rungs. Sixteen. If a later log adds a rung this moves with it,
- * because it counts the ladders rather than restating their lengths.
+ * One stall, one recovery, one act boundary, and one affordable plus one bought
+ * for each of the purchases this component speaks for: the fermentation unlock,
+ * the uptake rungs and the glycolytic rungs. If a later log adds a rung this
+ * moves with it, because it counts the ladders rather than restating their
+ * lengths.
+ *
+ * THE BOUNDARY ADDS EXACTLY ONE, WHICH IS THE CLAIM WORTH CHECKING. V8 measured
+ * sixteen announcements against roughly 74000 ticks and stage 4's whole risk was
+ * turning the most significant event in the game into a per-tick one.
  */
 export const ACT1_ANNOUNCEMENT_COUNT =
-  2 + 2 * (1 + (UPTAKE_VMAX_STEPS.length - 1) + (GLYCOLYSIS_STEPS.length - 1));
+  3 + 2 * (1 + (UPTAKE_VMAX_STEPS.length - 1) + (GLYCOLYSIS_STEPS.length - 1));
 
 /** Used by the test that pins the count, so the ladders cannot drift apart. */
 export const ACT1_PURCHASE_COUNT =
