@@ -39,6 +39,27 @@ import type { SaveV1 } from './schema';
    that has not been chosen would either have to change when the title lands,
    which orphans saves, or survive as a stale name forever. A prefix that was
    never claiming to be the title cannot go stale.
+
+   ---------------------------------------------------------------------------
+   THE OTHER HALF OF THE KEY IS THE ORIGIN. Added by UPDATELOGV9.md stage 3.
+
+   These strings are only half of a save's address. localStorage is scoped to an
+   origin, so the real identity of a save is the origin plus the key, and moving
+   the origin orphans every save exactly as completely and exactly as silently
+   as renaming a key above would. It is the same permanence and it deserves the
+   same treatment, which is why it was decided deliberately rather than by
+   whatever the host happened to hand out.
+
+   The origin is krebs.pages.dev, recorded in wrangler.toml with its reasoning,
+   and it was chosen by the argument three paragraphs up: it is the repository
+   name rather than the title, so a title landing later does not strand anybody.
+
+   If you are here because you want to move the game to a nicer domain, that is
+   the thing this block exists to stop you doing casually. Every existing player
+   loses everything, with no error, no message and no way back. Serving the same
+   build from a second origin does not migrate a save either; it creates an
+   empty one. Any move needs an export and import path built first, and
+   docs/SAVE_SCHEMA.md Part 4 already makes saves plain readable JSON.
    =========================================================================== */
 
 export const STORAGE_PREFIX = 'krebs.save.';

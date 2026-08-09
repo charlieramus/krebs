@@ -21,6 +21,15 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const PORT = 5174;
 
+/**
+ * A second server, added by stage 3, serving dist/ under public/_headers.
+ *
+ * The dev server cannot answer stage 3's questions: it has an inline HMR client,
+ * a websocket back to itself and unhashed modules, so a content security policy
+ * that passes there proves nothing about the artifact that ships.
+ */
+const STATIC_PORT = 5175;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -48,10 +57,20 @@ export default defineConfig({
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
 
-  webServer: {
-    command: `npm run dev -- --port ${PORT} --strictPort`,
-    url: `http://localhost:${PORT}/probe/`,
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: `npm run dev -- --port ${PORT} --strictPort`,
+      url: `http://localhost:${PORT}/probe/`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      // Requires dist/, so `npm run e2e` builds first. See package.json.
+      command: `node e2e/staticServer.mjs`,
+      url: `http://localhost:${STATIC_PORT}/`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: { STATIC_PORT: String(STATIC_PORT) },
+    },
+  ],
 });

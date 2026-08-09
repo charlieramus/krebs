@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "probe:determinism": "vite-node src/probe/node.ts --",
-    "e2e": "playwright test"
+    "e2e": "npm run build && playwright test"
   },
   "dependencies": {
     "react": "^19.2.0",

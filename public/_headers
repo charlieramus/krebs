@@ -1,0 +1,62 @@
+# Cloudflare Pages headers. UPDATELOGV9.md stage 3.
+#
+# In public/ so Vite copies it verbatim into dist/, which is what Cloudflare
+# Pages reads. It is not processed, hashed or minified: what is written here is
+# what the edge serves.
+#
+# ===========================================================================
+# THE CONTENT SECURITY POLICY IS docs/PILLARS.md RULE 7, WRITTEN WHERE A
+# BROWSER CAN ENFORCE IT
+# ===========================================================================
+#
+# Rule 7 is offline-first: no account, no backend, no network dependency for
+# core play. V3 self-hosted both fonts as woff2 specifically so first paint has
+# no network dependency. The game has no analytics, no CDN and no API.
+#
+# So this policy is not a compromise and nothing had to be loosened to make the
+# game work. Verified against the built artifact rather than assumed: dist/
+# index.html carries one external module script and one external stylesheet and
+# no inline script or style of any kind, and the only url() in the emitted CSS
+# points at the two self-hosted fonts.
+#
+# connect-src 'none' is the load-bearing line. It is the one that makes "the
+# game makes zero network requests" a thing the browser refuses to allow rather
+# than a thing this repository asserts, so a future change that adds a request
+# fails against it instead of sliding in.
+#
+# ONE THING WHOEVER ADDS CODE-SPLITTING NEEDS TO KNOW. Vite's modulepreload
+# polyfill is in the bundle and calls fetch() on link[rel=modulepreload] hrefs.
+# This build emits a single chunk and therefore no such links, so it never runs.
+# A future build that splits chunks WILL trip connect-src 'none', and the right
+# answer then is connect-src 'self' rather than deleting the directive.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; media-src 'none'; worker-src 'none'; manifest-src 'none'; frame-src 'none'; child-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Cross-Origin-Opener-Policy: same-origin
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()
+
+# ===========================================================================
+# CACHING
+#
+# Two classes of file and they want opposite policies. Getting this wrong in the
+# index.html direction is the failure that PERSISTS AFTER IT IS FIXED: a browser
+# that cached the shell holds a document pointing at asset filenames that no
+# longer exist, and no subsequent deploy can reach it. So the shell is
+# revalidated on every load and only the hashed assets are cached hard.
+# ===========================================================================
+
+# Content-hashed by Vite, so the filename changes whenever the bytes do and the
+# old URL stays valid forever. Safe to cache for a year and never revalidate.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The shell. `no-cache` does NOT mean do not store: it means store it but
+# revalidate before use, which is exactly right. A 304 costs one round trip and
+# a stale shell costs the player their game.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate

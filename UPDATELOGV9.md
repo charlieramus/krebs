@@ -476,7 +476,91 @@ confirm deployment is gated on the guards.
 
 ## Stage 3 Report
 
-_Pending._
+**Nothing was deployed, and that is a decision rather than a failure.** The origin is chosen, the configuration is written, the policy and the caching headers are verified against the real artifact in three engines, and the CI job that publishes is wired and gated. What is missing is Cloudflare credentials, which this session has no authenticated route to and which are not the kind of thing to improvise. So this stage did everything that does not require pressing the button, and reports the rest unrun in the way UPDATELOGV6.md stages 2 and 5 reported their cold reads.
+
+**The most important consequence is the one easiest to get wrong.** This log's Decisions say "Deploying is the act that converts all of those from statements into obligations", and **deploying is exactly what did not happen**. So:
+
+### Step 1, the freeze list. Reviewed, and NOT YET IN FORCE
+
+```
+  TICK_RATE_HZ = 20            hard rule 6, "never change after launch"
+  TICK_MS = 50                 the literal type derived from it
+  SCHEMA_VERSION = 1           every future version migrates from it
+  krebs.save.active            V4 declared these permanent
+  krebs.save.backup
+  krebs.save.temp
+  the origin                   the other half of the save's identity
+  pool ids, unlock ids         docs/SAVE_SCHEMA.md Part 3, already permanent
+```
+
+**Hard rule 6's "after launch" has not begun, because there has been no launch.** `TICK_RATE_HZ` is still movable and the rule is still hypothetical, exactly as it was before this stage. Anybody reading this report as authority that the constant is frozen would be wrong. It freezes the day something is published at an origin a player can reach.
+
+**The list was reviewed rather than skipped, and the answer is that nothing should change before it freezes.** `TICK_RATE_HZ` at 20 is the value every measurement in the project was taken at, saves store elapsed milliseconds rather than tick counts specifically so this constant stays movable during development, and there is no measurement anywhere suggesting 20 is wrong. `SCHEMA_VERSION` 1 is what the committed v1 fixture records and V4 captured that fixture for precisely this moment. The storage keys were argued once, well, in `src/save/storage.ts`, and the argument still holds.
+
+### Step 2, the origin
+
+**`krebs.pages.dev`.** Decided, not defaulted, and recorded in two places with its reasoning.
+
+The argument is V4's, applied to the thing the storage keys are half of. `localStorage` is origin-scoped, so a save's real address is the origin plus the key, and moving the origin orphans every save exactly as completely and exactly as silently as renaming a key would. V4 solved the same problem for the prefix by using the repository name rather than the title, because **a name that was never claiming to be the title cannot go stale**, and docs/BRIEF.md line 4 still records the working title as TBD. The same reasoning gives the same answer here.
+
+Recorded in `wrangler.toml`, and in `src/save/storage.ts` directly under the existing THE KEYS block, which is where a maintainer will hit it before they try to move it rather than after. That comment says what a move costs, and adds the thing that is easy to miss: serving the same build from a second origin does not migrate a save, it creates an empty one, so any move needs an export and import path built first.
+
+### Steps 3 and 4, the configuration
+
+`wrangler.toml` carries a name, an output directory and a compatibility date, and deliberately nothing else. No functions, no bindings, no environment variables that affect the build, because anything more would be a server this game does not have.
+
+`public/_headers`, so Vite copies it verbatim into `dist/`. **The policy:**
+
+```
+  default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self';
+  img-src 'self' data:; connect-src 'none'; object-src 'none'; media-src 'none';
+  worker-src 'none'; manifest-src 'none'; frame-src 'none'; child-src 'none';
+  base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+```
+
+plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy: same-origin` and a `Permissions-Policy` denying the seven device APIs.
+
+**Nothing had to be loosened, which is the result this stage was looking for.** docs/PILLARS.md rule 7 says no backend and no network dependency for core play, and the artifact agrees: `dist/index.html` carries one external module script and one external stylesheet and **no inline script or style at all**, and the only `url()` in the emitted CSS points at the two self-hosted woff2 fonts V3 added for this exact reason. So `connect-src 'none'` is the line that matters. It makes "the game makes zero network requests" something a browser refuses to allow rather than something this repository asserts.
+
+**One thing was found and written down for whoever adds code-splitting.** Vite's modulepreload polyfill is in the bundle and calls `fetch()` on `link[rel=modulepreload]` hrefs. This build emits a single chunk and therefore no such links, so it never runs. A future chunked build **will** trip `connect-src 'none'`, and the note in `_headers` says the answer then is `connect-src 'self'` rather than deleting the directive.
+
+**Caching.** Hashed assets get `public, max-age=31536000, immutable`; the shell gets `public, max-age=0, must-revalidate`. The reasoning is in the file: getting this wrong in the shell direction is the failure that persists after it is fixed, because a browser holding a cached shell has a document pointing at asset filenames that no longer exist and no later deploy can reach it.
+
+### Step 5, verified against the artifact rather than against the dev server
+
+The dev server cannot answer any of this: it has an inline HMR client, a websocket back to itself and unhashed modules, so a CSP passing there proves nothing about what ships. So `e2e/staticServer.mjs` serves the real `dist/` with the real `public/_headers` applied, and `e2e/deployedArtifact.spec.ts` drives it. **Three tests, three engines, all passing:**
+
+- **runs clean under the policy.** Zero CSP violations, zero uncaught page errors, zero console errors, over a five second run that passes the NAD+ wall.
+- **no request leaves the origin.** docs/PILLARS.md rule 7 checked rather than asserted, and **it is the first time it could be.** Guarded against being vacuous: the same listener is asserted to have seen at least four same-origin requests, so an empty off-origin list means the instrument was watching rather than asleep.
+- **the headers are the ones the repository ships**, read off the wire: the CSP directives, `nosniff`, `no-referrer`, `must-revalidate` with `max-age=0` on the shell, and `immutable` with `max-age=31536000` on the hashed chunk the shell actually references.
+- **the game runs from the built artifact**, produces ATP and pyruvate, and writes a `schemaVersion` 1 save with non-zero elapsed game time.
+
+**The CSP check was proved to fire rather than trusted.** An inline `<script>` was injected into the built `dist/index.html` and the test went red naming the violation. Reverted, and the artifact rebuilt.
+
+**Also verified, from stage 2 and still true here:** a save survives a genuine page reload and the session continues from it rather than restarting, in all three engines.
+
+### What is NOT verified, and it is the live half
+
+**No build has been published and no player-reachable URL exists.** Everything above is the policy and the artifact being right. What needs Cloudflare and cannot be claimed:
+
+- Cloudflare's own handling of `_headers`. The parser in `e2e/staticServer.mjs` implements the documented format and is not Cloudflare. If Cloudflare drops or rewrites a directive, this stage would not know.
+- TLS, HTTP/2, and the edge cache actually honouring `immutable` and `must-revalidate`.
+- **Survival across a real browser restart.** A reload was verified; a restart was not, because Playwright's contexts are ephemeral profiles. `localStorage` is specified to persist and there is no reason to expect otherwise, and it is unmeasured.
+- The offline return after a genuine absence against the deployed origin.
+
+### Step 6, deployment gated on the guards
+
+A second workflow job, `deploy`, with `needs: guards`, restricted to a push on `main`. It cannot start until typecheck, lint, the 628 tests, the build, both harnesses, the offline sweep and the three-engine determinism run have all passed. **A deployment path that can ship a build the guards rejected would make five logs of guard-building pointless**, and that is the whole reason the job is shaped this way rather than as a step.
+
+It rebuilds rather than consuming an uploaded artifact, so what deploys is what the commit builds.
+
+**It skips rather than fails when the credentials are absent**, and says so in the log rather than passing silently. The day `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` exist as repository secrets, it publishes with no further edit. One implementation note kept because it is easy to get wrong: the `secrets` context is not available in a step-level `if`, so both are lifted to job-level `env` and the steps branch on that.
+
+### Verify
+
+`typecheck` 15s, `lint` 19s, `test` 60s, all exit 0, **628 tests across 48 files**, unchanged by this stage. `npm run e2e` now builds first and runs **18 tests across three engines in 3.0 minutes**, all passing. Both canonical hashes unmoved in every engine.
+
+The only file touched outside configuration and tests is `src/save/storage.ts`, and the change is a comment block. No simulation, content, economy or interface behaviour changed.
 
 ---
 
