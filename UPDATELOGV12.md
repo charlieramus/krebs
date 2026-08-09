@@ -153,7 +153,168 @@ that will be re-litigated. Confirm no component changed and the suite is green.
 
 ## Stage 1 Report
 
-_Pending._
+`DESIGN.md` is the only file that changed. Six decisions, eight decisions-log rows, two open questions struck through and two entries in "What turned out to be wrong" answered. 632 tests green, `tsc --noEmit` clean, `eslint .` clean, and `git status` reports one modified file.
+
+**One thing to note before the six.** `npm run typecheck` was failing on a clean checkout at the start of this session, 26 errors, all of them `Cannot find module '@playwright/test'` and its knock-on implicit-`any` errors across `e2e/` and `playwright.config.ts`. `@playwright/test` is in `devDependencies` and was not in `node_modules`. `npm install` added 3 packages and typecheck went clean. No source file was touched and `package-lock.json` is unchanged, so this was an incomplete install in the environment rather than a defect in the repository. Recorded because a green typecheck below would otherwise be reporting something that was red an hour earlier.
+
+### 1. Open question 5, the undated stop
+
+Open since 2026-07-29, when the sourcing pass closed it as a sourcing question and reopened it as a design one.
+
+**The answer is that an undated stop is not a missing date.** A date is a point and says this happened then. What is known about oxygenic photosynthesis and about the alkaline vents is an ordering constraint, and in both cases a one-sided one. Oxygen production must predate atmospheric accumulation, so the photosynthesis stop is below the GOE and nothing bounds how far below. The vents, if the hypothesis is right, precede the earliest evidence of life, and nothing bounds how far before. **Both are one-sided in the same direction and that is a result rather than a coincidence: a stop is undated precisely because one side of it has no evidence.**
+
+Three substitutions, no fourth channel:
+
+```
+  the date column    a word where a figure would be, at the figure's own size
+                     and weight. `unresolved` or `hypothesis`
+  the spine mark     a bracket instead of a node, spanning what the ordering
+                     constraint allows, capped at the bounded end and running
+                     off the open end without a cap
+  the card position  tucked under the cap, at the only end that is known.
+                     Never centred in the span
+```
+
+**Nothing in the treatment is dashed, dimmed, italic or grey, and that is the whole design.** This system already owns a vocabulary for unfinished and uses it on unbought slots and on the `Needs source` badge. These are the two stops where the sourcing was done hardest, so borrowing that vocabulary would say the work was not done. The open end of the bracket is what carries the reading: a capped bracket says "somewhere in here", an uncapped one says "no later than this, and we do not know how much earlier".
+
+The two words are held apart deliberately. `unresolved` says the event happened and its start is not known. `hypothesis` says the thing may not be a dated event at all. The sourcing pass separated two uncertainties that had been compressed into one number and a single word for both would recompress them one layer up.
+
+**The alternatives, since this entry was open longest and the reasoning is what gets re-litigated.**
+
+```
+  a blank cell                   reads as data not yet entered. It is also
+                                 what the code produces by default, which is
+                                 why it had to be rejected explicitly
+
+  a question mark or ellipsis    a punctuation mark standing in for a
+                                 sentence. Reads as an error state, and it is
+                                 the glyph a broken build shows
+
+  a dimmed, italic or grey       THE ONE THE DESIGN NEARLY TOOK. Every
+  date-shaped placeholder        weakening treatment says "less than a date",
+                                 and these stops are not less sourced
+
+  a central estimate with a      rejected outright. It restores a number
+  wide error bar                 through the back door, and the number is the
+                                 one the 2015 contamination result removed
+
+  a separate undated section     solves placement by deleting the ordering
+  at the foot of the column      information, which is the part that IS known
+```
+
+### 2. Open question 7, and the collision it creates
+
+Open since 2026-07-29. **Closed by connecting two things `DESIGN.md` already contained**, in two sections, one written the day before the other.
+
+The question asks what distinguishes holding at a high rate from stopped. The beast's state table has said Lively is high flux and Sluggish is flux near zero since 2026-07-28. Question filed under Open questions, answer filed under a character design, never joined.
+
+**The join is real rather than verbal, and the reason is which quantity the beast reads.** Every pool card shows a net rate by construction, and a net rate is genuinely the same 0.00 whether a lot is happening steadily or nothing is happening at all. The beast reads gross throughput, which is the quantity that differs. That reading exists nowhere else on the screen.
+
+**The claim is written in the careful form and stage 3 is told to hold it there.** The quiet becomes legible. The quiet does not become shorter. NOW.md blocking item 2 does not close, and this document now says so in the open-question entry itself so a later reader cannot take the strike-through as closure of both.
+
+**The collision, and it is the real work.** `DESIGN.md` proposes motion for three of the four states. V7 widened the accessibility rule to ban movement or colour alone. So each state needs a channel that is neither, decided here rather than found in stage 3.
+
+**The second channel is the stroked silhouette.** Each state is distinguishable from the other three with every fill removed:
+
+```
+  Lively    upright, mid-stride, one leg forward, body off its own centre of
+            balance. Eyes two open rings, mouth an open curve
+  Sluggish  both feet planted and splayed, body compressed vertically and
+            sitting on its base. Eyes two horizontal rules, mouth a flat rule
+  Sick      the silhouette itself broken, cracks cutting the outline rather
+            than painted across the fill. Crossed strokes for eyes
+  Powered   upright and mid-stride, plus one closed sub-outline inside the
+            body. A change in the topology of the drawing, not a mark on it
+```
+
+**Posture is not motion.** A figure drawn mid-stride does not move. It reads in one frame, in greyscale, under every deficiency, because it is a difference in where the ink is. The rule distinguishes information carried by change over time from information carried by shape, and a frozen stride is the second.
+
+**The V7 precedent held: the second channel is truer than the first.** "Desaturated fill" says the cell is somewhat less. A compressed body sitting on its own base says it has stopped, which is what is true, and it says it without asking anyone to compare two greens. Sick's cracks cutting the outline rather than colouring the fill is the same move, and it is closer to what illustration rule 5 was reaching for. Powered is the strongest of the four: a closed sub-outline inside a closed outline is a compartment, nothing else in the illustration language has one, and act 3's entire subject is that a compartment appeared.
+
+**Alternatives considered.** A texture or hatch overlay per state, rejected on the same two grounds V7 rejected texture for redox: illegible at the size the beast is drawn, and it introduces vocabulary this system does not have. A badge or label beside the beast, rejected because a caption is not a second channel, it is a replacement for the picture. Faces alone, rejected as insufficient: open, closed and crossed eyes separate three states but Lively and Powered have the same face, and the face is the smallest part of the drawing.
+
+**What is explicitly not claimed:** whether a slumped blob READS as a cell holding steady. Distinguishability is arithmetic and stage 3 measures it. Meaning needs a reader, and `contentStyle.test.ts` and the Accessibility section both already refuse to fake that class of question.
+
+### 3. The four states, pinned to conditions
+
+```
+  Lively    the running act's gross throughput measure is at or above the
+            act's lively threshold
+  Sluggish  below it. Includes the walled cell AND the starved cell
+  Sick      the running act reports active damage.  unreachable in act 1
+  Powered   the running act has a compartment.      unreachable in act 1
+```
+
+**The condition lives in the act descriptor, which is what Spine A moved the walled-cell question there for.** The beast asks an act about itself, never asks act 1 about NAD+. A threshold in the component is a component that has to be edited when act 2 lands, and this project has already watched that produce nine components the accessibility guard did not know about. The thresholds are tuned numbers with no biological counterpart, so they are docs/ECONOMY.md rows under hard rule 2 and stage 3 adds them.
+
+**A discrete state driven by a continuous quantity needs a dead band, and this is the finding stage 3 would otherwise have made the hard way.** A bare threshold on a quantity that wanders across it makes React re-render at whatever rate the quantity wanders, which is the exact defect the discrete-state rule exists to prevent. Hysteresis: the level that turns Lively on sits above the level that turns it off. Without it the discrete channel is a continuous one with extra steps.
+
+**The fourth state is Powered and it is for act 3. Act 1 reaches two of the four**, which is not a gap: two readings is exactly what open question 7 asks for, and the table was written for four acts on the day the four acts were named.
+
+**No fifth state for starvation, and this was the actual question step 3 asked.** The beast is a readout of one quantity, not a diagnosis of its cause. A walled cell and a starved cell are both stopped, which is what the beast says, and which one it is sits on the pool cards where the cause lives: an empty `glucose_env` card is starving, a drained `nad` card is walled. **The beast says the cell has stopped, the rail says why.** A fifth state means a state per cause, and then the table is an error message list and the character is a status bar with legs.
+
+The timing argument is decisive on its own. Act 1's environment empties at 93m07s and act 1's authored ending fires on the tenth purchase at about 54m03s, both from NOW.md's act 1 block. **Starvation is a post-content condition**, reached roughly forty minutes after the game has told the player the act is over. That is the wrong place to spend the first hand-authored art in the project.
+
+### 4. Art governance
+
+A new top-level section, `Hand-authored art`, written before the first asset. Four clauses and one mechanism.
+
+```
+  1  tokens only, and by reference   var(--color-*), none, or currentColor.
+                                     No hex literal, no rgb(), no keyword
+  2  ink carries the reading         every asset legible with all fills
+                                     removed
+  3  one stroke band                 stroke-width 3 to 3.5, linejoin round,
+                                     so drawn and computed art cannot be told
+                                     apart by weight
+  4  nothing already forbidden       no gradient, blur, filter, raster, or
+                                     opacity below 0.85
+```
+
+**Clause 1 is by reference rather than by value and that is the load-bearing part.** A literal that happens to equal a token is untraceable; a `var()` is one name a `forced-colors` block can redirect for the whole set at once, and it makes a palette change move the art instead of letting the art diverge silently.
+
+**The mechanism.** Assets live in one directory and a guard walks it, which is the discovery posture Spine A gave the accessibility and content guards after nine components had shipped past a hardcoded list. It reads token names out of `index.css` using the same parse `designSystem.test.ts` already does, and fails on any colour literal, any stroke weight outside the band, any asset with no stroked path at all, and any of clause 4. The dependency runs DESIGN.md to `index.css` to the art.
+
+**Why the section exists at all.** Every illustration so far is computed, so it inherits the palette and the accessibility guarantees for free and cannot name a colour it should not, because it never names a colour. Eleven drawn assets inherit none of that: the accessibility guard computes contrast pairs from `index.css` and component classes, an SVG `fill` presentation attribute is neither, and `forced-colors` does not force `fill`. **A drawn asset is the one thing in this game that can leave the palette and ignore a user's colour setting at the same time, quietly, in a file nobody diffs.**
+
+### 5. Blocking item 4, the forced-colours shadow. Taken
+
+**The defect restated precisely:** forced colours removes the shadow without removing it. `box-shadow` is not forced, so `4px 4px 0 ink` keeps painting a near-black copy of the shape onto a forced background it cannot be seen against, while every layout that reserved room for the offset still reserves it. The result is not the design and it is not the user's colours either.
+
+**The decision is substitution, not removal**, which is the same move the undated stop makes. Under `forced-colors: active` the offset shadow is dropped, the reserved offset is released, and a second rule is drawn outside the card's own border in `CanvasText`, inset by the same 4px the offset used. What the shadow says is "this is a separate piece of paper above the page", and a second outline says it in the one channel forced colours guarantees.
+
+**V7's decision to draw the focus indicator INSIDE is what makes this affordable.** The focus ring is at `outline-offset -6px` and this rule is outside the border, so they never collide and a focused card under forced colours reads as separated and focused at once. Had focus been an outer ring, this fix would have had to fight it. Two constraints recorded so they are not rediscovered: the outer rule is a pseudo-element, because `outline` is spoken for by `:focus-visible` and an element has one; and the ink shadow token is switched off rather than overridden with a system colour, because a shadow in a system colour participates in a palette it was never designed against.
+
+**Deviation from the prompt, stated plainly.** Step 5 says "This is a design stage. Take it." Step 1 of the same prompt says "No component is written", and the Verify line asks for confirmation that no component changed. So stage 1 takes the decision and specifies it to the CSS, and the `src/index.css` block that implements it lands in **stage 5**, whose prompt is the full accessibility pass over every surface. NOW.md's blocking item 4 is therefore struck in stage 6 only if stage 5 actually shipped it. Nothing about the decision is left for stage 5 to make.
+
+### 6. The wordmark scale
+
+Recorded as wrong since 2026-07-29 and untouched by four logs, because the fix is a design decision and none of them had a design stage.
+
+**The hero scale is right and it is on the wrong surface.** On the act screen the wordmark is chrome: a word that never changes, taking a permanent 100px band, the largest thing on screen at all times, next to a number that moves twenty times a second. **The largest type in the game should be the thing that changes rather than the thing that never does**, which is Direction's own flux-is-the-headline applied one level up.
+
+The scale gains an entry rather than losing one. `wordmark cmp`, 17 to 20px, Fredoka 600, tracking -0.02em, same face and weight so it is the same mark. The hero scale stays and is reserved for the first run card and the endgame summary, the two surfaces where the wordmark is genuinely a title. Neither is on screen while the game is being played.
+
+**What pays for the timeline is this decision**, which is what step 4 of stage 2 will point at. Roughly 80px of vertical band returns to the top bar and goes into the column. The alternative was taking it from the pool rail or the pathway, which answer what is happening and why. And open question 1 is still open: a word at 100px is a commitment to a name, a word at 18px is a label.
+
+### Verify
+
+```
+  DESIGN.md carries all six decisions with reasoning      yes
+  decisions log has a dated row for each                  8 rows, 2026-08-09
+                                                          (four for the beast
+                                                          decisions, which are
+                                                          four separate calls)
+  open questions 5 and 7 struck through with the answer   yes
+  no component changed                                    git status: 1 file
+  npm test                                                632 passed, 49 files
+  npm run typecheck                                       clean
+  npm run lint                                            clean
+```
+
+Also updated inside `DESIGN.md`: the Status block at the head now says a design pass landed and is not yet implemented; the wordmark entry in "What turned out to be wrong" is struck with the reason it survived four logs; and the "Nothing here covers the empty screen" entry is answered in place rather than deleted, because the useful part of it is that one document held an answer and an open question about the same thing for eleven days of build logs without noticing.
+
+**No number in this stage entered player-facing text, no tuned scalar moved, and `docs/SCIENCE.md` and `docs/ECONOMY.md` are untouched.**
 
 ---
 

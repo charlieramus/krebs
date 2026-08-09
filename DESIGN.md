@@ -1,8 +1,10 @@
 # Design System
 
-Last updated: 2026-08-04
+Last updated: 2026-08-09
 Direction: Honest Cartoon
 Status: partly implemented. V3 built the act 1 screen against a running simulation and V7 made it perceivable. See "What survived contact" below for what shipped, what was deferred and what turned out to be wrong, and Accessibility for the rule this document should have had from the start.
+
+**V12 stage 1 is a design pass and nothing in it is implemented yet.** Six decisions landed on 2026-08-09: the undated timeline stop, the beast as the answer to open question 7, the beast's second channel and its four conditions, the governance rule for hand-authored art, the forced-colours shadow substitution and the compact wordmark. Two of them close open questions that had been open since 2026-07-29. The stages after it build them, and where a stage finds this document wrong it says so here rather than working around it.
 
 The visual contract. Read this before making any UI decision. If a visual choice conflicts with anything here, the choice loses.
 
@@ -32,12 +34,25 @@ All numeric display sets `font-variant-numeric: tabular-nums` and `font-feature-
 Scale:
 
     wordmark      60 to 104px   Fredoka 600, tracking -0.03em
+    wordmark cmp  17 to 20px    Fredoka 600, tracking -0.02em
     h2            26 to 38px    Fredoka 600, tracking -0.01em
     card title    15 to 17px    Fredoka 600
     headline num  26 to 40px    Nunito 900, tracking -0.02em
     body          15.5px        Nunito 600, line-height 1.6
     label         11 to 12px    Nunito 800, uppercase, tracking 0.10em
     micro         9.5 to 10.5px Nunito 700 to 800
+
+### The wordmark has two scales and the act screen gets the smaller one
+
+Added 2026-08-09 by V12 stage 1, closing an entry that has sat in "What turned out to be wrong" since 2026-07-29 without anybody being allowed to fix it, because changing it is a design decision rather than a repair.
+
+**The hero scale is right and it is on the wrong surface.** 60 to 104px is a title scale. On the act screen the wordmark is chrome: it is a word that never changes, it took a permanent 100px band, and it was the largest thing on screen at all times while the number beside it moved twenty times a second. **The largest type in the game should be the thing that changes rather than the thing that never does**, which is Direction's own "flux is the headline, stock is the subscript" applied one level up, to the chrome rather than to the data.
+
+So the scale gains one entry rather than losing one. `wordmark cmp` is the act screen's wordmark, at card-title scale, in the same face and weight so it is the same mark rather than a different one. The hero scale stays in the scale and is reserved for the two surfaces where the wordmark is genuinely a title and not chrome: the first run card and the endgame summary. Neither is on screen while the game is being played.
+
+**What pays for the timeline is this decision.** The timeline is a permanent vertical spine and it needs the height. Roughly 80px of vertical band comes back from the top bar and it goes straight into the column. The alternative was to take the space from the pool rail or the pathway, which are the two surfaces that answer what is happening and why.
+
+Open question 1 is still open, so the wordmark string may still change. A word set at 100px is a commitment to a name. A word set at 18px is a label.
 
 ## Colour
 
@@ -111,6 +126,25 @@ So the count moves channel and stays a count. **One round bead per carbon, joine
 **Beads and phosphate dots are both countable circles, and that collision is asserted rather than noted.** They never co-occur today because neither ethanol nor carbon dioxide carries phosphate. `illustration.test.ts` fails the build if a molecule below three carbons ever carries one, which is the point at which this needs designing again rather than extending.
 
 **This is an extension and it should be read as one.** The original rule said sides and nothing else. It was right about the arithmetic and silent about its own domain, which is the same shape as the colour sentence V7 found and the three Part 3 statements V8 found: a rule holds until something is built that reaches past it.
+
+## Hand-authored art
+
+Written 2026-08-09 by V12 stage 1, before the first asset was drawn. Nobody asked for this section, which is the reason it exists: **the rules in this document that held are the ones that were written before something loaded them.**
+
+Every illustration in the game so far is computed. `Blob.tsx` contains no path data by rule, and illustration rules 1 to 3 are derived from the conserved-weight table rather than drawn, which means the whole illustration set inherits the palette, the stroke weight and the accessibility guarantees for free. It cannot use a colour that is not a token because it never names a colour at all.
+
+**Eleven hand-drawn assets have none of that.** Four beast states and seven timeline figures cannot be derived from anything, because there is no table that says what a banded iron formation looks like. And the existing mechanisms do not reach them: the accessibility guard computes contrast pairs from the tokens in `index.css` and from component classes, and an SVG `fill` set as a presentation attribute is neither a token nor a class. **`forced-colors` does not force `fill` either**, so a drawn asset is the one thing in the game that can quietly leave the palette and quietly ignore a user's colour setting at the same time.
+
+The rule, in four clauses.
+
+1. **Tokens only, and by reference.** Every colour in a drawn asset is `var(--color-*)` naming a token defined in `index.css`, or `none`, or `currentColor`. No hex literal, no `rgb()`, no CSS colour keyword, ever. Reference rather than value is what makes the asset reachable: a palette change moves the art, and a `forced-colors` block can redirect every fill in the set at once because there is one name to redirect.
+2. **Ink carries the reading.** Every drawn asset must be legible with all of its fills removed. A meaning that lives only in a fill dies under `forced-colors`, dies under the colour rule the Accessibility section already states, and dies in a photocopy of the printable summary the endgame is meant to produce. Fills are the fast channel and the outline is the channel that survives.
+3. **One stroke band, so drawn and computed art cannot be told apart by weight.** `stroke-width` 3 to 3.5 and `stroke-linejoin: round`, which is the illustration language's own specification. An asset drawn at a different weight reads as imported rather than as part of the set.
+4. **Nothing the rest of the system forbids.** No gradient, no blur, no filter, no opacity below 0.85, no raster. All four are already rules elsewhere in this document and the point of restating them is that a drawn asset is the surface where they are easiest to break by accident, because an asset arrives as a finished file rather than as a line of CSS somebody reviewed.
+
+**And the mechanism, because a rule with no mechanism is a habit.** Drawn assets live in one directory so a guard can walk it, the same discovery posture Spine A gave the accessibility and content guards after nine components had shipped past a hardcoded list. The guard reads the token names out of `index.css`, the same parse `designSystem.test.ts` already does, and fails the build on any colour literal, any stroke weight outside the band, any asset with no stroked path at all, and any of clause 4. **The dependency runs the right way: DESIGN.md to `index.css` to the art**, so a palette edit fails the art rather than the art quietly diverging from the palette.
+
+**Bundle cost is governance too.** SVG is text and gzips well, so nothing looks alarming at figure one and it looks alarming at figure eleven, by which point the art is drawn. The size budget V9 built reports a delta per build, and the art lands stage by stage against it rather than in one commit at the end.
 
 ## The badge contract
 
@@ -251,6 +285,20 @@ Drawn inside, it sits on the element's own surface, is identical on all four sid
 
 Small controls take the ring outside instead, because 16px has no room for an inner rule and a pill carries no shadow for an outer one to collide with.
 
+### Under forced colours the shadow becomes a second outline
+
+Decided 2026-08-09 by V12 stage 1. This is NOW.md blocking item 4, recorded as a conflict rather than a bug because both sides of it are right: a user setting that says use my colours is not negotiable, and the hard offset shadow is what makes this system legible as separated paper rather than as flat panels.
+
+**The defect is that forced colours removes the shadow without removing it.** The shadow is not forced, so `4px 4px 0 ink` keeps painting a near-black copy of the shape onto a forced background it cannot be seen against, while every layout that reserved room for the offset still reserves it. The result is not the design and it is not the user's colours either. It is the design with its most load-bearing element turned invisible and its cost still being paid.
+
+**The fix is a substitution, not a removal**, and it is the same move the undated timeline stop makes one section down. Under `forced-colors: active` the offset shadow is dropped, the reserved offset is released, and a second rule is drawn outside the card's own border in `CanvasText`, inset from it by the same 4px the offset used. What the shadow says is "this is a separate piece of paper sitting above the page". A second outline says the same thing in the one channel forced colours guarantees.
+
+**V7's decision to draw the focus indicator inside is what makes this affordable.** The focus ring is at `outline-offset -6px` and the forced-colours rule is outside the border, so the two never collide and a focused card under forced colours reads as separated and focused at the same time. Had the focus ring been outside, this fix would have had to fight it.
+
+Two implementation constraints, so the next person does not rediscover them. The outer rule is drawn as a pseudo-element rather than as `outline`, because `outline` is spoken for by `:focus-visible` and an element has one. And the ink shadow token is not overridden with a system colour, it is switched off, because a shadow in a system colour is a shadow that participates in a palette it was never designed against.
+
+**It gets more expensive with every surface**, which is why it is taken now. The timeline and the beast are the two largest surfaces the game has, and both were about to inherit the defect.
+
 ### What speech is told
 
 Announce events, expose rates on demand, never narrate the tick.
@@ -327,6 +375,71 @@ The beast is a direct readout of simulation state. It is never decorative and it
 
 The Powered state matters most. **The act 3 transition is drawn on the beast's body**, because that is the moment it gains a mitochondrion and the player watches the organelle appear inside the thing they have been running. The single irreversible step in the game gets a single irreversible visual change.
 
+### The beast is the answer to open question 7
+
+Joined 2026-08-09 by V12 stage 1. **Both halves of this were written on 2026-07-28 and 2026-07-29, in this document, in two sections, and nobody ever put them on the same page.**
+
+Open question 7 asks for something that distinguishes holding at a high rate from stopped. The table three paragraphs up says Lively is high flux and Sluggish is flux near zero. That is the question and that is the answer, and the only reason it stayed open for eleven days of build logs is that the question was filed under Open questions and the answer was filed under a character design.
+
+**What makes it a real answer rather than a coincidence is which quantity the beast reads.** Every pool card shows a net rate by construction, and a net rate is zero both when nothing is happening and when a lot is happening at a steady state. Those are the two situations the question is about, and no card can tell them apart because the number is genuinely the same number. **The beast reads gross throughput, which is the quantity that differs.** A solved act 1 is 0.00 net on every card and a large gross flux through the pathway. A walled cell is 0.00 net and a gross flux near zero. One reading separates them and it is not available anywhere else on the screen.
+
+**And the claim stops there.** The beast makes the quiet legible. It does not make the quiet shorter. NOW.md blocking item 2 is about a fourteen-minute gap with nothing to do in it, and a picture of a cell holding steady is not a thing to do. Anything stronger than "the quiet is legible" is a static addition being counted as pacing, which NOW.md warns against by name.
+
+### Every beast state carries a second channel, and it is the silhouette
+
+The collision this creates has to be resolved here rather than discovered during implementation. The signal this document proposes for beast state is motion, in three of the four rows above. The Accessibility section says nothing may be encoded in movement or colour alone. So each state needs a channel that is neither.
+
+**The second channel is the outline.** Each of the four states is distinguishable from the other three by its stroked silhouette alone, with every fill removed. Colour stays and keeps being the fast channel, exactly as V7 settled: this is redundant encoding rather than replacement.
+
+    Lively      upright, mid-stride, one leg forward and the body off its own
+                centre of balance. Eyes open as two rings, mouth an open curve
+
+    Sluggish    both feet planted and splayed, body compressed vertically and
+                sitting on its own base. Eyes closed as two horizontal rules,
+                mouth a flat rule
+
+    Sick        the silhouette itself is broken, cracks cutting the outline
+                rather than painted across the fill. Eyes are crossed strokes,
+                mouth a downward curve
+
+    Powered     upright and mid-stride, plus one closed sub-outline inside the
+                body. A change in the topology of the drawing, not a mark on it
+
+**Posture is not motion.** A drawing of a figure mid-stride does not move. It is a static pose that reads as going somewhere, in one frame, in greyscale, at any size the beast is drawn at, and it survives every colour vision deficiency because it is a difference in where the ink is. The distinction the rule cares about is between information carried by a change over time and information carried by a shape, and a frozen stride is the second one.
+
+**The Sick state's cracks cut the outline rather than sitting on the fill**, and that is the one row where the second channel changes the drawing rather than describing it. A crack drawn in `loss` red across a pink body is a colour statement. A crack that interrupts the silhouette is a statement about the body, it is true in ink, and it is also closer to what illustration rule 5 was reaching for.
+
+**Powered is a topological change and that is why it is the one that matters.** A closed sub-outline inside a closed outline is a compartment. Nothing else in the illustration language has one, act 3's whole subject is that a compartment appeared, and it reads with every fill in the drawing removed. The single irreversible step in the game becomes the single place the drawing gains a hole.
+
+The precedent is V7's redox level, where the second channel turned out to be truer than the thing it supplemented. **The same happened here.** "Desaturated fill" was the original Sluggish signal and it says the cell is somewhat less. A compressed body sitting on its base says the cell has stopped, which is what is actually true, and it says it without depending on the reader being able to compare two greens.
+
+**What is not tested, and must not be faked: whether a slumped blob READS as a cell holding steady.** That is the same class of question as whether the redox rule says "half the carrier is reduced", and this document refuses to fake that one for the same reason. Distinguishability is arithmetic and gets measured. Meaning needs a reader.
+
+### The states are pinned to conditions, and the condition lives in the act descriptor
+
+    Lively      the running act's gross throughput measure is at or above the
+                act's lively threshold
+    Sluggish    below it. Includes the walled cell and includes a cell that has
+                run out of food, because both are true instances of stopped
+    Sick        the running act reports active damage. Unreachable in act 1
+    Powered     the running act has a compartment. Unreachable in act 1
+
+Spine A moved the walled-cell threshold, the pool ids and the reaction ids out of the runtime and into the act descriptor precisely so a component can ask the running act about itself. **The beast asks an act, never act 1.** A threshold written into the component is a component that has to be edited when act 2 lands, and this document has watched that pattern produce nine components the accessibility guard did not know about.
+
+The thresholds themselves are tuned numbers with no biological counterpart, so they are docs/ECONOMY.md rows under CLAUDE.md hard rule 2, not docs/SCIENCE.md figures.
+
+**A discrete state driven by a continuous quantity needs a dead band.** This is the part that would have been discovered in implementation and it is worth writing down: a bare threshold on a quantity that wanders across it makes React re-render at whatever rate the quantity wanders, which is the exact defect the discrete-state rule exists to prevent. The state changes on a crossing with hysteresis, so the level that turns Lively on is above the level that turns it off. **Without the band the discrete channel is a continuous one with extra steps.**
+
+### The fourth state is for act 3, and act 1 shows two of the four
+
+**Act 1 can only ever reach Lively and Sluggish.** Sick needs damage and Powered needs a compartment, and act 1 has neither. That is not a gap: two readings is exactly what open question 7 asks for, and the table was written for four acts on the day the four acts were named.
+
+**A starving cell does not get a fifth state, and this was the real question.** A cell whose environment has emptied and a walled cell are visibly different situations, and the beast says the same thing about both, because the same thing is true about both: gross throughput is near zero and the cell has stopped. **The beast is a readout of one quantity and not a diagnosis of its cause.** Adding Starving means adding a state for every other reason throughput can fall, at which point the state table is an error message list and the character is a status bar with legs.
+
+What distinguishes them is already on screen and it is on the right surface. An empty `glucose_env` card is starving. A drained `nad` card is walled. **The beast says the cell has stopped, the rail says why**, and that division of labour is what keeps the beast from needing to know act 1's chemistry.
+
+There is also a timing argument and it is decisive. Act 1's environment empties at 93m07s and act 1's authored ending fires on the tenth purchase at about 54m03s. **Starvation is a post-content condition.** A fifth hand-drawn state, on the critical path, for a situation the player reaches half an hour after the game has told them the act is over, is the wrong place to spend the first hand-authored art in the project.
+
 ## The timeline view
 
 The map is the real geological timeline, rendered as a vertical scroll.
@@ -363,6 +476,43 @@ Four of those changed on sourcing and the changes are the point rather than hous
 
 Every stop on this view now traces to docs/SCIENCE.md Part 6. No `Needs source` badge survives here. Two of the seven carry no date at all, which is a sourcing result rather than a gap, and the view has to render an absent date as deliberately as it renders a present one.
 
+### The undated stop
+
+Designed 2026-08-09 by V12 stage 1. This closes open question 5, which was opened as a sourcing question on 2026-07-29, closed the same day as sourcing and reopened as a design one.
+
+**An undated stop is not a date that is missing. It is a different kind of statement and it gets a different kind of mark.**
+
+A date is a point. It says this happened then. What is known about oxygenic photosynthesis and about the alkaline vents is not a point and never was: it is an ordering constraint. Oxygen production must predate atmospheric accumulation, so photosynthesis is below the Great Oxidation Event and nothing bounds how far below. The vents are a proposal about where chemiosmosis came from, and if it is right it precedes the earliest evidence of life, and nothing bounds how far before that either. **Both are one-sided constraints, and that is a result rather than a coincidence: a stop is undated precisely because one side of it has no evidence.**
+
+So the treatment substitutes rather than weakens. Three substitutions, and no fourth channel.
+
+    the date column   a word where a figure would be, at the figure's own size
+                      and weight. `unresolved` or `hypothesis`. Not dimmed,
+                      not italic, not bracketed, not smaller
+
+    the spine mark    a bracket instead of a node. An ink rule spanning what
+                      the ordering constraint allows, capped at the bounded
+                      end and running off the open end without a cap
+
+    the card position tucked under the cap, at the only end that is known.
+                      Never centred in the span
+
+**Nothing in the treatment is dashed, dimmed or grey, and that is the whole design.** This system already has a vocabulary for unfinished: dashed borders, on unbought slots and on the `Needs source` badge. An undated stop is the opposite of unfinished. These are the two stops where the sourcing was done hardest, and the ~2.7 Ga figure the photosynthesis stop used to carry was removed by a 2015 contamination result rather than never looked for. Borrowing the unfinished vocabulary would say the work was not done.
+
+**The open end of the bracket is the part that carries the reading.** A capped bracket says "somewhere in here". An uncapped one says "no later than this, and we do not know how much earlier". The reader gets the shape of the ignorance rather than a hedge about it, and the extent of the rule is the extent of what is known, which is illustration rule 1's principle applied to an axis instead of to a molecule.
+
+**The two words are not synonyms and must not collapse into one.** `unresolved` says the event happened and when it started is not known. `hypothesis` says the thing may not be a dated event at all, because it is a proposal about a mechanism. Two separate uncertainties, the timing of the origin of life and the mechanism itself, were being compressed into one number before the sourcing pass, and one word for both would compress them again one layer up.
+
+**The accessible name states the constraint, not the absence.** "Oxygenic photosynthesis. When it started is unresolved. No later than the Great Oxidation Event." Not "no date". The rule V7 settled is that an accessible name states the reading rather than the legend, and the reading here is the constraint.
+
+Alternatives considered, recorded because this entry was open longest and the reasoning is the part that gets re-litigated:
+
+- **A blank cell.** Rejected first and it is the one the code would have produced by default. A blank reads as data that has not been entered.
+- **A question mark, or an ellipsis, in the date slot.** Rejected. A punctuation mark standing in for a sentence reads as an error state, and it is the same glyph a broken build would show.
+- **A dimmed, italicised or greyed date-shaped placeholder.** Rejected, and this is the family the design nearly took. Every weakening treatment says "less than a date". These stops are not less sourced than the others.
+- **A central estimate with a wide error bar.** Rejected outright. It puts a number back on the view through the back door, and the number it would put back is the one the contamination result removed. Silent compression of an uncertainty is the same failure as silent compression of a timescale, which the axis disclosure already exists to prevent.
+- **A separate undated section at the foot of the column.** Rejected. It solves the placement problem by deleting the ordering information, which is the part that is actually known.
+
 ## What survived contact
 
 Added 2026-07-29, after V3 built the act 1 screen. This document had never met a running simulation before. Most of it held. The parts that did not are the valuable half of this section and they are listed last rather than softened.
@@ -395,10 +545,10 @@ Illustration rules 4 to 6, because act 1 has no enzyme objects, no damage and no
 
 - **Two dots on a blob read as a face.** Rules 2 and 3 give NADH two electron dots and ATP three phosphate dots, and the obvious layouts of both, a pair in the upper half and a row across the middle, produced little characters with eyes. That collides directly with rule 6, which reserves faces for ROS, and with the beast. Fixed by moving electrons to the upper-right edge and laying phosphates out as a diagonal chain. **The chain is better than the row on biological grounds too**, since ATP's phosphates are a chain and hydrolysis removes the terminal one, so a row was quietly saying they are interchangeable. This document should say where dots go, not just how many.
 - ~~**"Colour leaving" is ambiguous, and as written it is backwards.**~~ **Corrected 2026-08-04 by V7**, in the Colour section, where the sentence now says colour arrives and says why the old one was kept on the page rather than quietly deleted. It stood wrong for two logs because nothing depended on it. What forced the fix is that V7 had to describe the axis correctly in order to build a second channel for it, which is worth noting as a pattern: **a wrong sentence in a specification survives until something is built on top of it.**
-- **The wordmark scale does not fit a persistent top bar.** 60 to 104px is a hero scale. On an act screen carrying eight pool cards, a pathway and an unlock shelf it takes a permanent 100px band for a word that never changes, and it was the largest thing on screen at all times. Implemented as specified and recorded as wrong.
+- ~~**The wordmark scale does not fit a persistent top bar.**~~ **Fixed 2026-08-09 by V12 stage 1**, in Typography, where the scale gains a compact entry and the hero scale is reserved for the two surfaces where the wordmark is a title rather than chrome. It stood recorded as wrong for four logs because the fix is a design decision rather than a repair and no log had a design stage. The original entry stands: 60 to 104px is a hero scale, and on an act screen carrying eight pool cards, a pathway and an unlock shelf it took a permanent 100px band for a word that never changes, and it was the largest thing on screen at all times. **What forced the fix is that the timeline needed the band**, which is worth noting beside the pattern V7 recorded: a wrong sentence survives until something is built on top of it, and a wrong measurement survives until something needs the space.
 - **A coach mark cannot live inside the left rail.** The rail is 17rem. Rendered inline the mark came out at about twenty characters a line, against this document's own "comfortable in prose at 64ch". It is an overlay in the screen inventory and it has to actually be one, positioned out of its column.
 - **`Needs source` yellow is not in the palette, and should not be.** The badge contract asks for yellow and the Colour section has none. That is correct rather than an omission: the state is development-only, it must never reach a release build, and a colour that is deliberately outside the token set is the right way to make it look alien. It is hardcoded in the component. This document should say so.
-- **Nothing here covers the empty screen.** The biggest finding from playing it is not a visual rule at all. Once act 1 is solved, every net rate on the screen sits at exactly 0.00 and stays there, because a metabolic steady state is genuinely steady. This document specifies how to render change and says nothing about how to render a system at equilibrium, which is the state the player spends most of their time in. See NOW.md.
+- **Nothing here covers the empty screen.** The biggest finding from playing it is not a visual rule at all. Once act 1 is solved, every net rate on the screen sits at exactly 0.00 and stays there, because a metabolic steady state is genuinely steady. This document specifies how to render change and says nothing about how to render a system at equilibrium, which is the state the player spends most of their time in. **Answered 2026-08-09 by V12 stage 1 and the answer was already in this file**, three sections above the question, in a state table written the day before the question was asked. See open question 7. The finding stands as written, because the useful part of it is that a document can contain an answer and an open question about the same thing and not notice for eleven days of build logs.
 
 ## Open questions
 
@@ -406,10 +556,10 @@ Illustration rules 4 to 6, because act 1 has no enzyme objects, no damage and no
 2. ~~**Act 2 has no Fe-S target in the core pathway.**~~ Closed 2026-07-29. docs/SCIENCE.md Part 3 sourced it and docs/PROGRESSION.md act 2 now carries the result. The answer is not the one the mockups assumed: the target inside the player's own pathway is GAPDH by thiol oxidation, not an iron-sulfur enzyme, because glycolysis has none. The mockups' PFOR and ferredoxin damage is still correct for the pyruvate disposal chain and still routes the crisis back into NAD+ recycling, so the visual holds. What changes is that damage now has two mechanisms with different defenses, and the damage state on the beast and on the enzyme cards has to distinguish them. That is a V-something interface problem, not an open question.
 3. ~~**Cross-document paths are broken.**~~ Closed 2026-07-29, as stale rather than as fixed. The entry claimed the documents sit at the repository root while every reference points at `docs/`. They are in `docs/`, and were for the whole time this entry claimed otherwise. `docs/SCIENCE.md`, `docs/SIMULATION.md`, `docs/PROGRESSION.md`, `docs/PILLARS.md`, `docs/BRIEF.md`, `docs/SAVE_SCHEMA.md` and `docs/IDEAS.md` all resolve. `DESIGN.md` and `NOW.md` are at the root deliberately and every reference to them says so. There were no dead references to fix.
 4. **Berkeley Mono is not used.** An earlier direction proposed it. The cartoon direction has no monospace role, since Nunito with tabular figures covers numeric display. Revisit only if a code or terminal surface appears.
-5. **Two timeline stops have no date and the view has no component for that.** Closed as a sourcing question on 2026-07-29, reopened as a smaller design one. All five previously unsourced dates now trace to docs/SCIENCE.md Part 6, and no stop carries `Needs source`. But sourcing killed two dates rather than supplying them: oxygenic photosynthesis is unresolved and the vent stop is a hypothesis rather than a dated event. The date column is currently specified as a date. It needs a second treatment for `unresolved` and `hypothesis` that reads as a deliberate statement at the same visual weight, not as a missing value, and the non-linear axis has to place an undated stop by ordering constraint alone. Not yet designed.
+5. ~~**Two timeline stops have no date and the view has no component for that.**~~ Closed 2026-08-09 by V12 stage 1. Designed rather than worked around, in "The undated stop" above. The answer is that an undated stop is not a date that is missing, it is a one-sided ordering constraint, so the date column carries a word at the figure's own weight, the spine carries a bracket instead of a node, and the bracket runs off its open end without a cap. Nothing in the treatment is dashed, dimmed or grey, because this system already uses those to mean unfinished and these are the two stops where the sourcing was done hardest. Five alternatives are recorded there with the reason each lost, including the one the design nearly took.
 6. ~~**The release gate for `Needs source` does not exist.**~~ Closed 2026-07-29 by mechanism, in V3 stage 3, before any content was authored as this entry asked. `vite/needsSourceGate.ts` is a Vite plugin that scans the emitted production bundle for the discriminant literal and fails the build with a non-zero exit code. It scans the artifact rather than the source, so it sees every route into the badge regardless of which file it came from, and it cannot be skipped because it is part of the build. `Badge.tsx` never writes that literal outside a type, and the branch that renders the badge sits behind `import.meta.env.DEV` so production drops it as dead code, which is what makes a clean repository pass. Proved by planting a probe, quoting the failure and removing it.
 
-7. **The screen has no treatment for a system at steady state.** Opened 2026-07-29 by V3's play session, and it is now the largest open visual question. Once act 1 is solved, every pool sits at its equilibrium and every net rate on the screen reads exactly 0.00 for minutes at a time. That is correct simulation and correct display, and it is also a screen with nothing happening on it. Flux-is-the-headline was designed for a system that is changing. A steady state needs its own reading, something that distinguishes "holding at a high rate" from "stopped", because right now the pool cards show the same 0.00 for both and only the pathway arrows tell them apart.
+7. ~~**The screen has no treatment for a system at steady state.**~~ Closed 2026-08-09 by V12 stage 1, and it was closed by connecting two things this document already contained. The question asked for something that distinguishes "holding at a high rate" from "stopped". The beast's state table has said Lively is high flux and Sluggish is flux near zero since 2026-07-28. Both were in this file, in different sections, and nobody had joined them. See "The beast is the answer to open question 7". The join is real rather than verbal because the beast reads gross throughput, which is the quantity that differs, while every pool card shows a net rate, which is genuinely the same 0.00 in both situations. **The claim stops at legibility.** The quiet is readable. The quiet is not shorter, and NOW.md blocking item 2 does not close here.
 
 ## Decisions log
 
@@ -457,3 +607,10 @@ Illustration rules 4 to 6, because act 1 has no enzyme objects, no damage and no
 | 2026-08-04 | The locked-slot dim is 0.85, not 0.55 | Dimming compounds with whatever it dims. At 0.55 a locked slot's title was 3.85:1, its detail 2.36:1 and its button label 1.65:1, which is under the floor for a decorative border let alone for text, so the dim was destroying the three other channels carrying lockedness. The dashed border with no shadow still says locked at a glance, which is the point: lockedness never depended on the dim. |
 | 2026-08-04 | The focus indicator is drawn INSIDE the element | The hard offset shadow is a solid ink copy of the shape down and to the right, so an outer ring is clean on two edges and merges into the shadow on the other two. An indicator visible on two sides is not an indicator. Drawn inside it is identical on all four sides, never touches the shadow, and reads as this system's own language rather than as a browser default. The browser default measured 1.02:1 against the ink border it was drawn on. |
 | 2026-08-04 | Speech announces events, exposes rates on demand, and never narrates the tick | The line is the one the architecture already draws between the three clocks. Act 1 contains sixteen events end to end, against roughly 74000 ticks, and a live region pointed at a rate would make the game unusable rather than accessible. The rates a screen reader reads are the same figures the reduced-motion path renders, not a parallel set, because a parallel set drifts. |
+| 2026-08-09 | An undated timeline stop gets a word where a figure goes and a bracket where a node goes, and the bracket runs off its open end | Open question 5, open since 2026-07-29. An undated stop is not a missing date, it is a one-sided ordering constraint, and both of the two turned out to be one-sided in the same direction because a stop is undated precisely when one side of it has no evidence. Nothing in the treatment is dashed, dimmed or grey: this system uses those to mean unfinished, and these are the two stops where the sourcing was done hardest. Rejected: a blank cell, a question mark, a weakened date-shaped placeholder, a central estimate with an error bar, and a separate undated section that would have solved placement by deleting the ordering. |
+| 2026-08-09 | The beast is the answer to open question 7, and the answer was already in this document | Open question 7, open since 2026-07-29. The state table has said Lively is high flux and Sluggish is flux near zero since 2026-07-28. Question and answer sat in two sections of one file. The join is real rather than verbal: the beast reads gross throughput and every pool card reads a net rate, and a net rate is genuinely the same 0.00 whether a lot is happening steadily or nothing is happening at all. **The claim stops at legibility.** The quiet becomes readable and does not become shorter. |
+| 2026-08-09 | Every beast state is distinguishable by its stroked silhouette alone | This document proposed motion for three of the four states and V7's rule bans motion or colour alone, so the collision had to be resolved in design rather than found in implementation. Posture is not motion: a figure drawn mid-stride does not move, and it reads in one frame, in greyscale, under every deficiency. Following V7's redox precedent the second channel turned out truer than the first: "desaturated fill" says the cell is somewhat less, a compressed body sitting on its base says it has stopped. Sick's cracks cut the outline rather than painting the fill, and Powered is a closed sub-outline inside a closed outline, which is a compartment and is the only topological change in the illustration set. |
+| 2026-08-09 | Four beast states, no fifth for starvation, and the condition lives in the act descriptor | The beast is a readout of one quantity and not a diagnosis of its cause. A walled cell and a starved cell are both stopped, which is what the beast says, and which one is on the pool cards where the cause lives. A fifth state means a state per cause and a character that is a status bar with legs. Decisive on timing too: act 1's environment empties at 93m07s and its authored ending fires at about 54m03s, so starvation is post-content. And a threshold on a continuous quantity needs a dead band, or the discrete channel becomes a continuous one with extra steps and React re-renders at whatever rate the quantity wanders. |
+| 2026-08-09 | Hand-authored art is governed by a rule with a mechanism, written before the first asset | Every illustration so far is computed from the conserved-weight table, so it inherits the palette and the guarantees for free and cannot name a colour it should not. Eleven drawn assets inherit nothing: the accessibility guard computes pairs from `index.css` and component classes, and an SVG `fill` presentation attribute is neither, and `forced-colors` does not force `fill` either. Tokens only and by reference, ink carries the reading with every fill removed, one stroke band so drawn and computed art match, and nothing the rest of the system already forbids. Assets live in one directory and a guard walks it, which is the discovery posture Spine A gave the other guards after nine components shipped past a hardcoded list. |
+| 2026-08-09 | Under `forced-colors` the offset shadow is dropped and a second outline is drawn outside the border | NOW.md blocking item 4, a conflict rather than a bug because both sides are right. The shadow is not forced, so it painted a near-black copy onto a forced background while every layout still reserved its offset: not the design and not the user's colours either. A substitution rather than a removal, since what the shadow says is "separate piece of paper" and a second rule says it in the one channel forced colours guarantees. V7's decision to draw focus INSIDE at offset -6px is what makes this affordable, because the two rings never collide. Drawn as a pseudo-element because `outline` is spoken for by `:focus-visible`. Taken now because it gets more expensive with every surface and this log adds the two largest. |
+| 2026-08-09 | The wordmark gets a compact scale and the act screen uses it | Recorded as wrong since 2026-07-29 and unfixable by four logs because it is a design decision and none of them had a design stage. The largest type in the game should be the thing that changes rather than the thing that never does, which is Direction's own flux-is-the-headline applied to the chrome. The hero scale stays and is reserved for the first run card and the endgame summary, where the wordmark is a title. Roughly 80px of vertical band goes to the timeline, and the alternative was taking it from the pool rail or the pathway, which answer what is happening and why. Open question 1 is still open, and a word at 18px is a label rather than a commitment to a name. |
