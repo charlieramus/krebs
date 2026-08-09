@@ -1,0 +1,220 @@
+# CI. Added by UPDATELOGV9.md stage 1.
+#
+# This project accumulated six mechanisms that fail a build on purpose, one at a
+# time across five logs, each with a probe that proved it fires. Until this file
+# existed, not one of them ran unless a person typed a command.
+# docs/SIMULATION.md Part 5 says of the determinism test, in as many words, "Run
+# it in CI. Run it after any change to kinetics code." There was no CI to run it in.
+#
+# WHY EVERY COMMAND IS ITS OWN STEP. "CI failed" is a worse signal than "lint
+# failed". The guards were built to say specific things and a single collapsed
+# script throws that away. Do not merge these steps.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A second push to the same branch cancels the first. The guards are
+# deterministic, so a superseded run tells nobody anything.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guards:
+    name: Guards
+    runs-on: ubuntu-latest
+    # A green run is about a minute without the browsers and under four with
+    # them. This is not a performance budget, it is a ceiling on a hang: the
+    # first CI run of the e2e step sat there long past any plausible duration,
+    # because Playwright's generous per-test timeout multiplied by eighteen tests
+    # is most of an hour and the job had no limit of its own. A hang has to fail.
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Node is pinned to an exact patch in .nvmrc rather than to a major or to
+      # latest. Hard rule 5 exists because engines disagree about floating point,
+      # so the engine this project's hashes are computed in is load-bearing and an
+      # engine change has to be a thing somebody decided rather than a thing that
+      # happened. Cloudflare Pages reads .nvmrc too, so CI and the deploy build
+      # cannot drift apart.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # `npm ci` rather than `npm install`, so the lockfile is authoritative and a
+      # transitive dependency cannot move underneath a green build.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Hard rules 4 and 5 as mechanism, across src/sim, src/content and src/save.
+      - name: Lint
+        run: npm run lint
+
+      # 624 tests, including the DESIGN.md colour guard, the schema version gate,
+      # the divergence-row guard and the accessibility channel and contrast guard.
+      - name: Test
+        run: npm test
+
+      # Earns its place twice. It runs tsc and then Vite, and the needsSourceGate
+      # plugin scans the emitted bundle for a surviving `Needs source` badge. That
+      # plugin is the mechanical enforcement of hard rule 1 and it fires on
+      # production builds and nowhere else, so it is the ONE guard `npm test` does
+      # not reach. A CI that ran only the suite would leave the project's most
+      # cited enforcement mechanism unexecuted.
+      - name: Build
+        run: npm run build
+
+      - name: Simulation harness, toy pathway
+        run: npm run sim
+
+      - name: Simulation harness, act 1
+        run: npm run sim:act1
+
+      # NOT in the list UPDATELOGV9.md settled, and added deliberately. V8 shipped
+      # this sweep after this log was written, and it is kept out of `npm test` on
+      # the stated grounds that a suite taking a minute is a suite people stop
+      # running. NOW.md then names it directly as the argument for this file:
+      # "the test docs/SIMULATION.md calls the justification for the entire
+      # approach runs when somebody types a command". CI is exactly where a slow
+      # and important check belongs. It exits non-zero on a failure and takes 24s.
+      - name: Offline progress validation sweep
+        run: npm run offline:validate
+
+      # ---------------------------------------------------------------------
+      # CROSS-ENGINE DETERMINISM. UPDATELOGV9.md stage 2.
+      #
+      # Hard rule 5 bans Math.pow, Math.exp and Math.log because the ECMAScript
+      # specification permits implementation-approximated results for them, so
+      # they differ between engines. Enforced since V1 and, until this step,
+      # never tested: vite.config.ts sets `environment: 'node'`, so every
+      # determinism assertion in the project had been checked in one engine.
+      #
+      # Chromium, Firefox and WebKit each reproduce the two canonical hashes the
+      # suite already freezes, plus two 200000-tick hashes. A kernel change that
+      # is deterministic in node and not in WebKit now fails here rather than in
+      # front of a player.
+      # ---------------------------------------------------------------------
+      - name: Node determinism reference
+        run: npm run probe:determinism
+
+      # Keyed on the lockfile, so a Playwright version bump misses the cache and
+      # redownloads, which is the behaviour you want: new engines are exactly
+      # what this measurement is for.
+      - name: Cache browser engines
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # Its own step because it downloads ~350 MB of browser binaries and a
+      # failure here means the network, not the simulation.
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Cross-engine determinism, and the real-browser checks
+        run: npm run e2e
+
+      # The first failure of the step above could not be diagnosed, because the
+      # runner was destroyed and took everything with it. `trace: on-first-retry`
+      # in playwright.config.ts records the run; this is what makes it survive.
+      # `if: failure()` so a green run uploads nothing.
+      - name: Keep the evidence when the browser checks fail
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # =========================================================================
+  # DEPLOY. UPDATELOGV9.md stage 3 step 6.
+  #
+  # `needs: guards` is the whole point of this job's shape. A deployment path
+  # that can ship a build the guards rejected makes five logs of guard-building
+  # pointless, so this cannot start until every one of them has passed. Only on
+  # main, so a branch push runs the guards and ships nothing.
+  #
+  # NOT YET LIVE. The Cloudflare credentials are not set, and the `if` below
+  # skips this job rather than failing it when the secret is absent, so the
+  # workflow stays green until somebody adds them. The day CLOUDFLARE_API_TOKEN
+  # and CLOUDFLARE_ACCOUNT_ID exist as repository secrets, this deploys with no
+  # further edit. See the stage 3 report for what remains unverified until then.
+  # =========================================================================
+  deploy:
+    name: Deploy
+    needs: guards
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://krebs.pages.dev
+
+    # Lifted to the job so the steps below can branch on whether it is set. The
+    # `secrets` context is not available in a step-level `if`; `env` is.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # The same command CI just proved, producing the same artifact. dist/
+      # is rebuilt rather than passed between jobs, so what deploys is what this
+      # commit builds rather than what an artifact upload happened to preserve.
+      - name: Build
+        run: npm run build
+
+      - name: Publish to Cloudflare Pages
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=krebs
+
+      - name: Report a skipped deploy rather than a silent one
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: |
+          echo "CLOUDFLARE_API_TOKEN is not set, so nothing was deployed."
+          echo "This is the state UPDATELOGV9.md stage 3 shipped in, deliberately."
+          echo "Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as repository"
+          echo "secrets to make this job publish to https://krebs.pages.dev"
+
+      # UPDATELOGV9.md stage 4 step 5. Against the live origin, because the
+      # failures it catches only exist once real hosting does: a broken asset
+      # path, a CSP the edge rewrote, a caching mistake, an upload that did not
+      # finish. It skips itself when SMOKE_URL is empty, so it cannot look like
+      # a pass when there was no deployment to test.
+      - name: Install browser engine for the smoke test
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke test the deployed origin
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        env:
+          SMOKE_URL: https://krebs.pages.dev
+        run: npx playwright test e2e/smoke.spec.ts --project=chromium

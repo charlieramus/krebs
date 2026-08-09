@@ -3,3 +3,7 @@ dist
 .DS_Store
 *.local
 .gstack/
+
+# Playwright, UPDATELOGV9.md stage 2. Run output, not source.
+test-results/
+playwright-report/

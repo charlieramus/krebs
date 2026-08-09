@@ -190,4 +190,10 @@ export default tseslint.config(
     files: ['*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },
+  {
+    // The static server for the deployed-artifact checks. Node, not a browser.
+    // UPDATELOGV9.md stage 3.
+    files: ['e2e/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
 );

@@ -1,0 +1,24 @@
+# Cloudflare Pages. UPDATELOGV9.md stage 3.
+#
+# THE ORIGIN IS PERMANENT. It is the other half of the save's identity.
+# localStorage is scoped to an origin, so moving this later orphans every save
+# in existence with no error and no way back, in exactly the way
+# src/save/storage.ts says renaming a storage key would. Read the comment on
+# STORAGE_PREFIX there before touching the name below; the reasoning is the same
+# reasoning and it was settled in the same way.
+#
+# krebs.pages.dev, from the project name, and deliberately NOT from the game's
+# title. docs/BRIEF.md line 4 still records the working title as TBD. A domain
+# derived from a title that has not been chosen would either have to change when
+# the title lands, which orphans saves, or survive as a stale name forever. A
+# name that was never claiming to be the title cannot go stale. That is V4's
+# argument for the storage prefix, applied to the thing it is half of.
+#
+# NO BACKEND, NO FUNCTIONS, NO BINDINGS, NO ENVIRONMENT VARIABLES THAT AFFECT
+# THE BUILD. docs/PILLARS.md rule 7. There is deliberately nothing here beyond
+# a name, an output directory and a date, because anything more would be a
+# server this game does not have.
+
+name = "krebs"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-08-09"

@@ -1,6 +1,6 @@
 # Now
 
-Last updated: 2026-08-06, by V11
+Last updated: 2026-08-09, by V9
 
 Where the project actually is. Read this before the spec docs.
 
@@ -9,6 +9,30 @@ This file holds state. CLAUDE.md holds instruction and changes rarely. This chan
 If this file disagrees with a spec doc, the spec doc wins and this file is stale. Fix it.
 
 ## Status
+
+**The guards run now, the determinism claim is measured rather than argued, and the game is still not deployed.**
+
+Six mechanisms that fail a build on purpose accumulated across five logs, each built deliberately, each proved to fire, and **not one of them ran unless a person typed a command.** They run on every push. Two more joined them, so the count is eight. See "What CI enforces".
+
+**The first thing CI found was that the test suite was already failing.** Three property tests exceed vitest's default 5000ms timeout, measured alone on an idle machine at 12763ms, 7961ms and 5151ms, and which subset times out varies with load. Two consecutive baseline runs on a clean checkout gave `1 failed` and then `3 failed`. **`npm test` had been intermittently red for some time and the silence was total, because nothing ran it.** Fixed in `vite.config.ts` with a measured `testTimeout`, and the reasoning is in the comment: a timeout separates a hung test from a slow one, and it is not a performance budget.
+
+**Hard rule 5 is vindicated by measurement.** Chromium, Firefox, WebKit and node produce byte-identical state on two pathways at 1200 ticks and at 200000 ticks. Four engines, four hashes, character for character:
+
+```
+                  toy canonical   act1 canonical   toy 200000    act1 200000
+  node            172f83fb        65b43d27         f9292a7e      35d7c4b8
+  chromium        172f83fb        65b43d27         f9292a7e      35d7c4b8
+  firefox         172f83fb        65b43d27         f9292a7e      35d7c4b8
+  webkit          172f83fb        65b43d27         f9292a7e      35d7c4b8
+```
+
+**Two of those columns are the values the whole suite is already built on**, frozen since V1 and V10, which is the point: the browsers reproduce what CI asserts rather than a second opinion computed the same afternoon. **What this does not cover is ARM**, and every measurement is x86-64. See "Open, not blocking".
+
+**The game is configured to deploy and has not been deployed.** `CLAUDE.md` claimed "Deployed to Cloudflare Pages" from V1 to V9 and it was never true; it now says what is actually the case. The origin, the strict content security policy, the caching headers and the gated deploy job all exist. What is missing is Cloudflare credentials. **So none of the freezes have taken effect**: hard rule 6's "after launch" has not begun and `TICK_RATE_HZ` is still movable. See "What deploying will freeze".
+
+**The strict CSP was not a compromise and nothing had to be loosened.** `default-src 'self'` with `connect-src 'none'`, verified against the real artifact under the real headers in three engines: zero violations, zero console errors, and **zero requests leaving the origin**, which is docs/PILLARS.md rule 7 checked rather than asserted for the first time.
+
+**The act 2 oxygen constraint is written down before act 2 exists**, in docs/SIMULATION.md Part 3. It was scheduled for V8, that window closed, and it is the only thing in V9 a later log depends on.
 
 **The project can run an act rather than the act, and act 1 has an ending.**
 
@@ -80,7 +104,7 @@ One sentence per log. The "does not" column is the fence each stage doc inherits
 | V6 | The comprehension pass: docs/CONTENT_STYLE.md, the first run, the about panel, the teaching layer, and the style guide as mechanism | The economy, new unlocks, the timeline, the beast, act 2, and any change to a tuned number | Done 2026-08-04, **unvalidated**. Stages 2 and 5 unrun for want of a cold reader |
 | V7 | Accessibility, and the colour-alone problem: the redox second channel, keyboard and focus, the screen reader layer, and DESIGN.md's accessibility rule | New content, new teaching beats, the economy, the simulation | Done 2026-08-04 |
 | V8 | Offline progress: steady-state detection, the analytic jump, the Part 3 validation test, crediting, and the offline return screen | New content, act 2, the economy, any change to a tuned number | Done 2026-08-05 |
-| V9 | CI, cross-engine determinism and deployment | Not read in detail yet | Not started |
+| V9 | CI, cross-engine determinism and deployment: the workflow, the eight guards running on every push, the four-engine determinism measurement, the Cloudflare configuration and the strict CSP, the bundle budget, a real build id, and the act 2 oxygen constraint | Any simulation, content, economy or interface change. **And the deploy itself**, which is configured and gated and was not run for want of credentials | Done 2026-08-09, **not deployed** |
 | V10 | Act 1 completion: ethanol fermentation and the first carbon released, glycogen storage, the named glycolytic enzymes, and the act re-derived end to end | An ending for act 1, the timeline, the beast, the act boundary, act 2, and any change to docs/SCIENCE.md outside stage 1 | Done 2026-08-06 |
 | V11 | Spine A, the structural half: the act registry, the runtime de-specialised, content.ts as a directory, the act boundary and act 1's ending, the future-act refusal, the guards walking, and the first end-to-end playthrough | The timeline, the beast, provenance-on-click, any new visual surface, a second act, the descriptor's full shape, and any change to a tuned number | Done 2026-08-06 |
 | V12 | Spine B, the surface half. See `docs/designs/game-spine-and-four-acts.md` | | Written, not started |
@@ -487,9 +511,61 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
 
 **One test fails the build when act 2 lands**, asserting the registry holds one act while the copy names act 2. Same mechanism `schemaVersionGate.test.ts` uses for hard rule 7.
 
+## What CI enforces
+
+`.github/workflows/ci.yml`, added by V9. On every push and every pull request, `ubuntu-latest`, Node pinned to the exact patch `24.11.1` in `.nvmrc`, which Cloudflare Pages reads too so CI and the deploy build cannot drift.
+
+Every command is its own step, deliberately, because "CI failed" is a worse signal than "lint failed" and the guards were built to say specific things.
+
+**Eight guards. What each protects, where it comes from, and how it was proved to fail.**
+
+| Guard | Protects | From | Proved to fail |
+| --- | --- | --- | --- |
+| `eslint.config.js` determinism rules | no `Math.random`, `Math.pow`, `Math.exp`, `Math.log` in sim, content or save; the clock read in exactly one file | hard rules 4 and 5, docs/SIMULATION.md Part 5 | V9 stage 1, locally |
+| `vite/needsSourceGate.ts` | no `Needs source` badge in a production bundle | hard rule 1, DESIGN.md badge contract | V9 stage 1 locally, **and stage 4 in CI** |
+| `designSystem.test.ts` | `src/index.css` defines exactly the colours DESIGN.md names | DESIGN.md Colour | V9 stage 1 locally, **and stage 5 in CI** |
+| `schemaVersionGate.test.ts` | a fixture and a migration for every schema version | hard rule 7 | V9 stage 1, locally |
+| `divergenceTable.test.ts` | every tuned scalar has a docs/ECONOMY.md row, and the stated count matches | docs/PILLARS.md rule 5, hard rule 2 | V9 stage 1 locally, **and stage 5 in CI** |
+| `accessibility.test.ts` | nothing encoded in colour alone; a semantic colour fills and ink writes | DESIGN.md Accessibility | V9 stage 1 locally, **and stage 5 in CI** |
+| `vite/bundleBudget.ts` | four size budgets, so growth is a decision rather than a drift | V9 stage 4 | V9 stage 4, locally |
+| `e2e/determinism.spec.ts` | the two canonical hashes reproduce in Chromium, Firefox and WebKit | hard rule 5, docs/SIMULATION.md Part 5 | not yet failed; see below |
+
+**Five of the eight have now been proved to go red in CI rather than only on a developer's machine**, across two scratch branches that were pushed, observed and deleted. The other three were proved locally with the identical command CI runs.
+
+**Two honest notes on that table.**
+
+`schemaVersionGate.test.ts` **cannot** be probed in CI the way stage 1 probed it locally, and finding out why was worth the attempt: bumping `SCHEMA_VERSION` to 2 fails `tsc` before the suite ever runs, because the literal type is `1` in three places. So in CI hard rule 7 is defended twice and the **outer** defence is the type system. The guard is what catches a bump that typechecks.
+
+The cross-engine spec has never gone red, because nothing has yet made it. It asserts values that have not moved since V1 and V10 respectively.
+
+**Also running, and not guards.** `npm run sim` and `npm run sim:act1`, the two harnesses. `npm run offline:validate`, the 200-case sweep V8 deliberately kept out of `npm test` on the grounds that a suite taking a minute is a suite people stop running, and which NOW.md then named as the argument for CI existing at all. It is 16s in CI.
+
+**The whole run is 2m48s** with all three browser engines, against 185s for the non-browser commands alone on the Windows development machine. Before Playwright was added it was 59 seconds on a cold cache. The eighteen browser tests cost 80 seconds in CI against 3.0 minutes locally, so the runner is faster at this too.
+
+**And a deploy job that is gated on all of it.** `needs: guards`, only on `main`. Proved rather than argued: on both probe branches the Guards job failed and **the Deploy job was skipped**. A build the guards rejected was demonstrably unable to reach the deploy path.
+
+## What deploying will freeze
+
+Reviewed by V9 stage 3 and **not yet in force**, because nothing has been deployed. Recorded here because it is the entry a future maintainer will need most and look for least.
+
+```
+  TICK_RATE_HZ = 20            hard rule 6, "never change after launch"
+  TICK_MS = 50                 the literal type derived from it
+  SCHEMA_VERSION = 1           every future version migrates from it
+  krebs.save.active            V4 declared these permanent
+  krebs.save.backup
+  krebs.save.temp
+  the origin                   krebs.pages.dev
+  pool ids, unlock ids         docs/SAVE_SCHEMA.md Part 3, already permanent
+```
+
+**The list was reviewed rather than skipped and nothing should change before it freezes.** `TICK_RATE_HZ` at 20 is the value every measurement in the project was taken at. `SCHEMA_VERSION` 1 is what the committed v1 fixture records, and V4 captured that fixture for exactly this moment.
+
+**The origin is the other half of the save's identity and that is the part most likely to be forgotten.** `localStorage` is origin-scoped, so a save's real address is the origin plus the key, and moving the origin orphans every save exactly as completely and exactly as silently as renaming a key would. `krebs.pages.dev` was chosen by V4's argument rather than defaulted: it is the repository name and not the title, because docs/BRIEF.md line 4 still records the title as TBD and **a name that was never claiming to be the title cannot go stale.** Recorded in `wrangler.toml` and in the THE KEYS block of `src/save/storage.ts`, which also says the thing that is easy to miss: serving the same build from a second origin does not migrate a save, it creates an empty one.
+
 ## What the guards do
 
-Seven now, and V11 is the log that stopped two of them agreeing with their own lists.
+Eleven now. V11 is the log that stopped two of them agreeing with their own lists, and V9 is the log that made all of them run without being asked. **The count here is larger than the eight in "What CI enforces" because that table counts build-failing guards and this one counts every mechanism, including the sweeps and the two V9 added for its own instruments.**
 
     determinism lint          Math.random, Math.pow, Math.exp, Math.log, Date
     Needs source release gate scans the emitted production bundle
@@ -498,6 +574,14 @@ Seven now, and V11 is the log that stopped two of them agreeing with their own l
     accessibility test        every rendered pair, and the channel table
     Part 3 validation sweep   40 cases in the suite, 200 beside it
     content style test        where a string lives, and what characters are in it
+    schema version gate       a fixture and a migration per version
+    bundle budget             four categories, V9. Growth becomes a decision
+    cross-engine determinism  four engines, two pathways, V9
+    buildId is diagnostic     never compared, matched or switched on, V9
+
+**The last one exists because V9 made the field meaningful.** `meta.buildId` has been in every save since V4 and held the Vite mode, so every save ever written said "production". Nobody branches on a constant. It is the short commit SHA now, with `-dirty` when the tree is not clean, and a field that becomes meaningful is a field somebody will be tempted to branch on, so the temptation is new and the guard is new. docs/SAVE_SCHEMA.md Part 3 has said "never branched on" since V4 and nothing checked it.
+
+**The bundle budget's own reasoning was measured after being guessed, and the guess was badly wrong.** The application and dependency shares were estimated at 102.6 kB and 188.1 kB before measuring and are **75.28 kB and 215.43 kB**. The first build carrying real budgets failed on numbers its own author had written minutes earlier. That is the argument for printing the figure on every build rather than estimating it in review.
 
 **`accessibility.test.ts` listed ten component paths in an array while `src/ui/components/` held twenty**, and nine of the ten missing shipped after the guard was written, so the hole had been widening every log. It walks now, with a guard-the-guard comparing what it read against `readdirSync`, a floor of twenty, an assertion naming the ten that were outside it, and one assertion that the contents rather than only the filenames are in the scanned string.
 
@@ -736,7 +820,11 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Blocking
 
-**V8 added one, and it is the first item on this list that is a defect in a specification rather than a gap in the build. The list is still headed by a person rather than a feature.**
+**V9 added nothing to this list and closed nothing on it.** The cross-engine measurement came back clean, so the finding it was built to surface does not exist: there is no engine divergence to report and nothing in stages 1 to 5 produced a new blocking item. The two things V9 leaves undone, the deploy and its live verification, are recorded under "Open, not blocking" because neither blocks any planned log.
+
+**The list is still headed by a person rather than a feature, and V9 does not change that.** Item 0 has been open since 2026-08-04 and is the only item on this page that no amount of building advances.
+
+**V8 added one, and it is the first item on this list that is a defect in a specification rather than a gap in the build.**
 
 6. **The offline fallback, implemented exactly as docs/SIMULATION.md Part 3 specifies, destroys the cell.** Opened 2026-08-05 by V8 stage 5, which ran it deliberately because the stage said a fallback nobody has ever executed is not a fallback.
 
@@ -820,6 +908,35 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Open, not blocking
 
+- **The browser step failed once in CI and nobody has read why. THE HEAD OF `updatelogv9` IS RED.** Opened 2026-08-09 by V9 stage 5.
+
+   ```
+   run 31335999868   d047eab   SUCCESS   2m48s   e2e step   80s
+   run 31336229937   0c6b518   FAILURE   5m42s   e2e step   4m17s
+   ```
+
+   **Every step before the browsers passed on both runs**, at the usual times, and the two commits differ only by two timeout ceilings and documentation. Locally the suite passes in all three engines repeatedly, 18 tests in 1.9m, including a run taken immediately after this failure.
+
+   **4m17s against 80s is almost exactly one test hitting the 180 second per-test timeout**, which points at a hang rather than a bad assertion. That is inference. **The actual failure text has not been read by anybody**: `gh` is not installed and this session had no authenticated route to the run logs, and the first failure left nothing behind because the runner was destroyed with the report on it.
+
+   **What changed is that the next one will be readable**: `trace: 'on-first-retry'`, `screenshot: 'only-on-failure'`, and an `if: failure()` artifact upload of the report and traces with 14 day retention. Plus `retries: 1` in CI, which is a mitigation and not a fix, and which buys the word **`flaky`** as a third outcome so instability stays visible rather than becoming a green tick.
+
+   **This does not put the cross-engine result in doubt.** Four engines and four hashes were measured locally in all three browsers and `d047eab` reproduced them in CI. What is in question is the harness in one environment, not the numbers.
+
+   The two ceilings from the same stage, a 15 minute `globalTimeout` and a 25 minute job limit, are unrelated and were not reached: 4m17s is well inside both.
+
+- **The determinism measurement is x86-64 only, and ARM is the gap.** Opened 2026-08-09 by V9 stage 2. Three engines agreeing on one machine is not three engines agreeing on every machine: the local run is x86-64 Windows and CI is x86-64 Linux. Float behaviour can vary with CPU architecture as well as with engine, and **Apple Silicon and ARM Android are a large fraction of any real audience.** Closing it is a CI matrix entry rather than new code, since the probe already exists and takes under a second per engine.
+
+   Three smaller limits, recorded together so nobody has to re-derive them. It is three **engines**, not three browsers: Playwright's WebKit is not Safari. It is one build of each, which is the argument for the step running on every push rather than once. And it does not prove the rule is **necessary**, only that the codebase obeying it is portable; the ECMAScript specification permits the divergence whether or not today's engines exhibit it, so a measurement that happened to agree would be the worst possible reason to relax hard rule 5.
+
+- **The game is configured to deploy and nobody has pressed the button.** Opened 2026-08-09 by V9 stage 3. `wrangler.toml`, `public/_headers` and the gated deploy job all exist and the job skips itself, loudly, while `CLOUDFLARE_API_TOKEN` is unset. Adding that secret and `CLOUDFLARE_ACCOUNT_ID` deploys with no further edit.
+
+   **What stays unverified until then**, and it is a short list because the policy and the artifact were checked locally against the real `dist/` under the real headers: Cloudflare's own handling of `_headers`, TLS and the edge cache honouring `immutable` and `must-revalidate`, survival across a genuine browser restart rather than a reload, the offline return against the deployed origin, and `e2e/smoke.spec.ts`, which has never run against a live URL and skips itself rather than passing vacuously.
+
+- **`WORDMARK` carries a badge that nothing renders.** Opened 2026-08-09 by V9 stage 1, found by accident. The first attempt at the `Needs source` probe put the badge on the wordmark and **the build passed**, emitting a byte-identical bundle, because `TopBar.tsx` reads `WORDMARK.text` and never `WORDMARK.badge`, so the minifier drops the property. The entry under "the working title is still TBD" below implies that badge makes the provisionality visible. It does not.
+
+   **It also bounds the release gate honestly.** `needsSourceGate` fires on a badge that is rendered and cannot fire on one that is dead data. That is arguably correct, since hard rule 1 is about numbers in player-facing text and a badge nobody renders is not player-facing, but the gate's own header claims a property value survives "written anywhere" and what survives minification does not survive being unreachable. Not fixed, because the fix is a UI decision about whether the wordmark should carry a badge at all.
+
 - **The worst reachable ATP and the worst recoverable ATP are a tenth of a unit apart at the top of the capacity ladder, and nothing had measured it.** Opened 2026-08-06 by V10 stage 4. `bootstrap.test.ts` probes recovery from an ATP of 0.05, on the stated argument that a starved cell bottoms out around 0.13 to 0.18 so 0.05 is below anything a run reaches. **That was measured at the shipped default Vmax and the file never varied the capacity.**
 
    |capacity|floor when the food runs dry|climbs out from 0.20|
@@ -890,11 +1007,15 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
    **Spine A, the structural half, is done.** `UPDATELOGV11.md`, seven stages, all reported.
 
-2. **CI, cross-engine determinism and deployment.** `UPDATELOGV9.md`. **Written and not started.** Both canonical hashes a second engine has to reproduce exactly have moved: `172f83fb` is unchanged and the act 1 hash is `65b43d27`.
+2. ~~**CI, cross-engine determinism and deployment.**~~ **Done 2026-08-09.** `UPDATELOGV9.md`, five stages, all reported. See "What CI enforces" above rather than a restatement here. The one piece left undone is the deploy itself and it is under "Open, not blocking".
 
-   **There are six build-failing guards in this project and nothing runs them except a person remembering to.** The determinism lint, the `Needs source` release gate, the DESIGN.md colour test, the divergence-row test, the accessibility test and now the Part 3 validation sweep. That argument has been on this page since V7 and V8 makes it stronger in a new way rather than by adding one more item: **the offline path has a slow band that does not run in `npm test` at all.** `npm run offline:validate` is 200 cases and a minute of reference replay, it exits non-zero on a failure, and it is deliberately outside the suite because a suite that takes a minute is a suite people stop running. **Until CI exists, the test docs/SIMULATION.md calls the justification for the entire approach runs when somebody types a command.**
+   **The rest of the roadmap lives in `docs/designs/game-spine-and-four-acts.md` and not here.** That document runs to V18: the two spine logs, an act jump, three more acts, teacher mode and an endgame. A roadmap in two places drifts in one of them, so this file points at it rather than copying it.
 
-   Cross-engine determinism has a second thing to check now and it is narrower than it was. Full replay must be bit-identical across engines, which is what it always meant. The offline path must agree within tolerance, and `172f83fb` and `65b43d27` are the two values a second engine has to reproduce exactly.
+   **One decision does still belong here, by the standard this page has applied since V3, and it is open.** The design doc schedules act 3 ahead of act 2 and its own engineering review found a reason that may not survive: **act 3's payoff is yield going from 2 to roughly 30 and that needs oxygen as the terminal electron acceptor, which act 2 is what supplies.** `src/save/schema.ts` reserves `environment.oxygenLevel` and act 1 writes it as a literal 0 with a comment saying that is not a placeholder. So act 3 first requires a placeholder oxygen constant carrying a DEPARTURE row, and an act 3 rebalance when act 2 lands.
+
+   The design doc prices that and leaves it unresolved on purpose. **It is recorded here as open rather than settled**, because a roadmap entry reads as a decision and this one has not been taken. `UPDATELOGV14.md` will not start until it is: that log opens with a BLOCKED UNTIL A DECISION IS TAKEN block naming this file as where the answer goes. Nothing before V14 waits on it.
+
+   **V9 removed one input to that decision.** Act 2's oxygen schedule now has a written constraint in docs/SIMULATION.md Part 3, so whichever order is chosen, the act that introduces a rising environment inherits a shape rather than inventing one.
 
 3. **Act 2, and it is decidable for the first time.** Not scheduled and not written. What changed is that every reason to defer it has been discharged: the economy is settled and documented, the text has a style guide, the interface is perceivable, saves migrate, and the engine specification is fully implemented rather than partly. **Act 2 was never blocked on the engine and it is now not blocked on anything technical.**
 

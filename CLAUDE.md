@@ -10,7 +10,9 @@ The premise is that the economy is not invented. Metabolism already is a resourc
 
 ## Stack
 
-TypeScript, React, Vite, Tailwind. Vitest for tests. Deployed to Cloudflare Pages. No backend, no accounts, no network dependency for core play.
+TypeScript, React, Vite, Tailwind. Vitest for tests, Playwright for the three-engine determinism check. No backend, no accounts, no network dependency for core play.
+
+Configured for Cloudflare Pages at krebs.pages.dev and **not yet deployed**. This file claimed deployment as a fact from V1 to V9 and it was never true. V9 built the configuration, the strict content security policy and the deploy job, and stopped at the credentials. Two things follow. **The origin is permanent once anything ships**, because localStorage is origin-scoped, so moving it orphans every save silently: see the THE KEYS block in src/save/storage.ts before touching it. And **hard rule 6's "after launch" has not begun**, so TICK_RATE_HZ is still movable. It freezes the day a player can reach a URL.
 
 ## Hard rules
 
