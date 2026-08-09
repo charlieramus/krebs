@@ -25,5 +25,8 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true
   },
-  "include": ["src", "vite", "vite.config.ts"]
+  /* e2e and playwright.config.ts added by UPDATELOGV9.md stage 2. The
+     cross-engine spec asserts the two canonical hashes the whole suite is built
+     on, so it is worth as much type checking as the code it measures. */
+  "include": ["src", "vite", "vite.config.ts", "e2e", "playwright.config.ts"]
 }

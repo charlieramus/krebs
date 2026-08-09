@@ -333,7 +333,75 @@ cover.
 
 ## Stage 2 Report
 
-_Pending._
+**ALL FOUR AGREE, on all four hashes, to the character.** Hard rule 5 is vindicated by measurement rather than by citation, and the project can now say the determinism claim is tested across engines instead of argued from the specification.
+
+```
+                  toy canonical   act1 canonical   toy 200000    act1 200000
+  node            172f83fb        65b43d27         f9292a7e      35d7c4b8
+  chromium        172f83fb        65b43d27         f9292a7e      35d7c4b8
+  firefox         172f83fb        65b43d27         f9292a7e      35d7c4b8
+  webkit          172f83fb        65b43d27         f9292a7e      35d7c4b8
+```
+
+**Two of those four columns are not new numbers, and that is the design of the measurement.** `172f83fb` has been frozen in `src/sim/__tests__/determinism.test.ts` since V1 and `65b43d27` in `src/content/act1/__tests__/determinism.test.ts` since V10 stage 3. Three browser engines reproducing them means the browsers reproduce **the values the entire test suite is built on**, not merely a value that agrees with a browser-side reference computed the same afternoon. A probe that had invented its own reference could have been self-consistently wrong in all four engines and told nobody anything.
+
+### The probe
+
+`src/probe/determinismProbe.ts`, plain TypeScript importing the real kernel and the real act 1 content. Nothing is reimplemented: the two run scripts are transcribed from the two existing determinism tests, and the file says in its header that if it ever disagrees with them, they are right and it is wrong. `src/probe/node.ts` is the node reference behind `npm run probe:determinism`; `src/probe/browser.ts` and `probe/index.html` are the browser side, served by the dev server.
+
+A vitest file cannot run in WebKit, which is the whole reason this is a module and a page rather than a test.
+
+### The tick count, and why it is 200000
+
+The canonical runs are 1200 ticks, 60 seconds of game time. That is the minimum that produces a meaningful hash and it is a **weak instrument for this particular question**, because a last-bit float difference is invisible until something compounds it. What compounds it here is the nonlinear integrator: Hill kinetics with integer exponents by repeated multiplication, proportional shortfall scaling, and division by a saturation term that a divergent input moves.
+
+200000 ticks is 10000 seconds, 2h46m. Act 1's environment empties at 93m07s and the cell stops at 104m05s, so the long run carries the pathway **through saturation, through the drawdown, through starvation and out the far side into the denormal-ATP regime** that NOW.md blocking item 1 is about. Those are the arithmetic conditions most likely to expose an engine difference and a 1200-tick run reaches none of them.
+
+Both were run, rather than the long one replacing the short one, so the frozen values stay directly comparable.
+
+### Cost, stated as a trade rather than slipped in
+
+`@playwright/test` is the first substantial devDependency since V1. Three engines from one dependency is the cheapest honest way to get Chromium, Firefox and WebKit, and the alternative is asserting cross-browser determinism forever without ever having run the simulation in a browser. The browser binaries are about 350 MB, are not vendored, and are installed by their own CI step with a cache keyed on the lockfile, so a Playwright version bump deliberately misses the cache and redownloads. New engines are exactly what this measurement is for.
+
+Three CI steps were added: the node reference, the engine install, and the run. Separate, so a failed download does not read as a failed simulation.
+
+### The two step 4 checks, both of which needed a browser and neither of which had ever had one
+
+**The save round trip against real `localStorage`.** Every storage test in the project injects a fake `Storage`, which was right for testability and means the real thing had only ever been exercised by hand. The spec loads the game, lets the cell run, forces an autosave through `visibilitychange` (a real autosave trigger, rather than reaching into the runtime), reads the save, then genuinely reloads the page and checks that elapsed game time **continues from where it was rather than restarting**. Passes in all three engines. `schemaVersion` 1, `progression.act` 1, no page errors across the teardown.
+
+**The reduced-motion transition, which is the half V7 could not observe.** NOW.md records the app's half as passing and the OS-to-browser link as verified, and then names what was left: "a player flipping the toggle mid-session, which `usePrefersReducedMotion` listens for and which nothing has watched happen." Windows made it unobservable, because `SPI_SETCLIENTAREAANIMATION` is a no-op on this build and the value is cached per session.
+
+`emulateMedia` on a live page **is** that event: no reload, no navigation, the query changes underneath a running page. Measured in all three engines: with `no-preference` the flowing dash lines are present and the rate figures carry `sr-only`; the instant the query flips to `reduce` the dash lines go to zero and the figures lose `sr-only`, so the channel is **replaced rather than removed**; and flipping back restores the dashes, which a one-way listener would have failed. **That entry in NOW.md can be closed.**
+
+`forced-colors` and `prefers-contrast` were not touched. Blocking item 4 is a recorded design conflict rather than a defect and item 5 is an undecided question about a second palette, and neither is this stage's to settle.
+
+### The probe is not shipped, and it is asserted rather than assumed
+
+`src/probe/__tests__/probeIsNotShipped.test.ts`, four assertions: the source tree was found so nothing is vacuous, nothing outside `src/probe/` imports the probe, `index.html` does not reference it, and `vite.config.ts` declares no `rollupOptions.input`. That last one is the one that matters over time: Vite's build input is `index.html` alone by default, so the day a later log adds a multi-entry build it has to decide deliberately whether the probe page is in it.
+
+Verified empirically once as well, by building and grepping: `dist/` holds `index.html` and four assets, and contains no match for `determinismProbe`, `runDeterminismProbe` or `PROBE_RESULT`.
+
+### What this establishes, and what it does not
+
+**Establishes.** Three browser engines and node, on this machine, produce byte-identical simulation state after 1200 ticks and after 200000 ticks, on two different pathways, with the PRNG driving reaction enablement in both. The arithmetic hard rule 5 protects is behaving as the specification says it should, and the frozen hashes are now cross-engine assertions, so a kernel change that is deterministic in node and not in WebKit fails CI on WebKit.
+
+**Does not establish, stated plainly.**
+
+*Three engines agreeing on one machine is not three engines agreeing on every machine.* Every measurement here is x86-64 Windows for the local run and x86-64 Linux for CI. Float behaviour can vary with CPU architecture as well as with engine, and the case this project has not touched is **ARM**: Apple Silicon and ARM Android are a large fraction of any real audience. Claiming more would need the same probe on an ARM runner, which is a CI matrix entry rather than new code.
+
+*It is three engines, not three browsers.* Playwright's WebKit is not Safari and its Firefox is a Playwright build. Engine-level float arithmetic is where hard rule 5 lives so this is the right target, but a browser is more than its engine.
+
+*It is one build of each.* Engines change. This is the argument for the step running on every push rather than once.
+
+*And it does not prove the rule is necessary.* It proves the codebase currently obeying it is portable. Whether removing the rule would break anything was not tested and is not worth testing: the ECMAScript specification permits the divergence whether or not today's engines exhibit it, and a measurement that happened to agree would be the worst possible reason to relax it.
+
+### Verify
+
+`typecheck` 8s, `lint` 8s, `test` 43s, `build` 20s, all exit 0. **628 tests across 48 files**, up from 624 across 47. `tsconfig.json` now includes `e2e` and `playwright.config.ts`, so the spec holding the canonical hashes is typechecked like the code it measures.
+
+Nine e2e tests pass, three per engine, 1.1 minutes locally. Probe runtime per engine: chromium 294 ms, firefox 647 ms, webkit 253 ms, against node's 1248 ms.
+
+No simulation, content, economy or interface file was touched. Both canonical hashes are unmoved, which for this stage is the result rather than the absence of one.
 
 ---
 

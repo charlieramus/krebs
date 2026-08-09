@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>krebs determinism probe</title>
+    <!--
+      UPDATELOGV9.md stage 2. Development only.
+
+      Vite's production build input is index.html at the repository root and
+      nothing else, so this page is served by `npm run dev` and never emitted
+      into dist/. A test in src/probe/__tests__ asserts that, so it stays true.
+    -->
+  </head>
+  <body>
+    <h1>krebs cross-engine determinism probe</h1>
+    <script type="module" src="/src/probe/browser.ts"></script>
+  </body>
+</html>

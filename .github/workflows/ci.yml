@@ -84,3 +84,37 @@ jobs:
       # and important check belongs. It exits non-zero on a failure and takes 24s.
       - name: Offline progress validation sweep
         run: npm run offline:validate
+
+      # ---------------------------------------------------------------------
+      # CROSS-ENGINE DETERMINISM. UPDATELOGV9.md stage 2.
+      #
+      # Hard rule 5 bans Math.pow, Math.exp and Math.log because the ECMAScript
+      # specification permits implementation-approximated results for them, so
+      # they differ between engines. Enforced since V1 and, until this step,
+      # never tested: vite.config.ts sets `environment: 'node'`, so every
+      # determinism assertion in the project had been checked in one engine.
+      #
+      # Chromium, Firefox and WebKit each reproduce the two canonical hashes the
+      # suite already freezes, plus two 200000-tick hashes. A kernel change that
+      # is deterministic in node and not in WebKit now fails here rather than in
+      # front of a player.
+      # ---------------------------------------------------------------------
+      - name: Node determinism reference
+        run: npm run probe:determinism
+
+      # Keyed on the lockfile, so a Playwright version bump misses the cache and
+      # redownloads, which is the behaviour you want: new engines are exactly
+      # what this measurement is for.
+      - name: Cache browser engines
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # Its own step because it downloads ~350 MB of browser binaries and a
+      # failure here means the network, not the simulation.
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Cross-engine determinism, and the real-browser checks
+        run: npm run e2e
