@@ -112,11 +112,159 @@ probes afterwards.
 
 ## Stage 1 Report
 
-_Pending._
+**The suite was already failing before this log added anything, and nothing had ever run it end to end to notice.** That is the finding of this stage and it arrived before the workflow file existed.
 
----
+`npm test` on a clean checkout of `main` failed. Not an assertion: three property tests exceed vitest's default 5000ms per-test timeout, and which subset times out varies with machine load. Two consecutive baseline runs gave `1 failed | 623 passed` and then `3 failed | 621 passed`. Measured alone, one file at a time, on an idle machine:
 
-# Stage 2 — Cross-engine determinism
+```
+  src/content/act1/__tests__/conservation.test.ts   never lets a pool go negative       12763 ms
+  src/sim/__tests__/conservation.test.ts            never lets a pool go negative ...    7961 ms
+  src/ui/__tests__/unlockPacing.report.test.ts      plays the whole act ...              5151 ms
+```
+
+All three are over the default even with nothing competing for the CPU. **They are also three of the most valuable tests in the project**: two run 50 randomized configurations to completion asserting no pool goes negative, the third plays act 1 end to end twice. They are long because of what they check.
+
+So `npm test` has been intermittently red for some time, and the reason nobody saw it is precisely the reason this log exists. **A guard nobody runs does not report its own failure.** The premise of the log was that the guards were optional; the sharper version is that one of them had already broken and the silence was total.
+
+Fixed in `vite.config.ts` with `testTimeout: 60000`, which is configuration and inside this stage's fence. The comment records the three measurements and the reasoning: a timeout separates a hung test from a slow one, a hang is unbounded, so the only property that matters is clearing the slowest real test by enough that a loaded runner cannot close the gap. 60000 is 4.7x the worst observed. It is deliberately **not** a performance budget, because nothing in this project has asked for one and a timeout is a poor place to smuggle one in. After the fix: **624 passed across 47 files**, run repeatedly.
+
+### The workflow
+
+`.github/workflows/ci.yml`, on `push` and `pull_request`, `ubuntu-latest`, one job. Concurrency group per ref with `cancel-in-progress`, because the guards are deterministic and a superseded run tells nobody anything.
+
+Node is pinned to an exact patch, `24.11.1`, in a new `.nvmrc` rather than inline. Two reasons. Hard rule 5 exists because engines disagree about floating point, so the engine the hashes are computed in is load-bearing and an engine change has to be something somebody decided rather than something that happened. And Cloudflare Pages reads `.nvmrc` too, so stage 3's deploy build cannot drift from CI without the drift being visible in one file. `npm ci` rather than `npm install`, so the lockfile is authoritative. Dependency cache via `actions/setup-node`.
+
+Every command is its own step, not collapsed:
+
+```
+  typecheck  lint  test  build  sim  sim:act1  offline:validate
+```
+
+**One step is not in the list this log settled and it is flagged rather than slipped in.** `npm run offline:validate` did not exist when V9 was written; V8 shipped it afterwards and deliberately kept it out of `npm test` on the grounds that a suite taking a minute is a suite people stop running. NOW.md then names it directly as the argument for this file: "the test docs/SIMULATION.md calls the justification for the entire approach runs when somebody types a command". CI is exactly where a slow and important check belongs, so it is a step. It exits non-zero on failure.
+
+### The six probes
+
+Each applied alone, run, quoted, reverted. Exit codes checked directly rather than inferred from output.
+
+**1. `Math.pow` in `src/sim/`** — appended to `src/sim/reactions.ts`. `npm run lint`, exit 1:
+
+```
+  src/sim/reactions.ts
+    166:22  error  'Math.pow' is restricted from being used. CLAUDE.md hard rule 5:
+                   Math.pow is implementation-approximated. Use repeated multiplication
+                   no-restricted-properties
+  ✖ 1 problem (1 error, 0 warnings)
+```
+
+**2. A `Needs source` badge surviving into a production build.** This one took two attempts and the first attempt is the more useful result. See below. Placed on `ABOUT.heading`, `npm run build`, exit 1:
+
+```
+  RELEASE GATE FAILED: a "needs-source" badge survived into the production bundle.
+
+    assets/index-BrG6iXsD.js  <-  .../src/ui/content/about.ts
+```
+
+**3. A colour `index.css` defines and DESIGN.md does not** — `--color-probe: #ff00ff`. `designSystem.test.ts`:
+
+```
+  × the colour tokens are exactly the ones DESIGN.md defines
+      > emits no colour DESIGN.md does not name
+    → expected [ 'probe' ] to deeply equal []
+```
+
+**4. `SCHEMA_VERSION` bumped to 2 with no fixture and no migration** — `schemaVersionGate.test.ts`, seven failures, the first two naming the rule:
+
+```
+  → CLAUDE.md hard rule 7: no committed fixture for schema version 2.
+  → CLAUDE.md hard rule 7: no migration from schema version 1 to 2.
+  → The version 1 fixture does not load through the migration chain.
+  → expected 'corrupt' to be 'ok'
+```
+
+**5. A tuning constant with no docs/ECONOMY.md row** — `PROBE_V9_STAGE1 = 42` in `src/ui/tuning.ts`. `divergenceTable.test.ts` fails on **both** halves, which is the half worth noting:
+
+```
+  × has a row for every tuned scalar in the three tuning files
+    → expected [ Array(1) ] to deeply equal []
+  × agrees with the count the document states about itself
+    → stated count for src/ui/tuning.ts: expected '23' to be '24'
+```
+
+**6. V7's channel guard violated** — `text-ink2` to `text-gain` in `TopBar.tsx`. `accessibility.test.ts`:
+
+```
+  × a semantic colour fills, and ink writes > uses no semantic colour as a Tailwind text utility
+    → expected 'text-label font-body font-extrabold u…' not to match /\btext-gain\b/
+```
+
+All six reverted. `git status` clean apart from this stage's own additions, and a search for probe residue across `src/` and `vite/` finds nothing.
+
+### What probe 2 found on its first attempt, which is a real limit on the gate
+
+The first attempt put `{ kind: 'needs-source' }` on `WORDMARK` in `src/ui/content/topBar.ts`. **The build passed**, and emitted a byte-identical bundle: same content hash, same 290.65 kB.
+
+The bundle explains it. `WORDMARK` appears as:
+
+```
+  _0={text:"krebs"}
+```
+
+The `badge` property is gone. The minifier dropped it, correctly, because **nothing reads it**: `TopBar.tsx` imports `WORDMARK` and renders `WORDMARK.text` and never `WORDMARK.badge`. Confirmed the same way for the badge it replaced, whose `tuned(...)` prose is also absent from the bundle, so this is not specific to `needs-source`.
+
+**So the gate is narrower than its own header claims.** That header argues property values survive minification "written anywhere". They survive being *minified*; they do not survive being *unreachable*. The gate fires on a badge that is rendered and cannot fire on a badge that is dead data.
+
+**Two things follow and they point in opposite directions, so both are recorded rather than resolved here.** The limit is arguably the correct behaviour: hard rule 1 is about numbers in player-facing text, and a badge nothing renders is not player-facing, so there is no unsourced claim in front of anybody. Against that, the gate's stated contract is stronger than what it delivers, and a maintainer reading `needsSourceGate.ts` would believe a badge anywhere is caught.
+
+**And it surfaced a real if minor content defect.** `WORDMARK` carries a `tuned` badge saying the working title is provisional, and no surface renders it. NOW.md's "Open, not blocking" records that badge as the thing making the title's provisionality visible. It is not visible. Not fixed here, because this stage's fence is configuration and probes, and because the fix is a UI decision about whether the wordmark should show a badge at all.
+
+### Wall-clock
+
+Run sequentially on this machine, cold:
+
+```
+  typecheck          13s
+  lint               15s
+  test               47s
+  build              21s
+  sim                 4s
+  sim:act1            4s
+  offline:validate   79s
+  -----------------------
+  total             185s     3m05s, excluding npm ci
+```
+
+**The real run is three times faster than that and the local figure is the misleading one.** Commit `2a14616` on `updatelogv9`, run 31331888720, green, every step:
+
+```
+  Set up job                          1s
+  Checkout                            2s
+  Set up Node                         6s
+  Install                             3s
+  Typecheck                           3s
+  Lint                                4s
+  Test                               13s
+  Build                               5s
+  Simulation harness, toy pathway    <1s
+  Simulation harness, act 1           1s
+  Offline progress validation sweep  16s
+  Post steps                          2s
+  ---------------------------------------
+  job total                          59s
+```
+
+**59 seconds, on a cold cache, with nothing warmed.** The gap against 185s locally is the machine rather than the work: this is a Windows filesystem with a virus scanner in front of it against a Linux runner, and every step shrank by roughly the same factor, so nothing about the workload changed shape.
+
+That settles step 4's question with room to spare. A minute is short enough that nobody has a reason to route around it, and there is no step worth cutting: the two harnesses cost about a second between them and the two most expensive, `test` at 13s and `offline:validate` at 16s, are the two doing the most.
+
+`offline:validate` locally varies from 24s to 79s depending on `vite-node` transform caching. In CI it is a stable 16s.
+
+No coverage gate, per step 5.
+
+### The two risks that only a real run could settle, both settled
+
+`setup-node` resolved the exact patch `24.11.1` from `.nvmrc` without complaint, so the pin is real rather than aspirational. And nothing in the suite carried a Windows assumption: all 624 tests pass on `ubuntu-latest` exactly as they do here. Neither needed a fix.
+
+One thing was checked rather than assumed: `.nvmrc` is committed with a bare LF, verified against the blob rather than the working copy, so Git's CRLF conversion on this Windows checkout cannot reach the runner and hand `setup-node` a version string with a stray carriage return.
 
 ```
 The measurement hard rule 5 has always assumed and nobody has taken. Read the

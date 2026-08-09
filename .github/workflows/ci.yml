@@ -1,0 +1,86 @@
+# CI. Added by UPDATELOGV9.md stage 1.
+#
+# This project accumulated six mechanisms that fail a build on purpose, one at a
+# time across five logs, each with a probe that proved it fires. Until this file
+# existed, not one of them ran unless a person typed a command.
+# docs/SIMULATION.md Part 5 says of the determinism test, in as many words, "Run
+# it in CI. Run it after any change to kinetics code." There was no CI to run it in.
+#
+# WHY EVERY COMMAND IS ITS OWN STEP. "CI failed" is a worse signal than "lint
+# failed". The guards were built to say specific things and a single collapsed
+# script throws that away. Do not merge these steps.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A second push to the same branch cancels the first. The guards are
+# deterministic, so a superseded run tells nobody anything.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guards:
+    name: Guards
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Node is pinned to an exact patch in .nvmrc rather than to a major or to
+      # latest. Hard rule 5 exists because engines disagree about floating point,
+      # so the engine this project's hashes are computed in is load-bearing and an
+      # engine change has to be a thing somebody decided rather than a thing that
+      # happened. Cloudflare Pages reads .nvmrc too, so CI and the deploy build
+      # cannot drift apart.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # `npm ci` rather than `npm install`, so the lockfile is authoritative and a
+      # transitive dependency cannot move underneath a green build.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Hard rules 4 and 5 as mechanism, across src/sim, src/content and src/save.
+      - name: Lint
+        run: npm run lint
+
+      # 624 tests, including the DESIGN.md colour guard, the schema version gate,
+      # the divergence-row guard and the accessibility channel and contrast guard.
+      - name: Test
+        run: npm test
+
+      # Earns its place twice. It runs tsc and then Vite, and the needsSourceGate
+      # plugin scans the emitted bundle for a surviving `Needs source` badge. That
+      # plugin is the mechanical enforcement of hard rule 1 and it fires on
+      # production builds and nowhere else, so it is the ONE guard `npm test` does
+      # not reach. A CI that ran only the suite would leave the project's most
+      # cited enforcement mechanism unexecuted.
+      - name: Build
+        run: npm run build
+
+      - name: Simulation harness, toy pathway
+        run: npm run sim
+
+      - name: Simulation harness, act 1
+        run: npm run sim:act1
+
+      # NOT in the list UPDATELOGV9.md settled, and added deliberately. V8 shipped
+      # this sweep after this log was written, and it is kept out of `npm test` on
+      # the stated grounds that a suite taking a minute is a suite people stop
+      # running. NOW.md then names it directly as the argument for this file:
+      # "the test docs/SIMULATION.md calls the justification for the entire
+      # approach runs when somebody types a command". CI is exactly where a slow
+      # and important check belongs. It exits non-zero on a failure and takes 24s.
+      - name: Offline progress validation sweep
+        run: npm run offline:validate
