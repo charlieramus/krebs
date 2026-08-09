@@ -615,7 +615,97 @@ save, and the smoke test result against the live URL.
 
 ## Stage 4 Report
 
-_Pending._
+### Step 1, the budget, and the reason it needed to exist
+
+`vite/bundleBudget.ts`, a production-only Vite plugin in the same shape as `needsSourceGate`: it prints on every build and fails the build when a category is exceeded.
+
+**Measured, not estimated:**
+
+```
+    application (apportioned)               75.28 kB  budget  130.00 kB
+    dependencies (apportioned)             215.43 kB  budget  230.00 kB
+    fonts                                   68.86 kB  budget   72.00 kB
+    styles                                  19.55 kB  budget   32.00 kB
+    other (html, _headers)                   3.78 kB
+    sourcemaps (not downloaded in play)   1679.63 kB
+    total                                  382.90 kB  budget  460.00 kB
+```
+
+**The first draft of the budget was written from an estimate and the estimate was badly wrong.** Before measuring, the application and dependency shares were guessed at 102.6 kB and 188.1 kB. They are **75.28 and 215.43**: the dependency share is much larger and the application share much smaller than it looked. The first build with real budgets in it failed on the numbers its own author had just written.
+
+That is recorded in the plugin because it is the argument for having it. Nobody's intuition about which half of a bundle is which is worth trusting, which is exactly why the figure should be printed on every build rather than estimated in a review.
+
+**Four budgets rather than one total, and the headroom is deliberately uneven.** Step 1 asks for the fonts to be visible rather than hidden inside a total, and that generalises: a single number cannot tell the difference between the interface growing, which is expected, and a dependency arriving, which is the thing worth catching.
+
+- **application, 130 kB against 75.28.** Nearly double, because V12 adds the timeline, the beast and provenance-on-click, and V14, V16 and V17 each add a whole act. Content growth is what this project is for and a budget that failed the next planned log would be noise.
+- **dependencies, 230 kB against 215.43.** Almost none, and this is the category the budget exists for. React is the only runtime dependency. 15 kB is not enough room for a date library, a state manager or an animation library to arrive unnoticed.
+- **fonts, 72 kB against 68.86.** Tight on purpose. V3 recorded self-hosting two woff2 as a decision; a third font should be a decision somebody takes rather than a number that drifts.
+- **styles, 32 kB against 19.55.** Tailwind emits only what is used, so this grows with components.
+- **total, 460 kB, deliberately less than the 464 kB sum of the categories.** They cannot all be maxed at once, which is intended: each category caps its own growth and the total caps the artifact.
+
+**Two honest limitations, both written into the plugin.** The application and dependency figures are an **apportionment** rather than a measurement: Vite emits one chunk containing React and this project's code, and rollup's `renderedLength` is pre-minification, so the emitted chunk size is split by the rendered ratio. Exact enough to notice a dependency arriving, wrong tool for shaving bytes, and labelled as an apportionment everywhere it is printed. And the budget is enforced against **`dist/` read off disk in `closeBundle`** rather than against the rollup bundle, because `generateBundle` cannot see `index.html` or anything copied from `public/`, which is 3.78 kB of real shipped artifact today.
+
+The failure names the category and says to raise the number with a reason rather than delete the guard. Proved to fire: the accidental first failure above was exactly that, on `dependencies`.
+
+### Step 2, needsSourceGate against the artifact CI actually builds. Proved in CI
+
+Stage 1 proved this gate locally. Step 2 asks for it in CI, and asking for that is right, because a plugin that fires on a developer's machine and not on the runner would be worth nothing.
+
+A scratch branch, `probe/ci-needs-source`, carried one `{ kind: 'needs-source' }` badge on `ABOUT.heading` and nothing else different. Run 31335469986:
+
+```
+  Typecheck                          success
+  Lint                               success
+  Test                               success
+  Build                              FAILURE      <- needsSourceGate
+  Simulation harness, toy pathway    skipped
+  Simulation harness, act 1          skipped
+  Offline progress validation sweep  skipped
+  Node determinism reference         skipped
+  Cache browser engines              skipped
+  Install browser engines            skipped
+  Cross-engine determinism           skipped
+  ---
+  Deploy                             SKIPPED
+```
+
+**The last line is the one worth having.** It is not what step 2 asked for and it is the stronger result: **the deploy job did not run, because `needs: guards` refused to let it.** So stage 3's step 6 claim is not an argument about YAML any more. A build the guards rejected was demonstrably unable to reach the deploy path.
+
+Branch deleted, local and remote. The tree is clean of it and `npm run build` is green again.
+
+### Step 3, source maps ship
+
+**Decided: yes, and the reasoning is the reasoning that already made saves readable.** docs/SAVE_SCHEMA.md Part 4 exports plain readable JSON on the grounds that there is nothing to protect. docs/PILLARS.md success condition 3 is that somebody with a biochemistry background reviews this and finds no error, and **that person cannot review minified output.** A game whose whole claim is that its economy is real and checkable has an argument for shipping the means to check it.
+
+They cost a player nothing. A `.map` is fetched only when devtools are open, so it is not part of what anybody downloads to play, which is why the budget counts them in their own unbudgeted category rather than either hiding them or letting 1.68 MB blow a ceiling that exists to measure download weight.
+
+### Step 4, a real build id
+
+`meta.buildId` has existed since V4 and **has never held anything useful**: `src/save/meta.ts` falls back to the Vite mode, so every save ever written says `production` or `test`. The entire stated purpose of the field is that a player-submitted save says which build produced it, and it could not.
+
+It is now the short commit SHA, with `-dirty` appended when the tree is not clean. Verified in the emitted bundle: this build carries `7485832-dirty`, and `VITE_BUILD_ID` is read through `import.meta.env` exactly as `meta.ts` already expected. **No change to `src/save/meta.ts` was needed**; the value is set in `vite.config.ts` from git, so it cannot drift from the commit. It falls back to `unknown` rather than throwing, because building from a tarball with no git history is legitimate.
+
+**And a guard, because the temptation is new.** `src/save/__tests__/buildId.test.ts`. Nobody branches on a constant, so while the field held `production` there was nothing to protect; making it meaningful is what makes it tempting. Four assertions: the source tree was found so nothing is vacuous, the id is a non-empty string, the field is mentioned only in the schema, the codec, `meta.ts`, the writer and the fixture, and **it is never compared, matched or switched on anywhere**, across seven patterns covering `===`, `!==`, `startsWith`/`includes`/`match`, `switch` and `if`.
+
+The mention check excludes `__tests__` and the branching check does not, which is the split that matters: three existing tests legitimately construct whole saves and therefore write the field, and requiring each to be listed would make this a file inventory that fails whenever somebody adds a fixture, which is a guard people delete.
+
+Proved to fire: an `if (buildId === 'v4-fixture')` added to `codec.ts` turned it red, naming two of the seven patterns. Reverted.
+
+### Step 5, the smoke test. Written, wired, and NOT RUN against a deployment
+
+`e2e/smoke.spec.ts`. Loads the origin, asserts a 200, waits for the pathway to render, runs four seconds of game time, forces the autosave, and asserts a `schemaVersion` 1 save with non-zero elapsed time, non-zero ATP and non-zero pyruvate, no console errors, no page errors and no failed requests. It also asserts `meta.buildId` is not `production`, which is the check that would catch a deploy build that lost its git history and quietly went back to the useless value.
+
+Wired into the deploy job behind the same credential check as the deploy itself.
+
+**It skips itself when `SMOKE_URL` is empty**, deliberately, because a smoke test with no deployment is not a passing smoke test and must not be able to look like one in a green run.
+
+**It has never run against a live origin, because there is no live origin.** What was verified is that the instrument works rather than that the deployment does: pointed at the local artifact server it passes in 5.1s, including the `buildId` assertion. Pointed at nothing it skips and says why. Both of those are facts about the spec. Neither is a fact about Cloudflare.
+
+### Verify
+
+`typecheck` 15s, `lint` 52s, `test` 23s, `build` green with the budget table printed, all exit 0. **632 tests across 49 files**, up from 628 across 48: four from the `buildId` guard.
+
+The bundle is unchanged by this stage except for the build id string and the source maps. Both canonical hashes unmoved.
 
 ---
 

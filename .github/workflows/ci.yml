@@ -182,3 +182,18 @@ jobs:
           echo "This is the state UPDATELOGV9.md stage 3 shipped in, deliberately."
           echo "Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as repository"
           echo "secrets to make this job publish to https://krebs.pages.dev"
+
+      # UPDATELOGV9.md stage 4 step 5. Against the live origin, because the
+      # failures it catches only exist once real hosting does: a broken asset
+      # path, a CSP the edge rewrote, a caching mistake, an upload that did not
+      # finish. It skips itself when SMOKE_URL is empty, so it cannot look like
+      # a pass when there was no deployment to test.
+      - name: Install browser engine for the smoke test
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke test the deployed origin
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        env:
+          SMOKE_URL: https://krebs.pages.dev
+        run: npx playwright test e2e/smoke.spec.ts --project=chromium
