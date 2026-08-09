@@ -192,9 +192,24 @@ describe('the marker reads the act and nothing else', () => {
     const cold = render(0);
     const aged = render(200_000);
 
+    /**
+     * The beast's own subtree is excised before comparing, added by
+     * UPDATELOGV12.md stage 3.
+     *
+     * The beast sits on the marker row because DESIGN.md puts it there, and it
+     * IS a readout of the running cell, so including it would make this
+     * assertion fail for the one reason that is correct. What the assertion is
+     * about is that nothing continuous is wired to a POSITION on this column,
+     * and the beast is a picture inside a card rather than an input to any
+     * position. Its own discreteness is asserted in `beast.test.tsx`, where it
+     * belongs, against a measured transition count.
+     */
+    const withoutBeast = (markup: string): string =>
+      markup.replace(/<span role="img"[\s\S]*?<\/span>/g, '<beast/>');
+
     const split = (markup: string): [string, string] => {
       const at = markup.lastIndexOf('<i>');
-      return [markup.slice(0, at), markup.slice(at)];
+      return [withoutBeast(markup.slice(0, at)), markup.slice(at)];
     };
     const [coldTimeline, coldProbe] = split(cold);
     const [agedTimeline, agedProbe] = split(aged);

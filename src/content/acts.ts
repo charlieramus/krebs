@@ -100,6 +100,24 @@ export interface ActCreateOptions {
 }
 
 /**
+ * How a cell is doing, in the four readings DESIGN.md gives the beast.
+ *
+ * A STATE OF A CELL RATHER THAN A NAME FOR A PICTURE, WHICH IS WHY IT CAN LIVE
+ * HERE. `src/content/` may never import the interface, and this union does not:
+ * lively is high throughput, sluggish is throughput near zero, sick is active
+ * damage and powered is a cell with a compartment. Those are facts about a
+ * simulation. What they look like is DESIGN.md's problem and the beast's.
+ *
+ * FOUR NAMES, AND ACT 1 CAN ONLY EVER RETURN TWO OF THEM. That is not a gap.
+ * `sick` needs damage and `powered` needs a compartment, and act 1 has neither.
+ * The union is complete because DESIGN.md named all four on 2026-07-28, and act
+ * 2 and act 3 implement their own `vitality` rather than widening this type.
+ * `acts.test.ts` asserts act 1 cannot reach either, so nothing can quietly start
+ * drawing a damaged cell in an act that has no damage model.
+ */
+export type ActVitality = 'lively' | 'sluggish' | 'sick' | 'powered';
+
+/**
  * One act, as everything outside `src/content/<act>/` needs to see it.
  *
  * Every member below has a caller in `src/ui/runtime.ts` today. Read the header
@@ -187,6 +205,36 @@ export interface ActDescriptor {
    */
   isWalled(amounts: Float64Array, appliedFlux: Float64Array, stoppedFlux: number): boolean;
 
+  /* ===== How the cell is doing ===== */
+
+  /**
+   * How this act's cell is doing, as the act itself judges it.
+   *
+   * A PREDICATE ON THE SAME TERMS AS `isWalled`, AND FOR THE SAME REASON. The
+   * beast is a readout of this and it must not know act 1's chemistry. A
+   * descriptor field called `livelyPayoffFlux` would be act 1's answer wearing a
+   * general name, and act 2's Sick state is not a flux at all. So the act
+   * answers the question and the interface draws the answer.
+   *
+   * WHAT IT READS IS GROSS THROUGHPUT, WHICH IS THE POINT. Every pool card shows
+   * a net rate by construction, and a net rate is genuinely the same 0.00
+   * whether a lot is happening steadily or nothing is happening at all. Those
+   * are the two situations DESIGN.md open question 7 asks about, and gross
+   * throughput is the quantity that differs between them.
+   *
+   * `previous` is passed so an act can apply hysteresis if it needs it. Act 1
+   * measured that it does not: see the comment on its implementation.
+   *
+   * Takes the arrays rather than the snapshot, and closes over indices resolved
+   * once, so it allocates nothing and can be called from the per-frame path.
+   */
+  vitality(
+    amounts: Float64Array,
+    appliedFlux: Float64Array,
+    stoppedFlux: number,
+    previous: ActVitality,
+  ): ActVitality;
+
   /* ===== The save mapping ===== */
 
   capture(
@@ -270,6 +318,43 @@ export const ACT1: ActDescriptor = {
       (appliedFlux[ACT1_UPTAKE] as number) >= stoppedFlux &&
       (amounts[ACT1_NAD] as number) < ACT1_WALLED_NAD
     );
+  },
+
+  /**
+   * Act 1 has two readings and the threshold is one it already owns.
+   *
+   * `stoppedFlux` is `ZERO_FLUX_THRESHOLD`, the number the pathway arrows use to
+   * decide whether to draw themselves as moving, handed down by the runtime and
+   * already shared with the stall detector for the reason `runtime.ts` gives:
+   * if the detector and the arrows disagreed, the coach mark could open while
+   * the arrows still looked alive. **The beast joins that agreement rather than
+   * bringing a number of its own.** One threshold, one reading, and no third
+   * value that could drift from the other two. It is also why this log adds no
+   * docs/ECONOMY.md row: there is no new tuned scalar to owe one.
+   *
+   * The payoff phase is act 1's gross throughput, because it is the step that
+   * makes the ATP. Uptake is deliberately not read: a cell importing glucose it
+   * cannot process is a walled cell, and the whole point of this reading is that
+   * it separates working from stopped rather than busy from idle.
+   *
+   * NO HYSTERESIS, AND THAT IS A MEASUREMENT RATHER THAN AN OMISSION. A discrete
+   * state driven by a continuous quantity normally needs a dead band, or the
+   * quantity wandering across the threshold re-renders React at whatever rate it
+   * wanders. Measured over a full 70 game-minute act in
+   * `beastPacing.report.test.ts`: a bare threshold produces **3 transitions
+   * across 84000 frames**, and a dead band with the off level at half the on
+   * level produces exactly the same 3. Act 1 does not wander across this line,
+   * because the wall takes the payoff flux from about 7 to 0 inside a couple of
+   * ticks and fermentation brings it back the same way. `previous` is in the
+   * signature so an act whose measurement comes out differently can use it
+   * without changing every caller, and the report test fails if the two counts
+   * ever disagree.
+   */
+  vitality(_amounts: Float64Array, appliedFlux: Float64Array, stoppedFlux: number): ActVitality {
+    // `previous` is deliberately not declared. A shorter parameter list still
+    // satisfies the interface, and leaving it off is the clearest possible
+    // statement that act 1's reading does not depend on its own last answer.
+    return (appliedFlux[ACT1_PAYOFF] as number) >= stoppedFlux ? 'lively' : 'sluggish';
   },
 
   capture: captureAct1,

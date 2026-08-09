@@ -14,13 +14,22 @@
  * sliding along a bar.
  *
  * ---------------------------------------------------------------------------
- * THIS COMPONENT NEVER SEES THE SIMULATION
+ * NOTHING CONTINUOUS IS WIRED TO POSITION
  * ---------------------------------------------------------------------------
  *
- * No `useLive`, no `useLiveNode`, no `useSnapshotEffect`, no `subscribe`. The
- * only runtime value it reads is `useAct()`, which changes when the act changes
- * and at no other time, so the marker is discrete by construction rather than by
- * discipline.
+ * No `useLive`, no `useLiveNode`, no `useSnapshotEffect`, no `subscribe` in this
+ * file. The only runtime value it reads is `useAct()`, which changes when the
+ * act changes and at no other time, so the marker is discrete by construction
+ * rather than by discipline.
+ *
+ * THE ONE EXCEPTION IS THE BEAST AND IT IS NOT AN EXCEPTION TO THIS RULE.
+ * UPDATELOGV12.md stage 3 puts the beast on the marker row, where DESIGN.md
+ * puts it, and the beast is a readout of the running cell. It is four discrete
+ * states that change twice across a whole act, it is a picture inside a card
+ * rather than an input to any position on this column, and it carries its own
+ * assertions in `beast.test.tsx`. Nothing about where the marker sits depends on
+ * it, which is why the identity assertion below compares the column with the
+ * beast's own subtree excised rather than including it.
  *
  * Two reasons and both are load-bearing. A marker that slides with cumulative
  * ATP or elapsed time is a progress bar whatever the art looks like, and
@@ -56,6 +65,7 @@
 
 import { useId } from 'react';
 import { Badge } from './Badge';
+import { Beast } from './Beast';
 import { Card } from './Card';
 import { Pill } from './Pill';
 import { STOP_FIGURES } from '../art';
@@ -94,8 +104,17 @@ function Spine({ stop, here }: { stop: TimelineStop; here: boolean }) {
         </>
       ) : here ? (
         /* The marker. A ring rather than a bigger dot, so it reads as a position
-           on the column rather than as a heavier stop. The beast goes here in
-           stage 3; DESIGN.md gives the marker the beast in its current state. */
+           on the column rather than as a heavier stop.
+
+           THE BEAST IS ON THE CARD RATHER THAN ON THE SPINE, and that is a
+           deviation from DESIGN.md worth stating. DESIGN.md marks the current
+           position with "the beast in its current state and a You are here
+           label". The spine gutter is 20px wide, and a beast at 20px is a smudge
+           whose posture, eyes and mouth are the second channel and are all
+           unreadable. So the ring holds the position, which is what a spine is
+           for, and the beast sits on the card at 44px, which is what a drawing
+           needs. Both are on the marker row and the player reads them as one
+           mark. */
         <div
           className="absolute left-1/2 h-[18px] w-[18px] -translate-x-1/2 rounded-pill border-ink bg-white"
           style={{ top: NODE_TOP, borderWidth: 'var(--outline-card)', marginTop: '-4px' }}
@@ -154,6 +173,15 @@ function Stop({ stop, here }: { stop: TimelineStop; here: boolean }) {
             </span>
           </span>
         </div>
+
+        {here ? (
+          /* DESIGN.md: the current position is marked with the beast in its
+             current state. It is the same row as the You are here pill below,
+             so the two read as one mark. */
+          <div className="mt-1 flex items-center justify-center">
+            <Beast />
+          </div>
+        ) : null}
 
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
           <Badge badge={content.badge} />
