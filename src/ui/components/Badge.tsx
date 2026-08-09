@@ -41,6 +41,8 @@
  */
 
 import { Pill } from './Pill';
+import { useOpenProvenance } from './ProvenanceContext';
+import { openLabel } from '../content/provenance';
 
 export type BadgeSpec =
   /** Traceable to a document. A biochemist can check it. */
@@ -81,6 +83,19 @@ export function tuned(reason: string): BadgeSpec {
 }
 
 /**
+ * Chosen for pacing, and it names the docs/ECONOMY.md row it owes.
+ *
+ * Added by UPDATELOGV12.md stage 4, and the field it fills was shaped by V3 for
+ * exactly this and had never been used by anything. **Not a fifth badge kind**:
+ * it is the same Tuned pill and the same union member, with the optional field
+ * populated. What it buys is that provenance-on-click can open the row, and only
+ * the row knows whether the number is a DEPARTURE or UNSOURCED.
+ */
+export function tunedRow(reason: string, divergenceRow: string): BadgeSpec {
+  return { kind: 'tuned', reason, divergenceRow };
+}
+
+/**
  * The development-only yellow, and the one colour in the interface that is
  * deliberately NOT a design token.
  *
@@ -105,32 +120,52 @@ export function badgeTrace(badge: BadgeSpec): string {
   return 'UNSOURCED. This must not reach a release build.';
 }
 
+/**
+ * THE BADGE IS THE AFFORDANCE. UPDATELOGV12.md stage 4.
+ *
+ * Provenance-on-click opens from the badge rather than from a separate control,
+ * because the badge is already the mark that says provenance was declared and
+ * it already sits beside every figure in the game. One component change gives
+ * the feature complete coverage with no edit at any call site.
+ *
+ * A BUTTON ONLY WHERE SOMETHING IS OFFERING TO ANSWER. With no
+ * `ProvenanceProvider` above it this is exactly the span it has always been, so
+ * every existing assertion about badges is untouched and a badge inside a
+ * screenshot harness does not become a control.
+ *
+ * The accessible name keeps the visible word inside it, so the label is still
+ * contained in the name.
+ */
+function badgePill(word: string, background: string, className: string, trace: string) {
+  return (
+    <Pill background={background} className={className} title={trace}>
+      {word}
+    </Pill>
+  );
+}
+
 export function Badge({ badge, className = '' }: { badge: BadgeSpec; className?: string }) {
   const trace = badgeTrace(badge);
+  const open = useOpenProvenance();
 
-  if (badge.kind === 'sourced') {
+  const wrap = (word: string, background: string) => {
+    const pill = badgePill(word, background, className, trace);
+    if (open === null) return pill;
     return (
-      <Pill background="var(--color-gain)" className={className} title={trace}>
-        Sourced
-      </Pill>
+      <button
+        type="button"
+        aria-label={openLabel(word).text}
+        onClick={() => open(badge)}
+        className="rounded-pill align-middle"
+      >
+        {pill}
+      </button>
     );
-  }
+  };
 
-  if (badge.kind === 'tuned') {
-    return (
-      <Pill background="var(--color-atp)" className={className} title={trace}>
-        Tuned
-      </Pill>
-    );
-  }
-
-  if (badge.kind === 'contested') {
-    return (
-      <Pill background="var(--color-lilac)" className={className} title={trace}>
-        Contested
-      </Pill>
-    );
-  }
+  if (badge.kind === 'sourced') return wrap('Sourced', 'var(--color-gain)');
+  if (badge.kind === 'tuned') return wrap('Tuned', 'var(--color-atp)');
+  if (badge.kind === 'contested') return wrap('Contested', 'var(--color-lilac)');
 
   // Reached only by the remaining union member. `badge` is narrowed to it here
   // and is deliberately not read, so the discriminant literal never appears in

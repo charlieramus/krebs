@@ -45,9 +45,11 @@ import { PoolRail } from './ui/components/PoolRail';
 import { SavePanel } from './ui/components/SavePanel';
 import { TeachingPanel, TeachingPanelProvider } from './ui/components/TeachingPanel';
 import { Timeline } from './ui/components/Timeline';
+import { ProvenanceProvider } from './ui/components/ProvenanceContext';
+import { ProvenancePanel } from './ui/components/ProvenancePanel';
 import { UnlockShelf } from './ui/components/UnlockShelf';
 import { TopBar } from './ui/components/TopBar';
-import { YIELD_PANEL } from './ui/content';
+import { LANDMARKS, provenanceFor, YIELD_PANEL, type Provenance } from './ui/content';
 import { OFFLINE_REPORT_THRESHOLD_MS } from './ui/tuning';
 import { scenarioFromLocation } from './ui/scenario';
 
@@ -96,6 +98,17 @@ function ActScreen() {
   const [boundary, setBoundary] = useState(false);
   const boundaryFired = useRef(false);
 
+  /**
+   * PROVENANCE ON CLICK. UPDATELOGV12.md stage 4.
+   *
+   * One panel, owned here for the reason the teaching panel is: the affordance
+   * is on every badge in the tree and there is one surface for all of them. It
+   * does not exist until the player asks, which is what makes "it does not take
+   * focus unless the player asked for it" true by construction rather than by a
+   * rule somebody has to remember.
+   */
+  const [provenance, setProvenance] = useState<Provenance | null>(null);
+
   useSnapshotEffect((snapshot) => {
     if (boundaryFired.current) return;
     if (!snapshot.actComplete) return;
@@ -120,7 +133,10 @@ function ActScreen() {
     // The NAD+ coach mark fires automatically on the wall, which arrives about
     // three seconds in, so on a fresh run it would open underneath the first run
     // card and spend its one firing unseen. See Overlay.tsx.
-    <OverlayOpenProvider open={firstRun || about || panel || offlineReturn || boundary}>
+    <OverlayOpenProvider
+      open={firstRun || about || panel || offlineReturn || boundary || provenance !== null}
+    >
+      <ProvenanceProvider onOpen={(badge, measured) => setProvenance(provenanceFor(badge, measured))}>
       <TeachingPanelProvider onOpen={() => setPanel(true)}>
         {/*
           THE TOP BAR IS A SIBLING OF main, NOT A CHILD OF IT. UPDATELOGV7.md
@@ -134,6 +150,27 @@ function ActScreen() {
           <TopBar onOpenAbout={() => setAbout(true)} />
 
           <main>
+            {/*
+              THE SKIP LINK. UPDATELOGV12.md stage 4, and UPDATELOGV7.md stage 3
+              step 5 asked for it first.
+
+              V7 declined and was right to: it measured three tab stops in the
+              pool rail and called a skip link over three stops more furniture
+              than it saves. Provenance-on-click inverts that argument, because
+              every badge becomes an affordance and the timeline plus the rail
+              are 21 stops before the shelf.
+
+              Hidden until focused, so it costs a sighted pointer user nothing
+              and is the first thing a keyboard user meets.
+            */}
+            <a
+              href="#pathway-column"
+              className="sr-only focus:not-sr-only focus:mx-8 focus:mb-2 focus:inline-block focus:rounded-button focus:border-ink focus:bg-white focus:px-3 focus:py-1 focus:text-label focus:font-body focus:font-extrabold focus:uppercase focus:tracking-label"
+              style={{ borderWidth: 'var(--outline-pill)' }}
+            >
+              {LANDMARKS.skip.text}
+            </a>
+
             {/*
               THREE COLUMNS, AND THE TIMELINE IS THE FIRST OF THEM.
               UPDATELOGV12.md stage 2 step 4.
@@ -168,7 +205,7 @@ function ActScreen() {
 
               <PoolRail />
 
-              <div className="flex min-w-0 flex-col gap-4">
+              <div id="pathway-column" tabIndex={-1} className="flex min-w-0 flex-col gap-4">
                 <PathwayCard />
                 <UnlockShelf />
                 <SavePanel />
@@ -196,7 +233,13 @@ function ActScreen() {
         ) : null}
         {about ? <About onDismiss={() => setAbout(false)} /> : null}
         {panel ? <TeachingPanel content={YIELD_PANEL} onDismiss={() => setPanel(false)} /> : null}
+        {/* Last, so it opens over whatever the player was reading when they
+            asked, and Overlay returns focus to the affordance on close. */}
+        {provenance === null ? null : (
+          <ProvenancePanel content={provenance} onDismiss={() => setProvenance(null)} />
+        )}
       </TeachingPanelProvider>
+      </ProvenanceProvider>
     </OverlayOpenProvider>
   );
 }

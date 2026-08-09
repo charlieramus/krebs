@@ -72,8 +72,12 @@ describe('the game is operable without a pointer', () => {
     // tabIndex and finding none. A real button needs no tabIndex.
     const stops = tabStops(SCREEN);
     expect(stops.length).toBeGreaterThan(0);
+    // `a` joins the list in UPDATELOGV12.md stage 4 and only because a skip link
+    // arrived. An anchor with an href is a native control and the right element
+    // for in-page navigation, which is the one thing on this screen that is
+    // navigation rather than an action.
     for (const stop of stops) {
-      expect(['button', 'input']).toContain(stop.tag);
+      expect(['button', 'input', 'a']).toContain(stop.tag);
     }
   });
 
@@ -145,14 +149,30 @@ describe('the game is operable without a pointer', () => {
     expect(first).toBeLessThan(SCREEN.indexOf('<nav'));
   });
 
-  it('keeps the pool rail cheap to traverse, which is why there is no skip link', () => {
-    // UPDATELOGV7.md stage 3 step 5 asks for a skip link past eight pool cards.
-    // There are eight cards and THREE stops, because a pool card is not
-    // focusable and only three carry an info affordance. A skip link over three
-    // stops is more furniture than it saves. If a later log makes pool cards
-    // interactive this fails, which is the right moment to revisit it.
+  it('has a skip link, because the rail stopped being cheap to traverse', () => {
+    /**
+     * THIS ASSERTION USED TO SAY THE OPPOSITE AND THE INVERSION IS THE POINT.
+     *
+     * UPDATELOGV7.md stage 3 step 5 asked for a skip link past eight pool cards.
+     * Stage 3 declined and measured why: a pool card is not focusable and only
+     * three carry an info affordance, so the rail was THREE stops and a skip
+     * link over three stops is more furniture than it saves. It also wrote down
+     * the condition for revisiting: "if a later log makes pool cards interactive
+     * this fails, which is the right moment to revisit it."
+     *
+     * UPDATELOGV12.md stage 4 is that log. Provenance-on-click makes every badge
+     * an affordance, so the rail is 13 stops and the timeline above it is 9.
+     * V7's argument was right on its numbers and its numbers changed.
+     */
     const rail = SCREEN.slice(SCREEN.indexOf('<nav'), SCREEN.indexOf('</nav>'));
-    expect(tabStops(rail).length).toBeLessThanOrEqual(4);
+    expect(tabStops(rail).length).toBeGreaterThan(4);
+    expect(SCREEN).toContain('href="#pathway-column"');
+    expect(SCREEN).toContain('id="pathway-column"');
+    // First tab stop inside main, so it is the first thing a keyboard user meets
+    // on the way into the columns.
+    const main = SCREEN.indexOf('<main');
+    expect(SCREEN.indexOf('href="#pathway-column"')).toBeGreaterThan(main);
+    expect(SCREEN.indexOf('href="#pathway-column"')).toBeLessThan(SCREEN.indexOf('Deep time'));
   });
 
   it('leaves the file input focusable, so import is reachable at all', () => {
