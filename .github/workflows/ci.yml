@@ -26,6 +26,12 @@ jobs:
   guards:
     name: Guards
     runs-on: ubuntu-latest
+    # A green run is about a minute without the browsers and under four with
+    # them. This is not a performance budget, it is a ceiling on a hang: the
+    # first CI run of the e2e step sat there long past any plausible duration,
+    # because Playwright's generous per-test timeout multiplied by eighteen tests
+    # is most of an hour and the job had no limit of its own. A hang has to fail.
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -118,6 +124,21 @@ jobs:
 
       - name: Cross-engine determinism, and the real-browser checks
         run: npm run e2e
+
+      # The first failure of the step above could not be diagnosed, because the
+      # runner was destroyed and took everything with it. `trace: on-first-retry`
+      # in playwright.config.ts records the run; this is what makes it survive.
+      # `if: failure()` so a green run uploads nothing.
+      - name: Keep the evidence when the browser checks fail
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: ignore
 
   # =========================================================================
   # DEPLOY. UPDATELOGV9.md stage 3 step 6.

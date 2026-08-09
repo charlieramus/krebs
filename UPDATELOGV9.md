@@ -812,7 +812,143 @@ the diff scope from step 6 and the NOW.md diff summary.
 
 ## Stage 5 Report
 
-_Pending._
+### Step 1, CLAUDE.md, corrected in the opposite direction to the one this stage expected
+
+The stage says "It is true now." **It is not.** Stage 3 built the configuration and stopped at the credentials, so the sentence CLAUDE.md has carried since V1 is still false, and correcting it to name a live deployment would have replaced one false statement with a more specific one.
+
+What it says now: configured for Cloudflare Pages at krebs.pages.dev and **not yet deployed**, that the claim was never true from V1 to V9, that the origin is permanent once anything ships because localStorage is origin-scoped with a pointer to the THE KEYS block in `src/save/storage.ts`, and that **hard rule 6's "after launch" has not begun**, so `TICK_RATE_HZ` is still movable. It also corrects the stack line, which did not mention Playwright.
+
+**57 lines**, against the file's own "roughly 100" ceiling. Nothing needed moving out to fit.
+
+### Step 2, the eight guards, and five of them proved to go red in CI
+
+The count is eight, as the stage predicted: six inherited, plus the bundle budget and the cross-engine hash. The full table with what each protects and where it comes from is now in NOW.md under "What CI enforces", which is where the stage asked for it.
+
+**What is worth reporting here is the proving.** Stage 1 proved all six inherited guards fail locally. This stage and stage 4 went further and proved five of the eight fail **in CI**, on two scratch branches that were pushed, observed and deleted:
+
+```
+  run 31335469986   Build FAILED    needsSourceGate
+                    Deploy SKIPPED
+  run 31335694697   Test  FAILED    DESIGN.md colour, divergence rows,
+                                    accessibility channel, buildId branching
+                    Deploy SKIPPED
+```
+
+**One probe carried four guards at once**, because they all fail inside `npm test`, which runs every test and reports every failure rather than stopping at the first.
+
+**And a finding from the guard that could not be probed that way.** `schemaVersionGate.test.ts` cannot be tripped in CI by bumping `SCHEMA_VERSION`, because the literal type `1` appears in three places and `tsc` fails before the suite runs. **So in CI hard rule 7 is defended twice and the outer defence is the type system.** The guard is what catches a bump that typechecks, which is the interesting case anyway. Worth knowing rather than worth fixing.
+
+The cross-engine spec has never gone red because nothing has yet made it, and the three remaining guards were proved locally with the identical command CI runs. NOW.md's table says which is which rather than implying all eight have the same pedigree.
+
+**The `Deploy SKIPPED` line appears on both runs and it is the strongest single result in this log.** Stage 3's step 6 claim stops being an argument about YAML: a build the guards rejected was demonstrably unable to reach the deploy path, twice.
+
+### Step 3, full verify
+
+```
+  typecheck          5s     lint      6s     test     29s
+  build             11s     sim       2s     sim:act1  2s
+  offline:validate  33s     probe:determinism  2s
+```
+
+All exit 0. **632 tests across 49 files**, against V8's 503 and V11's 559. The 129 added across this log are the four probe-not-shipped assertions, the four buildId assertions, and V10 and V11's tests, which were already in the tree when V9 ran out of order.
+
+**Bundle, against V8's figures.** V8 reported 263.44 kB with 81.90 kB gzipped for the JS chunk. The artifact is now **382.90 kB across every file a player downloads**, broken down as application 75.28 kB and dependencies 215.43 kB apportioned, fonts 68.86 kB and styles 19.55 kB exact. The growth from V8 is V10's three pools and reactions and V11's act registry and boundary, not this log: V9 adds a build id string and nothing else to the bundle. Source maps now ship at 1679.63 kB and are not downloaded during play.
+
+**No canonical hash moved, in any engine.** `172f83fb` and `65b43d27`, in node, Chromium, Firefox and WebKit. This log changed no simulation code and a moved hash would have meant it did.
+
+### Step 4, NOW.md
+
+Six edits. Status gained the CI result, the four-engine hash table and the fact that the game is configured and not deployed. The build state table has V9 done, dated, with "not deployed" in the status. Two new sibling sections, **"What CI enforces"** with the eight-guard table and **"What deploying will freeze"** with the reviewed list. Blocking gained an explicit statement that V9 added nothing and closed nothing, because the cross-engine measurement came back clean and the finding it existed to surface does not exist. "Open, not blocking" gained three entries: the ARM gap, the unpressed deploy button, and the wordmark badge nothing renders. And "Next, in order" no longer says V9 is unstarted.
+
+**Two things were deliberately not copied into NOW.md.** The roadmap, which points at `docs/designs/game-spine-and-four-acts.md` rather than restating it, because a roadmap in two places drifts in one of them. And the act ordering, which **is** carried here as open rather than settled, per the stage's instruction and this page's standard since V3: act 3's payoff needs oxygen and act 2 supplies it, the design doc leaves that unresolved on purpose with its price written down, and `UPDATELOGV14.md` opens with a block refusing to start until the answer is recorded in NOW.md. A roadmap entry reads as a decision and this one has not been taken.
+
+### Step 5, the act 2 oxygen constraint
+
+`docs/SIMULATION.md` Part 3, a new section between the fallback and the validation requirement. It is the only thing in this log a later log depends on, and it landed as documentation and nothing else.
+
+**The constraint as written:** any environment that changes on a schedule the player did not cause must change in discrete steps, separated by settling intervals, and the schedule must be state rather than a function of wall-clock time.
+
+**The floor is measurable rather than guessed.** `STEADY_WINDOW` is 250, so a steady state cannot be declared in fewer ticks than that, and a walled act 1 cell, the slowest settling configuration measured, takes 1120 against a `SETTLE_MAX_TICKS` of 1200. So an interval below roughly 1200 ticks, 60 game-seconds, cannot be assumed to resolve.
+
+**The reason the schedule must be state** is the reason `elapsedGameMs` exists: a wall-clock schedule advances while the tab is closed, cannot be replayed, and gives the offline path no time-to-event to compute. Part 3 step 3 already lists an oxygen concentration step as an event candidate and computing it in closed form requires the schedule to be a known function of simulated time.
+
+**What is not decided, said plainly in the document.** Step size, number of steps and total duration are act 2 balance decisions and belong in docs/ECONOMY.md with divergence rows. Hard rule 2 applies and **no number went into docs/SCIENCE.md**.
+
+**And what the constraint does not solve, named so act 2 inherits it rather than discovers it.** Act 2's second damage mechanism degrades enzyme Vmax as a function of reactive oxygen species. If that is continuous, reaction rates change continuously even with oxygen held flat, which is a second and independent reason the steady test may never pass, and quantising the environment does not touch it. The three options are written down: quantise it too, make it converge within the settle window, or accept that act 2 cannot use the analytic jump and fix the fallback first.
+
+### Step 6, diff scope
+
+Measured against `c063df7`, the commit before this log started. **`src/sim/`, `src/content/`, `src/ui/tuning.ts`, `src/save/tuning.ts`, `docs/SCIENCE.md` and `docs/ECONOMY.md` have an empty diff across the entire log.**
+
+Everything V9 added under `src/` is new files or comments:
+
+```
+  src/probe/determinismProbe.ts                 133 +    new
+  src/probe/__tests__/probeIsNotShipped.test.ts  77 +    new
+  src/probe/browser.ts                           54 +    new
+  src/probe/node.ts                              28 +    new
+  src/save/__tests__/buildId.test.ts            112 +    new
+  src/save/storage.ts                            21 +    comment only
+```
+
+The 21 lines in `storage.ts` are the origin permanence note; a check for added lines beginning with `export`, `const`, `function`, `return`, `if`, `let` or `import` returns zero.
+
+This stage's own diff is `CLAUDE.md`, `NOW.md` and `docs/SIMULATION.md` and nothing else, which is the documentation-only shape step 6 requires with step 5 as the one exception.
+
+### The full CI run, and a false alarm worth recording
+
+**Run 31335999868 on `d047eab` is green, and it is the run that carries this whole log.** Every step, in order:
+
+```
+  Set up job                          1s      Node determinism reference          1s
+  Checkout                            1s      Cache browser engines               5s
+  Set up Node                         6s      Install browser engines            28s
+  Install                             2s      Cross-engine determinism + browser 80s
+  Typecheck                           4s      ---
+  Lint                                3s      job total                       2m48s
+  Test                               12s
+  Build                               5s
+  Simulation harness, toy pathway    <1s
+  Simulation harness, act 1           1s
+  Offline progress validation sweep  16s
+```
+
+**Eighteen browser tests across three engines in 80 seconds, against 3.0 minutes locally.** The runner is faster than the development machine at this as at everything else.
+
+**The false alarm, recorded because the correction is the useful part.** While waiting on that run, the GitHub API was polled repeatedly and returned stale snapshots showing the e2e step still in progress long after it had in fact finished. Read as a hang, that produced a diagnosis of a hang, and this report briefly carried one. **It was wrong: nothing hung, and the step that was supposedly stuck had completed in 80 seconds.** The lesson is the ordinary one about instruments, and it belongs in a log whose entire subject is not trusting claims that have not been measured: a cached read is not an observation, and "no completion timestamp yet" from a cache is indistinguishable from "not completed".
+
+**Two ceilings were added on the strength of that mistaken diagnosis and they are kept, on their own merits rather than on the incident's.** `globalTimeout: 900_000` in `playwright.config.ts` and `timeout-minutes: 25` on the `guards` job.
+
+The argument for them does not depend on anything having gone wrong. The per-test timeout is a deliberately generous 180 seconds, argued in its own comment on the grounds that a tight one would produce a false red on the single measurement this log exists to take. That is right per test and unbounded in aggregate: eighteen tests times three minutes is **fifty-four minutes**, and the job had no ceiling of its own. **A generous timeout with no ceiling behind it would turn a fast systematic failure, an engine that will not launch on a runner, into a slow one.**
+
+### And then the browser step actually did fail, on the head commit, and it is not diagnosed
+
+**The commit this log ends on, `0c6b518`, is RED.** Stated here rather than left for somebody to discover, because the paragraphs above report a green run and it would be easy to read them as covering the whole log. They do not. They cover `d047eab`, which carries the identical code and test surface.
+
+```
+  run 31335999868   d047eab   Guards SUCCESS   2m48s   e2e step 80s
+  run 31336229937   0c6b518   Guards FAILURE   5m42s   e2e step 4m17s, FAILED
+```
+
+**Everything before the browser step passed on both**, at the usual times: typecheck 4s, lint 3s, test 13s, build 5s, harnesses under a second, offline sweep 17s, node determinism reference 1s, browser install 25s. The only difference between the two commits is the two ceilings above and documentation. Neither fired: 4m17s is well inside a 15 minute `globalTimeout` and a 25 minute job.
+
+**What the duration says.** 4m17s against 80s for the same work is almost exactly one test hitting the 180 second per-test timeout and the rest running normally. That points at one test hanging rather than at a broken assertion, and the candidates with long waits are the determinism spec's 150 second `waitForFunction` and the save round trip's 40 second poll.
+
+**That is inference, not diagnosis, and the difference matters.** The suite passes locally in all three engines, repeatedly, most recently at 18 passed in 1.9m immediately after this failure. `gh` is not installed and there is no authenticated route to the run logs from this session, so the actual failure text has not been read by anybody.
+
+**So the fix is aimed at the diagnosis rather than at the symptom**, because guess-fixing a failure nobody has read is how a real defect gets papered over:
+
+- **`trace: 'on-first-retry'` and `screenshot: 'only-on-failure'`.** The first failure left nothing behind: the runner was destroyed and took the report with it, so "which step" was the entire available evidence. A trace records every action, the DOM at each step and the console.
+- **An `if: failure()` artifact upload** of `playwright-report/` and `test-results/`, 14 day retention, so the trace survives the runner. Nothing is uploaded on a green run.
+- **`retries: 1` in CI only.** This is a mitigation and **not a fix**, and it is worth being precise about what it buys: Playwright reports a test that fails then passes as **`flaky`**, which is a third outcome rather than a green tick. So instability stays visible in the run output instead of either blocking the branch on a wobble or being silently swallowed.
+
+**The cross-engine result is unaffected and this should not be read as casting doubt on it.** It was measured locally in all three engines, and `d047eab` reproduced it in CI along with the node reference hash. What is in question is the reliability of the harness in one environment, not the four hashes it produced.
+
+**This is left open rather than closed.** The next failure will carry a trace, and that is the point at which somebody can say what it is.
+
+### One thing this log leaves that is not in any step
+
+**The deploy button.** Everything around it is built, verified and gated. Adding `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository secrets and pushing to `main` publishes to krebs.pages.dev, runs the smoke test against the live origin, and converts the freeze list from a reviewed list into a set of obligations. Until then the game runs only where somebody builds it.
 
 ---
 

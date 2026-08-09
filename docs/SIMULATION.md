@@ -139,6 +139,24 @@ If steady state is not reached within the settle window, the configuration is os
 
 That flag is a bug signal, not a normal condition. A well-tuned configuration should always settle. Surface the count in a development overlay.
 
+## Constraint on environmental schedules
+
+Added 2026-08-09 by UPDATELOGV9.md stage 5. It was scheduled to be written while V8 was live and that window closed without it. It is written here, before act 2 exists, because a constraint written by the log that has to satisfy it is not a constraint.
+
+**Any environment that changes on a schedule the player did not cause must change in discrete steps, separated by settling intervals, and the schedule must be state rather than a function of wall-clock time.**
+
+The problem it exists to prevent is specific. Everything above builds offline progress on the system reaching steady state. Act 2 raises oxygen on a schedule the player neither causes nor controls, and an environment that changes continuously never settles, so the detector in step 2 never declares. Every absence in act 2 then falls through to the fallback, and the fallback is measured to credit exactly zero ATP from every act 1 configuration at every window length, because a one-second step asks the preparatory phase for twenty times what a tick asks against an adenylate pool of 40 and ATP goes to the floor on the first step. A player who leaves act 2 for an hour would come back to a dead cell. See NOW.md blocking item 6.
+
+This is not a new argument. V5 chose more unlocks over a varying environment for exactly this reason and said so at the time.
+
+The interval has a measurable floor rather than a guessed one, from constants that already exist. `STEADY_WINDOW` is 250 ticks, so a steady state cannot be declared in fewer than that. A walled act 1 cell, which is the slowest settling configuration measured, takes 1120 ticks against a `SETTLE_MAX_TICKS` of 1200. So a settling interval shorter than about 1200 ticks, which is 60 game-seconds, cannot be assumed to resolve, and one comfortably above it can.
+
+The schedule must be a function of elapsed game time held in the save rather than of the wall clock, for the same reason `elapsedGameMs` exists at all. A schedule read off the wall clock advances while the tab is closed and cannot be replayed, which breaks determinism and makes the offline path unable to compute a time-to-event for the next step. Part 3 step 3 already lists "an environmental schedule boundary such as an oxygen concentration step in act 2" as an event candidate, and computing time-to-event in closed form requires the schedule to be a known function of simulated time.
+
+**What is not decided here.** The step size, the number of steps and the total duration of the oxygen rise are act 2's balance decisions. They belong in docs/ECONOMY.md with divergence rows when act 2 has them. This section fixes the shape of the schedule and nothing about its values, and per CLAUDE.md hard rule 2 it puts no number into docs/SCIENCE.md.
+
+**What this does not solve, named so act 2 inherits it rather than discovers it.** Act 2's second damage mechanism degrades enzyme Vmax as a function of reactive oxygen species, and if that degradation is continuous then reaction rates change continuously even while oxygen is held flat. That is a second and independent reason the steady test may never pass, and quantising the environment does not touch it. Act 2 has to answer it separately, and the same three options apply: quantise it too, make it converge to a fixed point within the settle window, or accept that act 2 cannot use the analytic jump and fix the fallback first.
+
 ## Validation requirement
 
 Write a test that runs the same scenario two ways, once by full tick-by-tick replay and once through the offline path, and asserts the results agree within tolerance. Run it across randomized durations from one minute to twenty-four hours.
