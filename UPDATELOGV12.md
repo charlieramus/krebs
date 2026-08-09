@@ -383,7 +383,214 @@ once in total, and the bundle delta.
 
 ## Stage 2 Report
 
-_Pending._
+The timeline is on screen with the act, always. Seven stops, a discrete marker, the first seven hand-drawn assets in the project's history and the guard that governs them. 707 tests across 51 files, up from V11's 632 across 49. `tsc --noEmit` clean, `eslint .` clean, production build green and inside every budget line.
+
+```
+  src/ui/timeline.ts                the seven stops, the admission rule, the
+                                    marker mapping. No string in it
+  src/ui/content/timeline.ts        every player-facing word, with its badge
+  src/ui/art/                       README, ArtFrame and seven figures
+  src/ui/components/Timeline.tsx    the component
+  src/ui/__tests__/timeline.test.tsx  19 tests
+  src/ui/__tests__/art.test.ts        56 tests, the seventh guard
+  src/App.tsx                       two columns to three
+  src/ui/components/TopBar.tsx      the compact wordmark, stage 1's decision
+  src/index.css                     --text-wordmark-compact
+  src/ui/components/Pill.tsx        an aria-label prop, for the marker
+  src/ui/__tests__/keyboard.test.tsx  reading order, now five regions
+```
+
+### 1. Seven stops, sourced
+
+Every one traces to `docs/SCIENCE.md` Part 6 except the present, which is not a claim about the record. The GOE stop keeps banded iron. The eukaryote stop is early aerobic eukaryotes, framed by metabolism.
+
+```
+  stop             date               badge      surface   figure
+  ---------------  -----------------  ---------  --------  ----------------
+  now              Now                Tuned      white     ModernCell
+  eukaryotes       ~1.7 to 1.5 Ga     Sourced    mint      AerobicEukaryote
+  endosymbiosis    ~2.2 to 1.5 Ga     Contested  lilac     Endosymbiosis
+  goe              ~2.4 to 2.0 Ga     Sourced    pink      BandedIron
+  photosynthesis   unresolved         Contested  lilac     Cyanobacterium
+  mats             ~3.48 to 3.43 Ga   Sourced    sky       MicrobialMat
+  vents            hypothesis         Contested  lilac     VentChimney
+```
+
+**No `Needs source` badge anywhere on the view**, asserted in the suite and enforced against the emitted bundle by `needsSourceGate`, which the production build ran clean.
+
+**One badge per stop, and it is not a softening.** `docs/CONTENT_STYLE.md` Part 4 rule 2 says a paragraph carrying two claims *whose provenance differs* is two entries with two badges. On this view the provenance does not differ inside a stop: the date and the one-line reading come from the same Part 6 entry, and where the date is contested the reading is contested by the same argument. The 2.7 Ga figure and the sentence saying when it began is not known are one finding, not two.
+
+**The citations resolve against the document rather than against a list**, the same mechanism `teaching.test.tsx` uses on coach mark source rows. Six of the seven carry a `docs/SCIENCE.md Part N` citation and the test asserts the count is six, so the seventh cannot quietly acquire one or lose it.
+
+### 2. The marker, and the assertion that nearly did not work
+
+`markerStopId(act: number)` is the whole mapping. **Its signature is the proof**: it takes an act number and nothing else, so it cannot read cumulative ATP, elapsed time or a pool level, because it is not given one. Act 1 to mats, 2 to goe, 3 to endosymbiosis, 4 to eukaryotes, and null rather than a wrong stop for anything else.
+
+**The no-re-render assertion is made twice, from two directions.**
+
+```
+  markup identity   render the Timeline through a provider at tick 0 and at
+                    200000 ticks and compare byte for byte, with a probe in
+                    the same tree printing snapshot.tickCount so a difference
+                    is provably visible to the harness
+  source-level      the module names none of useLive, useLiveNode,
+                    useSnapshotEffect or .subscribe(, guard-the-guarded
+                    against PoolCard.tsx, which uses them
+```
+
+**The first version of the markup test could not have failed, and the probe is what found that.** It built a runtime, drove it 200000 frames, then rendered through `RuntimeProvider`, which builds its **own** runtime and ignores the one the test aged. Both sides were a fresh cell at tick 0. Planting `useRuntime().snapshot.tickCount` into the component's heading passed it. The fix is a `Driver` component rendered inside the provider, which advances the runtime the tree is actually rendering against, and React renders children in order so it lands before `Timeline`.
+
+Re-probed after the fix and it fails as it should:
+
+```
+  AssertionError: expected '<section aria-labelledby="_R_2_" clas...' to be
+                  '<section aria-labelledby="_R_2_" clas...'
+  Expected: ...text-ink">Deep time0</h2>...
+  Received: ...text-ink">Deep time4001</h2>...
+```
+
+**The two assertions are complementary rather than redundant, which the probe also demonstrated.** The planted violation used `useRuntime().snapshot` directly, which the source-level check does not name and did not catch. The markup check did. A source scan cannot enumerate every route to a snapshot; a markup comparison does not care which route was taken.
+
+### 3. The admission rule, and three stops worth reporting
+
+Written in `src/ui/timeline.ts`, in the file somebody edits when they want to add a stop, as four things that disqualify a candidate: it is on the list for being an interesting looking organism, its claim is about what a cell looked like rather than what it did, the metabolism it names connects to no pathway the player runs, or it needs a date the record does not support. A test asserts the rule is still in that file and still names the two stops Part 6 rejected under it.
+
+Checked against all seven. Four pass cleanly: vents on chemiosmosis, photosynthesis on oxygen production, GOE because banded iron is the physical record of biological oxygen meeting dissolved iron, endosymbiosis because it is the act 3 transition. **Three do not pass cleanly and all three are reported rather than waved through.**
+
+```
+  eukaryotes   PASSES ONLY ON THE REFRAME. docs/SCIENCE.md Part 6 stop 6 says
+               it "fails as drafted, passes if reframed". Eukaryotic identity
+               in the Proterozoic record is inferred from cell size, wall and
+               ornamentation, and every one of those is morphology. It is on
+               the view because the same fossils sit almost entirely in
+               oxygenated bottom water. The figure still draws the
+               ornamentation, because that is what was found, and the card
+               carries the oxygen dependency, because that is why it counts
+
+  mats         NARROW. The mats themselves are morphology. What earns the
+               place is the anoxygenic phototrophy on the card, and Part 6 is
+               explicit that no physiological inference follows from
+               stromatolite structure on its own
+
+  now          DOES NOT PASS, AND IS NOT MEANT TO. It is not a claim about the
+               record at all. It is where the cell the player is running ends
+               up, so it carries a Tuned badge saying it is a statement about
+               this build, and it is the one stop with no Part 6 entry behind
+               it. Reported as a deliberate exemption rather than a pass,
+               because a reader counting seven sourced stops would be counting
+               one too many
+```
+
+### 4. The layout, and what gave
+
+**The timeline is the first of three columns.** Left to right is where am I, what is happening, why: deep time, the pools, the pathway. `lg` gives it 14rem and `xl` 16rem, and the column is sticky and height-bounded so it scrolls inside itself rather than making the page taller than the act.
+
+**What paid for it, in order of size.** Stage 1's wordmark decision, which returned a permanent band of the largest type in the game spent on a word that never changes. Then one rem off the pool rail, 17 to 16 at `lg`, restored to 17 at `xl`. **The pathway, the unlock shelf and the save panel keep every pixel they had**, because the pathway is the surface that answers why and the shelf is where the act's content lives.
+
+Below `lg` everything stacks in one column, as it already did, and the timeline stays vertical there. Down is older is the whole of its reading and a horizontal timeline is a different component. Stage 5 owns the narrow end.
+
+### 5. The undated stop, built
+
+Stage 1's treatment, implemented literally.
+
+```
+  date column    the word set in the same face, size, weight and colour a real
+                 range is set in. No italic, no grey, no brackets, no dim
+  spine mark     a horizontal ink cap tick at the bounded end, and a 6px ink
+                 bar running down from it past the next stop, ending without a
+                 cap. Clipped by the list's own overflow, which is what draws
+                 the running-off
+  card           not dashed, not dimmed. Identical treatment to a dated stop
+                 except for its lilac surface, which it has for being contested
+```
+
+**The contrast the design turns on is on the same screen and is asserted.** `border-dashed` appears exactly once in the rendered markup, on the locked `now` card. Dashed means unfinished here, and no undated stop is dashed.
+
+**One thing stage 1 did not specify and this stage decided: the bracket's length carries nothing.** It cannot be drawn to scale because the thing at its far end is exactly what is not known, and a length that varied per stop would imply a measured extent. It is a fixed overhang and the reading is the missing cap. Recorded here and folded into `DESIGN.md` in stage 6 per that stage's step 4.
+
+### 6. The art, and the seventh guard
+
+Seven figures plus `ArtFrame`, which declares the viewBox, the stroke weight, the round join and `aria-hidden` once rather than seven times. Every asset is `aria-hidden` and carries no `<title>`, because the card carries the name and a `<title>` inside an asset would be a player-facing string outside `src/ui/content/`.
+
+`src/ui/__tests__/art.test.ts` is the seventh guard and it enforces stage 1's four clauses:
+
+```
+  clause 1  every fill, stroke and stop colour is var(--color-X) naming a
+            token index.css defines, or none, or currentColor
+  clause 2  every asset draws at least one shape with fill none, and reaches
+            ink. The cheapest proof the outline is doing work
+  clause 3  no stroke weight outside 3 to 3.5, and the frame sets the band
+  clause 4  no gradient, filter, blur, raster, or opacity below 0.85
+```
+
+**Probed rather than trusted.** A hex literal planted in `BandedIron.tsx`, replacing `var(--color-loss)` with the identical `#E8503C`:
+
+```
+  FAIL src/ui/__tests__/art.test.ts > clause 1: tokens only, and by reference
+       > 'BandedIron.tsx' names no colour outside the token set
+  + "fill: not a token reference: #E8503C"
+```
+
+**A literal that equals a token is still a violation and that is the point of clause 1.** `#E8503C` is exactly what `--color-loss` resolves to, and it is rejected anyway, because a literal is untraceable and cannot be redirected by the `forced-colors` block stage 5 will add. Reference rather than value is what makes one edit reach the whole set.
+
+The guard also reads its token names out of `index.css` rather than from a list, so the dependency runs DESIGN.md to `index.css` to the art, and it asserts its own walk against the directory listing. One check found its own hole during writing: the `<title>` scan matched `ArtFrame.tsx`'s header comment, which explains why there is no title element by naming one. Comments are stripped now, the same way `designSystem.test.ts` and `contentStyle.test.ts` strip theirs.
+
+### 7. Accessibility
+
+```
+  landmark      <section aria-labelledby> pointing at its own <h2>, so it is
+                reachable by landmark AND by heading. Asserted that the two ids
+                are the same rather than merely present
+  keyboard      the list is tabIndex 0, because it scrolls, and Firefox does
+                not add that tab stop for us. No positive tabindex anywhere,
+                so DOM order is still tab order
+  reading order header, timeline, rail, shelf, save panel, asserted
+  the name      the marker's accessible name STATES THE READING: "You are here.
+                Microbial mats." The visible words are inside it, so the label
+                is still contained in the name and 2.5.3 holds
+  undated       the constraint, not the absence. "When this began is
+                unresolved. It sits below the stop above it and nothing bounds
+                it below." Never "no date"
+  axis          the non-linear compression is disclosed on the view itself
+```
+
+**The boundary is announced exactly once in total, and it is asserted from both ends.** `Timeline.tsx` contains no `aria-live` and the rendered markup contains none, and `ACT1_ANNOUNCEMENT_COUNT` is unmoved at 17, still computed from the ladders rather than written down. Two announcements about one fact is the same defect as two copies of one fact in a save.
+
+**One existing test broke and it broke in the useful way.** `keyboard.test.tsx` located the unlock shelf as the first `<section` in the markup, which was true for exactly as long as the shelf was the only section on the screen. It finds the shelf by its own heading now, so a fourth section landing above it moves nothing. That is a hardcoded-list defect of the same family Spine A found in the accessibility guard, at a smaller scale.
+
+### 8. The bundle, reported here rather than at the end
+
+```
+                              before      after      delta   budget
+  application (apportioned)   75.28 kB   81.43 kB   +6.15    130.00 kB
+  dependencies (apportioned) 215.42 kB  217.32 kB   +1.90    230.00 kB
+  fonts                       68.86 kB   68.86 kB    0.00     72.00 kB
+  styles                      19.57 kB   21.19 kB   +1.62     32.00 kB
+  other                        3.85 kB    3.85 kB    0.00          -
+  total                      382.98 kB  392.65 kB   +9.67    460.00 kB
+
+  emitted JS                 290.70 kB  298.76 kB   +8.06
+  gzipped JS                  89.97 kB   92.19 kB   +2.22
+```
+
+**Seven figures, a component, a stop table, a content file and a wordmark token cost 9.67 kB, of which the drawn assets are a small part.** The apportioned dependency figure moved by 1.90 kB without a dependency being added, which is the apportionment doing what its header says it does rather than React growing: the ratio shifts when application modules are added. The total figure is exact and it is the one to read.
+
+**Four figures remain for stage 3 and the trend is the thing to watch, not this number.** At 9.67 kB for seven, the remaining four plus a beast component should land under 6 kB, and application has 48.57 kB of headroom. Nothing here needs the ceiling raised.
+
+### Verify
+
+```
+  seven stops render, two of them reading as deliberate     yes, 19 tests
+  the marker moves only on act boundaries                   asserted, probed
+  the no-re-render assertion passes                         yes, and it failed
+                                                            correctly when probed
+  npm test                                                  707 passed, 51 files
+  npm run typecheck                                         clean
+  npm run lint                                              clean
+  npm run build                                             clean, budget green
+```
+
+**No simulation change.** Nothing under `src/sim/` or `src/content/` was touched, the three tuning files are untouched, and `docs/SCIENCE.md` and `docs/ECONOMY.md` are untouched. Both canonical hashes are unmoved, which the determinism tests assert on every run.
 
 ---
 

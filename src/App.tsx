@@ -44,6 +44,7 @@ import { PathwayCard } from './ui/components/PathwayCard';
 import { PoolRail } from './ui/components/PoolRail';
 import { SavePanel } from './ui/components/SavePanel';
 import { TeachingPanel, TeachingPanelProvider } from './ui/components/TeachingPanel';
+import { Timeline } from './ui/components/Timeline';
 import { UnlockShelf } from './ui/components/UnlockShelf';
 import { TopBar } from './ui/components/TopBar';
 import { YIELD_PANEL } from './ui/content';
@@ -133,10 +134,38 @@ function ActScreen() {
           <TopBar onOpenAbout={() => setAbout(true)} />
 
           <main>
-            {/* DESIGN.md, Layout: a grid column holding a wide pathway SVG must
-                set min-width: 0, or the SVG forces the track wider than its
-                container. */}
-            <div className="grid grid-cols-1 gap-4 px-8 pb-8 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+            {/*
+              THREE COLUMNS, AND THE TIMELINE IS THE FIRST OF THEM.
+              UPDATELOGV12.md stage 2 step 4.
+
+              Left to right is where am I, what is happening, why: deep time, the
+              pools, the pathway. The timeline is the spine rather than a second
+              view, so it is on screen with the act always and it needs a real
+              column rather than a strip.
+
+              WHAT GAVE. The wordmark band, decided in stage 1, which was a
+              permanent 100px of the largest type in the game spent on a word
+              that never changes. Plus one rem off the pool rail, 17 to 16, which
+              is the only other thing on this screen that is a fixed width. The
+              pathway and the shelf keep every pixel they had, because they are
+              the two surfaces that answer what is happening and why.
+
+              Below `lg` everything stacks in one column, as it already did. The
+              timeline stays vertical there, because down is older is the whole
+              of its reading and a horizontal timeline is a different component.
+              Stage 5 owns the narrow end.
+
+              DESIGN.md, Layout: a grid column holding a wide pathway SVG must
+              set min-width: 0, or the SVG forces the track wider than its
+              container.
+            */}
+            <div className="grid grid-cols-1 gap-4 px-8 pb-8 lg:grid-cols-[minmax(0,14rem)_minmax(0,16rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,16rem)_minmax(0,17rem)_minmax(0,1fr)]">
+              {/* Sticky and height-bounded, so the column scrolls inside itself
+                  rather than making the page taller than the act. */}
+              <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)]">
+                <Timeline />
+              </div>
+
               <PoolRail />
 
               <div className="flex min-w-0 flex-col gap-4">

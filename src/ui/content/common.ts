@@ -45,6 +45,8 @@ export interface Entry {
 export const PART2 = 'docs/SCIENCE.md Part 2';
 /** docs/SCIENCE.md Part 1, the disclosed simplifications. */
 export const PART1 = 'docs/SCIENCE.md Part 1';
+/** docs/SCIENCE.md Part 6, the geological timeline and every date on it. */
+export const PART6 = 'docs/SCIENCE.md Part 6';
 
 /**
  * The Tuned reason for a string that is a statement about the BUILD rather than
