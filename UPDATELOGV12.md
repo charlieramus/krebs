@@ -1145,7 +1145,157 @@ sixteen.
 
 ## Stage 5 Report
 
-_Pending._
+The rail reads the running act for the last thing that was still act 1's, the layout has a story at every width, and NOW.md blocking item 4 is closed rather than deferred again. 960 tests across 55 files, up from stage 4's 939 across 54. Typecheck, lint and build clean.
+
+```
+  src/content/acts.ts                  poolDefinitions() on the descriptor
+  src/ui/poolCards.ts                  weights from the registry, not act 1
+  src/index.css                        the forced-colours block
+  src/ui/components/Card.tsx           data-paper, and relative
+  src/ui/components/Badge.tsx          outer focus ring on the affordance
+  src/ui/components/Figure.tsx         outer focus ring on the info button
+  src/ui/__tests__/accessibility.test.ts  ink2 on lilac
+  src/App.tsx                          the narrow-width cap
+  src/ui/__tests__/surfaces.test.tsx   20 tests
+```
+
+### 1. The rail reads the running act, and the gap was not where the prompt expected
+
+**Spine A had already done the half this stage was written for.** `PoolRail` calls `poolCardsFor(useAct())` and the card table is keyed by act number, so which pools share a card has read the running act since V11.
+
+**What had not been done was the geometry, and it was the last place in the interface that named act 1 by hand.** `poolCards.ts` built its conserved-weight map from `act1PoolDefinitions()` directly, so DESIGN.md illustration rules 1 and 2, which are the ones the whole "every visual property carries simulation state" claim rests on, would have drawn act 2's molecules with act 1's weights or with none at all. The descriptor gains `poolDefinitions()` and the map is built from `ACTS.flatMap(...)`.
+
+**It returns definitions rather than a carbon-and-phosphate pair, deliberately.** Naming those two quantities in `src/content/` would put illustration vocabulary in the content layer, and act 3 needs a membrane and a gradient that `acts.ts` should have no opinion about.
+
+**One map across every act rather than one per act, and that is a decision with a reason.** `docs/SAVE_SCHEMA.md` Part 3 makes a pool id permanent contract surface the moment anything ships with it, so a pool id is globally unique and its conserved weights are a property of the pool rather than of the act reading it. Two acts sharing `pyruvate` share its three carbons by definition. A test fails the build if two acts ever disagree about a shared id, so the assumption is held rather than assumed.
+
+**The grouping rule is unchanged and that is the point.** Carrier pairs share a card because their sum is what is conserved and the sum is what teaches: NAD+ draining while NADH fills, on one card, is the wall arriving, and on two cards it is two numbers moving in opposite directions with the player left to join them up.
+
+### 2. The act 3 regrouping, deferred rather than forgotten
+
+Written into `poolCards.ts` where somebody will hit it, and asserted so it cannot be quietly deleted.
+
+Act 3's pools are not written down anywhere. `docs/PROGRESSION.md` gives act 3 eight unlocks and names no pools, and `docs/designs/game-spine-and-four-acts.md` defers act 3's compartment and gradient illustration rules to the act 3 log by its own risk table, because nothing in the illustration language encodes a membrane, a compartment or a proton gradient today.
+
+**A grouping designed against an imagined act 3 gets redesigned in the act 3 log anyway, so the cost is paid twice and the version in between is worse than either.** What this log does is make the rule read the running act's table. What it does not do is guess what that table will contain.
+
+### 3. The viewport, decided by what the player loses
+
+```
+  >= xl (1280)   three columns. timeline 16rem, rail 17rem, pathway the rest
+  >= lg (1024)   three columns. timeline 14rem, rail 16rem, pathway the rest
+  <  lg          one column. timeline first, capped at 20rem of its own scroll,
+                 then the rail, then the pathway, the shelf and the save panel
+```
+
+**What is lost at each step, which is the actual design work.**
+
+```
+  xl to lg     2rem off the timeline and 1rem off the rail. The pathway loses
+               nothing. Both columns are still wide enough for a date, a spine
+               and a card, and for a blob, a rate and a stock
+
+  lg to below  the ability to see the timeline and the pathway at once. That is
+               the real loss and nothing avoids it at 400px
+
+  at any width nothing. No surface is hidden and none collapses. Asserted:
+               there is no `hidden lg:`, `lg:hidden`, `sm:hidden` or
+               `md:hidden` anywhere in the layout
+```
+
+**Naming which surface is least load-bearing at 400px is what step 3 asks for, and the answer is the timeline.** The timeline answers where am I. The pool cards answer what is happening. The pathway answers why. **The first of those is asked on arrival and occasionally after; the other two are watched.** So the timeline is the one that goes first and gets scrolled past, and the cost is bounded at less than one screenful by a 20rem cap on its own scroll rather than seven card heights of page.
+
+**Two things make that cost smaller than it sounds.** Every stop stays reachable inside the cap, so nothing is lost. And the skip link stage 4 built jumps a keyboard user straight past it to the pathway, which is the mitigation arriving one stage before the problem it also solves.
+
+**DOM order stays reading order at every width**, which is why no `order` utility appears anywhere. A layout that reorders visually without reordering the DOM breaks the thing V7 spent a stage establishing.
+
+### 4. Reduced motion
+
+**The three surfaces this log added carry no motion at all**, which is the strongest available way to satisfy the rule rather than a way around it. The timeline marker is discrete and moves only at act boundaries, the beast never animates on a timer, and the provenance panel is an overlay. Asserted per file, comments stripped: no `@keyframes`, no animation or transition utility, no `requestAnimationFrame`, no `setInterval`.
+
+**Guard-the-guarded on the one surface that does carry motion.** `PathwayArrow` animates at a rate proportional to applied flux and reduced motion swaps it for a static arrow plus an explicit numeric rate rather than simply stopping, which is V7's standard and is unchanged.
+
+### 5. Blocking item 4, closed
+
+Stage 1 took the decision and stage 5 ships it, which is what stage 1's report said would happen.
+
+```css
+  @media (forced-colors: active) {
+    [data-paper]        { box-shadow: none; }
+    [data-paper]::after { content: ''; position: absolute; inset: -6px;
+                          border: 2px solid CanvasText;
+                          border-radius: calc(var(--radius-card) + 6px);
+                          pointer-events: none; }
+  }
+```
+
+**The shadow is switched off rather than recoloured**, because a shadow in a system colour participates in a palette it was never designed against. **The replacement is a pseudo-element rather than an `outline`**, because `outline` is spoken for by `:focus-visible`. And it sits at `inset: -6px`, outside the border, while the focus ring sits at `outline-offset: -6px`, inside it, so the two never collide and a focused card under forced colours reads as separated and focused at once. **V7's decision to draw focus inside is what made this affordable and it was made two logs before anything needed it.**
+
+**Only cards that actually carry a shadow are marked.** A dashed slot has none, so there is nothing to substitute for, and drawing a second outline around it would say "separate piece of paper" about the one thing on the screen that is deliberately not one yet.
+
+### 6. The full accessibility pass
+
+```
+  contrast     ink2 on lilac added to the pair table and passing. It was the one
+               surface no secondary text had ever sat on, because lilac means
+               contested and nothing was contested until this log landed three
+               contested timeline stops and a contested provenance card
+
+  focus        the badge affordance and the measured info button both carry
+               data-focus-ring="outer", the hook index.css already defines for a
+               small control. A pill has no shadow for an outer ring to collide
+               with, which is what makes it correct rather than a special case
+
+  keyboard     no positive tabindex anywhere. DOM order is tab order. Reading
+               order is header, timeline, rail, shelf, save panel, asserted
+
+  landmarks    every <section> on the screen carries a name, asserted as a
+               negative match so a new unnamed one fails rather than passes
+
+  live region  exactly one on the whole screen, asserted by counting
+```
+
+**The announcement count, measured across a full act rather than read off the constant:**
+
+```
+  what a screen reader hears across a full act 1
+
+    announcements spoken   17
+    upper bound            17
+    V8 measured            16
+    added by V11           1   the act boundary
+    added by V12           0
+```
+
+**The number has not grown in this log at all.** The timeline, the beast and the provenance panel carry no live region between them, and each of those was a decision rather than an omission: the timeline would have announced the act boundary a second time, and the beast would have restated the stall and the recovery that `Announcer` already speaks. **Two announcements about one fact is the same defect as two copies of one fact in a save.**
+
+**The one that arrived since V8 belongs to V11**, and the counted 17 matching the computed bound exactly means every announcement the constant allows for is actually reachable in play, which had never been checked before.
+
+### 7. The bundle
+
+```
+                              stage 4     stage 5    delta   budget
+  application (apportioned)   89.42 kB   89.56 kB   +0.14   130.00 kB
+  dependencies (apportioned) 219.10 kB  219.12 kB   +0.02   230.00 kB
+  fonts                       68.86 kB   68.86 kB    0.00    72.00 kB
+  styles                      22.27 kB   22.64 kB   +0.37    32.00 kB
+  total                      403.51 kB  404.03 kB   +0.52   460.00 kB
+```
+
+### Verify
+
+```
+  the rail reads the running act               cards since V11, geometry now
+  the layout holds at every breakpoint tested  xl, lg and below, nothing hidden
+  reduced motion covers the new surfaces       nothing to reduce, asserted
+  the accessibility guard is green over them   yes, and it gained a pair
+  npm test                                     960 passed, 55 files
+  npm run typecheck                            clean
+  npm run lint                                 clean
+  npm run build                                clean, budget green
+```
+
+**One deviation from stage 6's fence, and it is the same one stage 3 flagged.** `src/content/acts.ts` gained `poolDefinitions()`, which returns act 1's existing definitions unchanged. No pool, reaction, coefficient or tuned value moved, and both canonical hashes are unmoved.
 
 ---
 

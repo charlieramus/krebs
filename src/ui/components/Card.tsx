@@ -60,9 +60,21 @@ export function Card({
     <div
       ref={containerRef}
       tabIndex={focusable ? -1 : undefined}
+      /*
+       * THE HOOK THE forced-colors BLOCK IN index.css REACHES FOR.
+       * UPDATELOGV12.md stage 5, closing NOW.md blocking item 4.
+       *
+       * Only on a card that actually carries the shadow. A dashed slot has none,
+       * so there is nothing to substitute for and drawing a second outline
+       * around it would say "separate piece of paper" about the one thing on the
+       * screen that is deliberately not one yet.
+       */
+      data-paper={dashed ? undefined : ''}
       className={[
         SURFACE_CLASS[surface],
-        'rounded-card border-ink text-ink',
+        // `relative` so the forced-colours pseudo-element has something to be
+        // absolute against. Layout-neutral with no offsets.
+        'relative rounded-card border-ink text-ink',
         dashed ? 'border-dashed' : 'border-solid',
         // 85 rather than 55, changed by UPDATELOGV7.md stage 5.
         //

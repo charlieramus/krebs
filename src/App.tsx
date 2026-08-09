@@ -199,7 +199,27 @@ function ActScreen() {
             <div className="grid grid-cols-1 gap-4 px-8 pb-8 lg:grid-cols-[minmax(0,14rem)_minmax(0,16rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,16rem)_minmax(0,17rem)_minmax(0,1fr)]">
               {/* Sticky and height-bounded, so the column scrolls inside itself
                   rather than making the page taller than the act. */}
-              <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)]">
+              {/*
+                THE NARROW END, AND IT IS DECIDED BY WHAT THE PLAYER LOSES.
+                UPDATELOGV12.md stage 5 step 3.
+
+                The timeline answers where am I. The pool cards answer what is
+                happening. The pathway answers why. Below `lg` there is one
+                column and only one of the three can be first, so the question is
+                which question is asked least often while playing. It is the
+                first one: you ask where am I on arrival and occasionally after,
+                and you watch the other two.
+
+                So the timeline keeps its place and its form and is capped at
+                20rem of its own scroll, which bounds the cost at less than one
+                screenful instead of seven card heights. Every stop stays
+                reachable, "down is older" survives, and the skip link stage 4
+                built jumps straight past it.
+
+                Nothing collapses and nothing is hidden. The pathway, the shelf
+                and the save panel keep every pixel they had at every width.
+              */}
+              <div className="max-h-[20rem] lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)]">
                 <Timeline />
               </div>
 

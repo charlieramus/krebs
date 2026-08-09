@@ -13,8 +13,7 @@
  * the illustration describing an older pathway.
  */
 
-import { act1PoolDefinitions } from '../content/act1/pools';
-import type { ActDescriptor } from '../content/acts';
+import { ACTS, type ActDescriptor } from '../content/acts';
 import type { Surface } from './components/Card';
 import {
   ATP_COACH_MARK,
@@ -27,9 +26,26 @@ import {
   type Entry,
 } from './content';
 
-/** Conserved weights by pool id, derived once from the act 1 pool definitions. */
+/**
+ * Conserved weights by pool id, read from EVERY act this build knows.
+ *
+ * UPDATELOGV12.md stage 5. It was `act1PoolDefinitions()`, which was the last
+ * place in the interface that named act 1 by hand after Spine A, and it meant
+ * act 2's blobs would have had act 1's geometry or none.
+ *
+ * ONE MAP ACROSS ALL ACTS RATHER THAN ONE PER ACT, and that is a decision with a
+ * reason rather than a convenience. docs/SAVE_SCHEMA.md Part 3 makes a pool id
+ * permanent contract surface the moment anything ships with it, so a pool id is
+ * globally unique and a pool's conserved weights are a property of the pool
+ * rather than of the act reading it. Two acts that share `pyruvate` share its
+ * three carbons by definition, and `illustration.test.ts` fails the build if two
+ * acts ever disagree about a shared id.
+ *
+ * Built once at module load, from the registry, so adding an act adds its pools
+ * without an edit here.
+ */
 const WEIGHTS: Readonly<Record<string, { carbon: number; phosphate: number }>> = Object.fromEntries(
-  act1PoolDefinitions().map((definition) => [
+  ACTS.flatMap((act) => act.poolDefinitions()).map((definition) => [
     definition.id,
     {
       carbon: definition.conserved.carbon ?? 0,
@@ -280,6 +296,23 @@ const ACT1_POOL_CARDS: readonly PoolCardSpec[] = [
  * conserved-weight table, so a blob's sides and dots cannot drift from the
  * pathway. WHICH pools share a card is a teaching decision and stays written
  * down.
+ *
+ * ---------------------------------------------------------------------------
+ * THE RAIL IS NOT REGROUPED FOR ACT 3, AND THAT IS A DECISION RATHER THAN AN
+ * OMISSION. UPDATELOGV12.md stage 5 step 2.
+ * ---------------------------------------------------------------------------
+ *
+ * Act 3's pools are not written down anywhere. docs/PROGRESSION.md gives act 3
+ * eight unlocks and names no pools, and `docs/designs/game-spine-and-four-acts.md`
+ * defers act 3's compartment and gradient illustration rules to the act 3 log by
+ * its own risk table, because nothing in the illustration language encodes a
+ * membrane, a compartment or a proton gradient today.
+ *
+ * A grouping designed against an imagined act 3 gets redesigned in the act 3 log
+ * anyway, so the cost is paid twice and the version in between is worse than
+ * either. **Read this as deferred rather than as forgotten.** What this log does
+ * is make the rule read the running act's table. What it does not do is guess
+ * what that table will contain.
  */
 const CARDS_BY_ACT: ReadonlyMap<number, readonly PoolCardSpec[]> = new Map([
   [1, ACT1_POOL_CARDS],
