@@ -30,6 +30,15 @@ export interface PillProps {
   background?: string;
   /** Hover trace. A badge carries its source here, so a number can be checked. */
   title?: string;
+  /**
+   * An accessible name that says more than the visible word does.
+   *
+   * Added by UPDATELOGV12.md stage 2 for the timeline marker, whose visible text
+   * is "You are here" and whose reading is where here is. DESIGN.md's rule is
+   * that an accessible name states the reading rather than the legend, and the
+   * visible words stay inside the name so the label is still contained in it.
+   */
+  'aria-label'?: string;
 }
 
 export function Pill({
@@ -39,10 +48,12 @@ export function Pill({
   className = '',
   background,
   title,
+  'aria-label': ariaLabel,
 }: PillProps) {
   return (
     <span
       title={title}
+      aria-label={ariaLabel}
       className={[
         background === undefined ? SURFACE_CLASS[surface] : '',
         'inline-flex items-center gap-1 rounded-pill border-ink text-ink',

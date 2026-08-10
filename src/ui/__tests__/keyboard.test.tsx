@@ -84,30 +84,49 @@ describe('the game is operable without a pointer', () => {
     expect(/tabindex="[1-9]/i.test(SCREEN)).toBe(false);
   });
 
-  it('follows the reading order of the layout: top bar, rail, shelf, save', () => {
+  it('follows the reading order of the layout: top bar, timeline, rail, shelf, save', () => {
     // DESIGN.md's layout, top to bottom. The pathway card contributes no stop,
     // because a reaction arrow is not a control. Positions are read as offsets
     // into the markup rather than as indices into a label list, because the top
     // bar's About button is named by its text and the rail's affordances by
     // aria-label, and mixing the two is how this assertion first got written
     // wrong.
+    //
+    // THE TIMELINE IS IN THIS LIST AS OF UPDATELOGV12.md STAGE 2, and adding it
+    // broke this assertion in the useful way. The shelf was located as the first
+    // `<section` in the markup, which was true for exactly as long as the shelf
+    // was the only section on the screen. It is found by its own heading now, so
+    // a third section landing above it moves nothing here.
     const at = (needle: string): number => SCREEN.indexOf(needle);
 
     const header = at('<header');
+    const timeline = at('Deep time');
     const rail = at('<nav');
-    const shelf = at('<section');
+    const shelf = at('>Unlocks<');
     const carbon = at('6 carbons, split in two');
     const nad = at('NAD+ has run out');
     const atp = at('ATP does not pile up');
     const yieldPanel = at('About the yield');
     const exportAction = at('Export');
 
-    for (const index of [header, rail, shelf, carbon, nad, atp, yieldPanel, exportAction]) {
+    for (const index of [
+      header,
+      timeline,
+      rail,
+      shelf,
+      carbon,
+      nad,
+      atp,
+      yieldPanel,
+      exportAction,
+    ]) {
       expect(index).toBeGreaterThan(-1);
     }
 
-    // The four regions, in order.
-    expect(header).toBeLessThan(rail);
+    // The five regions, in order. Left to right in the layout is where am I,
+    // what is happening, why, so the timeline reads before the rail.
+    expect(header).toBeLessThan(timeline);
+    expect(timeline).toBeLessThan(rail);
     expect(rail).toBeLessThan(shelf);
     expect(shelf).toBeLessThan(exportAction);
     // The rail's three affordances, in pathway order, which is the order the
