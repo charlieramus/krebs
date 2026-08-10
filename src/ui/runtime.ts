@@ -49,6 +49,7 @@ import type {
   ActDescriptor,
   ActMeter,
   ActMeterProbes,
+  ActVitality,
 } from '../content/acts';
 import {
   ACT1_UNLOCK_FERMENT,
@@ -196,6 +197,21 @@ export interface ActSnapshot {
    * against the flux the tick applied rather than the flux it intended.
    */
   walled: boolean;
+
+  /**
+   * How the cell is doing, in the four readings DESIGN.md gives the beast.
+   *
+   * DERIVED HERE FOR THE REASON `walled` IS. It is a reading of simulation state
+   * rather than a state the simulation is in, and the act answers it rather than
+   * this file, so act 2's Sick and act 3's Powered arrive with their acts and
+   * not with an edit here.
+   *
+   * On the snapshot rather than called from the component, so the threshold
+   * stays in one place. `STOPPED_FLUX` is already shared between the pathway
+   * arrows and the stall detector, and a component reaching for it directly
+   * would be the third copy.
+   */
+  vitality: ActVitality;
 
   /**
    * The act's content is exhausted. UPDATELOGV11.md stage 4.
@@ -694,6 +710,10 @@ export function createActRuntime(
     uptakeStep: 0,
     glycolysisStep: 0,
     walled: false,
+    // A fresh cell has not run a tick, so nothing is flowing yet. The first
+    // frame overwrites this and it is 'sluggish' rather than 'lively' because a
+    // beast that starts lively and drops is a beast that lied once.
+    vitality: 'sluggish' as ActVitality,
     actComplete: false,
   };
 
@@ -995,6 +1015,20 @@ export function createActRuntime(
      * nothing, which is why the predicate takes arrays rather than the snapshot.
      */
     snapshot.walled = descriptor.isWalled(state.pools.amounts, snapshot.appliedFlux, STOPPED_FLUX);
+
+    /*
+     * How the cell is doing, on the same path and at the same cost.
+     *
+     * The previous reading is passed in so an act that needs hysteresis can have
+     * it. Act 1 measured that it does not, and the measurement is in
+     * `beastPacing.report.test.ts` rather than in a comment here.
+     */
+    snapshot.vitality = descriptor.vitality(
+      state.pools.amounts,
+      snapshot.appliedFlux,
+      STOPPED_FLUX,
+      snapshot.vitality,
+    );
 
     /*
      * The act boundary, read the same way and on the same path.

@@ -660,7 +660,184 @@ the honest answer to step 5, and the bundle delta.
 
 ## Stage 3 Report
 
-_Pending._
+The cell has a face. Four states, three transitions across a whole act, no timer anywhere, and the second channel measured at **9.03:1 worst against a colour channel that peaks at 1.68:1**. 781 tests across 53 files, up from stage 2's 707 across 51. Typecheck, lint and build all clean.
+
+```
+  src/content/acts.ts                     ActVitality, and vitality() on the
+                                          descriptor. Act 1 answers it
+  src/ui/runtime.ts                       snapshot.vitality, beside walled
+  src/ui/art/Beast{Lively,Sluggish,       four drawings
+                   Sick,Powered}.tsx
+  src/ui/content/beast.ts                 four readings, no number in any
+  src/ui/components/Beast.tsx             the component
+  src/ui/components/Timeline.tsx          the beast on the marker row
+  src/ui/__tests__/beast.test.tsx         46 tests
+  src/ui/__tests__/beastPacing.report.test.ts  4 tests, the transition count
+```
+
+### 1. Four states, pinned through the descriptor
+
+```
+  lively    the act's gross throughput is at or above the stopped threshold
+  sluggish  below it. Covers the walled cell AND the starved cell
+  sick      the act reports active damage.       unreachable in act 1
+  powered   the act has a compartment.           unreachable in act 1
+```
+
+**The act answers the question, on exactly the terms `isWalled` set.** `ActDescriptor.vitality(amounts, appliedFlux, stoppedFlux, previous)` is a predicate rather than a threshold, for the reason Spine A gave: a field called `livelyPayoffFlux` would be act 1's answer wearing a general name, and act 2's Sick is not a flux at all. The component asks an act about itself and never asks act 1 about NAD+.
+
+**The reading is on the snapshot rather than called from the component**, beside `walled` and at the same cost: one array read, no allocation, no lookup. That keeps the threshold in one place, which turns out to be the whole of the next paragraph.
+
+**No new tuned number, and this is the finding of the stage.** The lively boundary is `ZERO_FLUX_THRESHOLD`, the number the pathway arrows already use to decide whether to draw themselves as moving, and which `runtime.ts` already shares with the stall detector because "if the stall detector and the arrows disagreed, the coach mark could open while the arrows still looked alive". **The beast joins that agreement rather than bringing a third value.** One threshold, three readings, nothing that can drift.
+
+**That resolves a conflict between stage 1 and stage 6, and it resolves it in stage 6's favour without giving anything up.** Stage 1 wrote that the beast's thresholds are tuned numbers owing `docs/ECONOMY.md` rows. Stage 6 step 3 requires `docs/ECONOMY.md` and the three tuning files to have an empty diff for this whole log. Both would have been true and they would have contradicted each other. There is no new tuned scalar, so there is no row to owe and no conflict left. `docs/ECONOMY.md` is untouched.
+
+**Act 1 cannot reach Sick or Powered at any input**, asserted over the whole flux range from 0 to 40 in steps of 0.05 rather than at two points, because the claim is that no input reaches them.
+
+### 2. The two rules, and the dead band that measurement removed
+
+**Three transitions across 84000 frames.** Measured over a full 70 game-minute act with all ten purchases made:
+
+```
+  the beast across 70 game-minutes of act 1
+
+    frames driven          84000
+    purchases made         10
+    state changes, bare    3
+    state changes, banded  3   off level at half the on level
+    reached lively         true
+    reached sluggish       true
+```
+
+The three are the pathway starting, the NAD+ wall, and fermentation recovering it. That is the game's own shape, which is the right answer: the beast changes when the cell does.
+
+**Stage 1's dead band is not built, and that is a measurement rather than a shortcut.** Stage 1 reasoned that a discrete state driven by a continuous quantity needs hysteresis or the quantity wandering across the threshold re-renders React at whatever rate it wanders. Correct in general and false here: a band with the off level at half the on level produces **exactly the same 3 transitions**, because act 1 does not wander across this line. The wall takes the payoff flux from about 7 to 0 inside a couple of ticks and fermentation brings it back the same way.
+
+`previous` stays in the interface signature so an act whose measurement comes out differently can use it without touching a caller, and act 1's implementation **omits the parameter entirely**, which is the clearest available statement that its reading does not depend on its own last answer. The report test fails if the two counts ever disagree, so the day act 2 makes them disagree is the day this gets revisited rather than the day somebody notices a stutter. **`DESIGN.md` is corrected in stage 6 per that stage's step 4**, which exists for exactly this.
+
+**No animation from anything except a state change.** Asserted across `Beast.tsx` and all four drawings, comments stripped: no `setInterval`, no `setTimeout`, no `requestAnimationFrame`, no `animate(`, no `@keyframes`, no animation or transition utility. Guard-the-guarded against `PathwayArrow.tsx`, which drives flowing dashes at a rate proportional to applied flux and trips the same patterns, because that is motion carrying information and is correct.
+
+**Nothing continuous, which makes the per-frame DOM write path unnecessary rather than unused.** The log's constraint is that anything continuous goes on the path `PoolCard` uses. There is nothing continuous: the beast is four pictures and a name, so it writes to no DOM node at all. That is the strongest form of both rules rather than a way around one.
+
+### 3. The second channel, measured
+
+```
+  the beast's two channels, measured
+
+    lively vs sluggish fill, normal        1.67:1
+    lively vs sluggish fill, greyscale     1.67:1
+    lively vs sluggish fill, protanopia    1.65:1
+    lively vs sluggish fill, deuteranopia  1.68:1
+    lively vs sluggish fill, tritanopia    1.67:1
+    lively vs powered fill, every viewing       1.00:1   the same token
+
+    worst ink on the lively body, any viewing   15.13:1
+    worst ink ANYWHERE, any viewing              9.03:1
+    V7 standard to clear                         5.70:1
+```
+
+**The colour channel peaks at 1.68:1 and cannot carry the state.** That is V7's finding repeating almost exactly: its colour channel peaked at 1.58:1 against a second channel at 5.70:1. And **Lively and Powered share a fill outright**, so between those two the colour channel is 1.00:1 in every viewing condition, which is not a weak channel but no channel at all.
+
+**The ink channel is 9.03:1 at its worst across six pairs and five viewing conditions**, thirty measurements, all above V7's standard. Simulated with the Machado, Oliveira and Fernandes 2009 matrices at severity 1.0, the ones Chromium's own emulation uses, applied in linear RGB with the sRGB round trip written out rather than applied to 8-bit values.
+
+**The matrices are guard-the-guarded against V7's own result**, which is the assertion that matters most here, because a matrix typed in wrong produces plausible numbers and a passing test. V7 found that tritanopia leaves the `reduced` to `oxidized` axis alone because the axis is a red-channel difference, while protanopia collapses it. Both properties are reproduced from the tokens by this file's own machinery: the tritanopia gap is more than twice the protanopia gap.
+
+**And the structural half, which is why this does not need one test per deficiency.** With every `fill` attribute stripped, the four drawings are pairwise distinct in ink. A difference in where the ink is survives every colour transform by construction, so what has to be checked is that the difference exists once colour is gone, and it does:
+
+```
+  lively    body tall, legs disagree with each other, eyes are open rings,
+            mouth is an upward curve
+  sluggish  body squat and sitting on its own base, legs agree and are planted,
+            eyes are two horizontal rules, mouth is a flat rule
+  sick      the silhouette is cut by cracks, eyes are crossed strokes, mouth is
+            a downward curve
+  powered   a closed sub-outline inside the body
+```
+
+**Posture is not motion and that is the argument the whole channel rests on.** A figure drawn mid-stride does not move. It reads in one frame, at any size, in greyscale, under every deficiency, because it is a difference in where the ink is. The rule distinguishes information carried by change over time from information carried by shape.
+
+**Two of the four changed the drawing rather than describing it, which is the V7 precedent repeating.** Sluggish's original signal was a desaturated fill, which says the cell is somewhat less; a body compressed and sitting on its base says it has stopped, which is what is true. And Sick's cracks cut the outline rather than painting the fill: `DESIGN.md` illustration rule 5 asks for `loss` coloured cracks across the body, and a red crack on a pink body says nothing in greyscale, while a crack that interrupts the silhouette is true in ink.
+
+**Powered is the only topological change in the project's illustration set**, asserted directly: `<ellipse` appears in the Powered drawing and in no other beast. A closed sub-outline inside a closed outline is a compartment, act 3's whole subject is that a compartment appeared, and it reads with every fill removed because a hole in a shape is not a colour. The same sub-outline is on the timeline's endosymbiosis figure, deliberately, so the moment on the column and the moment on the body are drawn as one event.
+
+**Not tested, and deliberately not faked: whether a slumped blob READS as a cell holding steady.** Distinguishability is arithmetic and is measured above. Meaning needs a reader, and `DESIGN.md` and `contentStyle.test.ts` both refuse to fake that class of question.
+
+### 4. Open question 7, in the careful form and not one word stronger
+
+**The quiet is legible.** A solved act 1 shows 0.00 on every net rate for fourteen minutes, and the beast shows a cell that is working. A walled act 1 shows the same 0.00 and the beast shows a cell that has stopped. **Sluggish is a picture of a cell holding steady rather than an absence of information**, and that reading exists nowhere else on the screen, because every pool card shows a net rate by construction and a net rate is genuinely the same number in both situations.
+
+**It does not make fourteen minutes shorter.** NOW.md blocking item 2 is about a gap with nothing to do in it, and a picture is not a thing to do. Blocking item 2 does not close in this log and NOW.md should say so in its own words in stage 6.
+
+**One thing worth adding to the claim rather than to its strength.** Act 1 produces three beast transitions and two of them are the wall and the recovery, which happen inside the first four seconds. **So across the fourteen-minute gap the beast changes zero times.** It is legible during the gap and it is not eventful during it, and anyone reading "the beast answers open question 7" should read it with that number attached.
+
+### 5. The ATP sink, answered honestly
+
+**This log delivers the first half only, and the second half is further away than it looks.**
+
+`DESIGN.md`'s argument is that nothing else in the design consumes ATP, so the game produces a currency with no visible sink, which is what makes idle numbers feel weightless. **A state readout is not a sink and this beast is a state readout.** Nothing about it consumes anything.
+
+**The sharper version of the problem, found while answering this.** The game already HAS an ATP sink: `maintain` turns ATP into ADP and phosphate every tick, it is one of act 1's five reactions, and it is real. What the game does not have is a **visible** one, and it does not have a **spendable** one, which are two different missing things:
+
+```
+  visible     `maintain` runs constantly and nothing on screen attributes it to
+              anything. The beast is the obvious place to attribute it: the cell
+              costs ATP to keep running and the character IS the cell. That is a
+              readout change and a later log could do it cheaply
+
+  spendable   purchases are thresholds against a LIFETIME ATP counter and debit
+              nothing. docs/ECONOMY.md lists that as structural departure 1 and
+              src/ui/tuning.ts says it outright: "Neither subtracts from the ATP
+              pool. The adenylate pool is fixed, closed and conserved." Making
+              ATP spendable is an economy change, a docs/ECONOMY.md pass and a
+              re-derivation of act 1's whole pacing
+```
+
+**Neither is in this log and neither should be read into it.** A well-drawn character has not made ATP weigh anything, and the honest state is that the beast closes the readout half of `DESIGN.md`'s argument and leaves the economic half exactly where it was.
+
+### 6. Where it lives, and what it is told to say
+
+**On the timeline's marker row, at 44px, and that is a stated deviation from `DESIGN.md`.** `DESIGN.md` marks the current position with "the beast in its current state and a `You are here` label". The spine gutter is 20px wide, and a beast at 20px is a smudge whose posture, eye form and mouth form are the entire second channel and are all unreadable at that size. So the ring holds the position, which is what a spine is for, and the beast sits on the card, which is what a drawing needs. Both are on the marker row and read as one mark.
+
+**The accessible name states the reading and carries no figure.**
+
+```
+  lively    The cell is working. Carbon is moving through the pathway.
+  sluggish  The cell has stopped. Nothing is moving through the pathway.
+  sick      The cell is being damaged.
+  powered   The cell has a compartment of its own inside it.
+```
+
+No number in any of them, asserted: an `aria-label` has nowhere to put a badge, so a figure inside one would be a quantitative claim in player-facing text with no provenance, which is the rule V7 settled on the carrier blob. The rate is on the top bar where a badge can reach it. And each line names the cell rather than a mood, asserted too, because `docs/CONTENT_STYLE.md` Part 2 rules out performing enthusiasm and a beast described as tired is a pet.
+
+**The live region decision: it joins nothing, and the count is unmoved.** The argument for announcing it is that it changes rarely, three times an act. The argument against won: **two of the three transitions are the stall and the recovery, and `Announcer` already speaks both.** A live region on the beast would say the same fact twice in different words, which is the same defect as two copies of one fact in a save. It is read on demand instead, which is what the rest of the accessibility layer does with rates.
+
+### 7. The bundle
+
+```
+                              stage 2     stage 3    delta   budget
+  application (apportioned)   81.43 kB   84.61 kB   +3.18   130.00 kB
+  dependencies (apportioned) 217.32 kB  217.06 kB   -0.26   230.00 kB
+  fonts                       68.86 kB   68.86 kB    0.00    72.00 kB
+  styles                      21.19 kB   21.25 kB   +0.06    32.00 kB
+  total                      392.65 kB  395.62 kB   +2.97   460.00 kB
+```
+
+**Four drawings, a component, a content file and a descriptor method cost 2.97 kB.** Eleven of eleven hand-drawn assets have now landed and the total for all of them plus both components is 12.64 kB against a 460 kB ceiling. Application has 45.39 kB of headroom. **The budget was built one log earlier for exactly this moment and the answer it gives is that the art was never the risk.** Nothing needs raising.
+
+### Verify
+
+```
+  four states, distinguishable in greyscale and under all three
+    deficiencies at V7 standard                       9.03:1 worst, 30 measurements
+  no re-render across ticks                           3 transitions / 84000 frames
+  no timer-driven animation                           asserted, guard-the-guarded
+  npm test                                            781 passed, 53 files
+  npm run typecheck                                   clean
+  npm run lint                                        clean
+  npm run build                                       clean, budget green
+```
+
+**One deviation from stage 6's fence, flagged here rather than discovered there.** Stage 6 step 3 asks for an empty `git diff` across `src/content/`. This stage changed `src/content/acts.ts`, because stage 3 step 1 requires the condition to live in the act descriptor and the descriptor is in `src/content/`. **No pool, reaction, coefficient or tuned value moved**, the new method is a pure reading that no simulation code calls, and both canonical hashes are unmoved, which the determinism tests assert on every run and which stage 6 will confirm directly. The fence's intent is that the log did not change the simulation, and it did not.
 
 ---
 
