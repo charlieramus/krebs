@@ -26,6 +26,18 @@ export const LANDMARKS = {
   pathway: { text: 'Pathway', badge: tuned(ABOUT_THE_BUILD) },
   /** Named "Events" rather than "Announcements", which is a word about the machinery. */
   events: { text: 'Events', badge: tuned(ABOUT_THE_BUILD) },
+  /**
+   * THE SKIP LINK, AND V7 WAS RIGHT NOT TO BUILD IT UNTIL NOW.
+   *
+   * UPDATELOGV7.md stage 3 step 5 asked for one past the pool rail and stage 3
+   * declined, measuring three tab stops in the rail and calling a skip link over
+   * three stops more furniture than it saves. That argument was correct and it
+   * has inverted: provenance-on-click makes every badge an affordance, so the
+   * timeline and the rail together are 21 stops before the shelf.
+   *
+   * Button ceiling is 5 words. This is 4.
+   */
+  skip: { text: 'Skip to the pathway', badge: tuned(ABOUT_THE_BUILD) },
 } as const satisfies Readonly<Record<string, Entry>>;
 
 /* ===========================================================================

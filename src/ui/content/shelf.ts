@@ -2,7 +2,7 @@
  * The unlock shelf. Every slot, and the furniture around them.
  */
 
-import { sourced, tuned } from '../components/Badge';
+import { sourced, tuned, tunedRow } from '../components/Badge';
 import type { Entry } from './common';
 import { PART2, ABOUT_THE_BUILD } from './common';
 
@@ -187,7 +187,9 @@ export const SHELF = {
   },
   uptakeDone: {
     text: 'At the top of the ladder. Uptake is no longer the limiting step.',
-    badge: tuned('Measured at the shipped tuning, not derived. docs/ECONOMY.md row U7'),
+    // The row was named in the prose and nowhere a panel could reach it.
+    // UPDATELOGV12.md stage 4 moves it into the field V3 shaped for it.
+    badge: tunedRow('Measured at the shipped tuning, not derived', 'U7'),
   },
   uptakeBuy: {
     text: 'Add capacity',

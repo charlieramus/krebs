@@ -911,7 +911,180 @@ quoted, the UNSOURCED wording as shipped, and the bundle delta.
 
 ## Stage 4 Report
 
-_Pending._
+The game will now tell you, on demand, where any number on screen came from, and for most of them the honest answer is a divergence row rather than a paper. 939 tests across 54 files, up from stage 3's 781 across 53. Typecheck, lint and build clean.
+
+```
+  src/ui/content/provenance.ts            the four destinations, composed
+  src/ui/components/ProvenanceContext.tsx who is offering to answer
+  src/ui/components/ProvenancePanel.tsx   the panel. Overlay does the rest
+  src/ui/components/Badge.tsx             the badge becomes the affordance,
+                                          plus the tunedRow factory
+  src/ui/components/Figure.tsx            a 16px info affordance for a
+                                          measured value, which has no badge
+  src/ui/content/{pathway,save,shelf}.ts  four badges now name their row
+  src/ui/content/announcements.ts         the skip link
+  src/App.tsx                             hosts the panel, and the skip link
+  src/ui/__tests__/provenance.test.tsx    158 tests, the eighth guard
+```
+
+### 1. The four mappings
+
+```
+  Sourced     its docs/SCIENCE.md Part, plus what that Part covers. Subject
+              lines authored for all seven, not only the three cited today
+
+  Tuned       its docs/ECONOMY.md row, and the row's verdict in the row's own
+              words. UNSOURCED is a table category and not a badge, so this
+              branch is not taken from the badge alone: the badge names the row
+              and only the row knows which verdict it carries
+
+  Contested   what is argued about, and who argues which side. Two sides
+              minimum, asserted
+
+  measured    this came from your own session and the system clock. It points
+              nowhere, because there is nowhere, and it says so
+```
+
+**Contested was the one with nowhere to go and it is the one that matters most later**, because the act 3 log makes a contested-science beat a headline feature. Three topics are authored, all from `docs/SCIENCE.md` Part 6: the vent hypothesis with Jackson 2016 against and Lane 2017 in reply, oxygenic photosynthesis with the 2015 contamination result that killed the 2.7 Ga date, and endosymbiosis with mitochondria-early against mitochondria-late.
+
+**`divergenceRow` was shaped by V3 for exactly this and had never been populated by anything.** Four badges name a row now, chosen so both verdicts are reachable in play:
+
+```
+  C5   ACT1_VMAX.maintain      DEPARTURE   the maintenance arrow
+  C20  ACT1_VMAX.store         DEPARTURE   the glycogen synthesis arrow
+  U7   UPTAKE_VMAX_STEPS[2]    DEPARTURE   the top of the uptake ladder
+  S1   AUTOSAVE_INTERVAL_MS    UNSOURCED   the save panel
+```
+
+`U7` is the sharpest of the four: its badge already named the row **in prose**, as "docs/ECONOMY.md row U7", where no panel could reach it. Stage 4 moves the string into the field.
+
+**A fifth badge kind was not invented.** `tunedRow(reason, row)` is the same Tuned pill and the same union member with the optional field filled, on the precedent V4 set when it added `measured` without adding a fourth pill.
+
+### 2. How the content reaches the screen
+
+**Authored, not bundled, and there were three independent reasons.** Nothing in `src/` has ever read a doc at runtime; bundling 654 lines of prose written for a biochemist would break `contentStyle.test.ts` on its first line; and V9's content security policy permits zero network requests so fetching is not available either. The prose is authored under `docs/CONTENT_STYLE.md` and a guard parses both documents to prove every citation resolves.
+
+**That is this project's answer to this exact problem for the third time**, after `disclosure.test.tsx`, which parses the disclosure blockquote out of `docs/SCIENCE.md` and fails if the game disagrees by a character, and `divergenceTable.test.ts`, which fails if a tuned scalar has no row.
+
+### 3. The guard, and the three probes broken deliberately
+
+The badge set is found by **walking the content barrel's exports recursively** rather than by a list, which is the discovery posture Spine A gave the other guards after nine components shipped past a hardcoded one. It finds 60+ badges and asserts all three shipping kinds are present, so nothing below is vacuous.
+
+**Probe 1, a citation to a Part that does not exist.** `BEAST.sick` changed to `sourced('docs/SCIENCE.md Part 9, damage')`:
+
+```
+  FAIL check 1: every cited Part resolves to a real heading
+       > docs/SCIENCE.md Part 9, damage names a Part the document has
+  AssertionError: expected '# Science...' to contain '# Part 9:'
+
+  FAIL check 3: no badged figure opens an empty panel
+       > '{"kind":"sourced","source":"docs/SCIE...' resolves
+  AssertionError: expected null not to be null
+```
+
+**Probe 2, a Contested badge with nothing authored for it.** The same entry changed to `contested('docs/SCIENCE.md Part 3, whether damage is repairable')`, which cites a Part that DOES exist, so check 1 passes and check 3 catches it alone:
+
+```
+  FAIL check 3 > '{"kind":"contested","source":"docs/SC...' resolves
+  AssertionError: expected null not to be null
+
+  FAIL check 3 > has an authored argument for every Contested badge, both sides
+  AssertionError: expected undefined to be defined
+```
+
+**That is the probe the act 3 log depends on.** A new contested beat that nobody wrote the argument for fails the build rather than opening a panel that says the science is unsettled and stops there.
+
+**Probe 3, a Tuned badge naming a row with no authored verdict.** `tunedRow(ABOUT_THE_BUILD, 'C2')`. C2 is a real row in `docs/ECONOMY.md` and the panel still refuses it, because the panel must not claim a verdict nobody checked against the document:
+
+```
+  FAIL check 3 > '{"kind":"tuned","reason":"A statement...' resolves
+  AssertionError: expected null not to be null
+```
+
+**The verdict is derived from the document rather than transcribed.** `docs/ECONOMY.md`, "How to read a row": the real behaviour column is cited where the science says anything and left EMPTY where it says nothing. So the guard reads the fourth cell and calls an empty one UNSOURCED, and asserts `TUNED_ROWS` agrees. Guard-the-guarded on `C1` returning DEPARTURE and `U1` returning UNSOURCED, so if the parser ever reads the wrong column both stop disagreeing and the test fails.
+
+**Where the third check does not have teeth, stated rather than implied.** A Tuned badge naming NO row falls to the build-statement destination, and the only thing checked there is that it carries a reason, which the type already requires. The guard cannot know whether a sentence about this build should have been a row. That limit is written into the test file's header rather than left for a reader to discover.
+
+### 4. The interaction
+
+**The badge is the affordance.** It is already the mark that says provenance was declared and it already sits beside every figure, so one component change gives the feature complete coverage with no edit at any call site. It renders as a `<button>` only where a `ProvenanceProvider` is above it, so with no host it is exactly the span it has always been and every existing assertion about badges is untouched.
+
+The accessible name is `Sourced. Where this comes from`, which keeps the visible word inside the name.
+
+**A measured value has no badge to click and gets DESIGN.md's own 16px circular info affordance instead**, rather than a fourth pill, which would imply provenance is an open question about it. Six figures take it, in the offline return and the save panel.
+
+**Nothing about focus or Escape is reimplemented.** The panel is `Overlay` plus a `Card`, and a test asserts `ProvenancePanel.tsx` contains no `addEventListener`, no `Escape`, no `activeElement` and no `focus()` outside its comments. Overlay has held all of it since V7 stage 3, where every part was repairing something measured on the real page: focus moves in on open, is trapped because the panel dims, returns to whatever opened it on close, and Escape closes it. The panel does not exist until the player asks, which is what makes "it does not take focus unless the player asked for it" true by construction.
+
+### 5. The cost, which is real and is reported rather than absorbed
+
+**Every badge becoming a control added tab stops, and it inverted a decision V7 made.**
+
+```
+  the pool rail    3 stops before, 13 after
+  the timeline     9 stops, all of them new this log
+```
+
+V7 stage 3 step 5 asked for a skip link past the pool rail and stage 3 declined, measuring three stops and calling a skip link over three stops more furniture than it saves. **It also wrote down the condition for revisiting: "if a later log makes pool cards interactive this fails, which is the right moment to revisit it."** This is that log, and that assertion is the one that failed when the badges became buttons.
+
+So the skip link is built. Hidden until focused, first tab stop inside `<main>`, targets the pathway column, and it costs a pointer user nothing. **V7's argument was right on its numbers and its numbers changed**, which is a better outcome than either being wrong.
+
+Two existing assertions were updated rather than worked around: the rail-is-cheap one now asserts the opposite with the history in it, and the every-control-is-native one gains `a`, because an anchor with an href is the right element for the one thing on this screen that is navigation rather than an action.
+
+### 6. What this feature is FOR, written into the report so it is not lost
+
+Per `docs/ECONOMY.md` the tuned scalars are 33 DEPARTURE and 15 UNSOURCED. **So for most numbers on screen the honest answer to "where does this come from" is a divergence row rather than a paper.** The feature that says so is a better feature than one that pretends otherwise.
+
+**The UNSOURCED wording as shipped, verbatim:**
+
+```
+  The row is UNSOURCED. There is no real counterpart at all. Nothing in
+  biology corresponds to this number and the row leaves its real behaviour
+  column empty on purpose.
+```
+
+**The temptation to soften that is real and it is guarded rather than resisted.** A test asserts the string contains "no real counterpart at all" and "on purpose", and that it contains none of "approximat", "roughly", "based on" or "inspired". `docs/ECONOMY.md` says the empty cell is the content of the row rather than a gap in it, and a plausible sentence in an UNSOURCED row is the exact failure the table exists to prevent.
+
+For comparison, the DEPARTURE wording:
+
+```
+  The row is a DEPARTURE. A real quantity could have stood here and this is
+  not it. The row says what the real behaviour is and what the game does
+  instead.
+```
+
+### 7. Deferred, and it stays deferred
+
+Per-claim citation identifiers in `docs/SCIENCE.md`. That document has a flat topical bibliography and no per-claim anchors, so linking a figure to an exact passage is a refactor across 654 lines plus every call site plus a guard, and it gets its own log. **This feature cites a Part, which is honest about its own resolution**: the panel names the Part and says what the Part covers, and never implies it is pointing at a sentence.
+
+### 8. The bundle
+
+```
+                              stage 3     stage 4    delta   budget
+  application (apportioned)   84.61 kB   89.42 kB   +4.81   130.00 kB
+  dependencies (apportioned) 217.06 kB  219.10 kB   +2.04   230.00 kB
+  fonts                       68.86 kB   68.86 kB    0.00    72.00 kB
+  styles                      21.25 kB   22.27 kB   +1.02    32.00 kB
+  total                      395.62 kB  403.51 kB   +7.89   460.00 kB
+```
+
+No new asset landed here, so the growth is prose and one component. Application has 40.58 kB of headroom.
+
+### Verify
+
+```
+  all four destinations work                    asserted, one test each
+  the guard fails on an unresolved citation     probe 1, quoted
+  the guard fails on a badged figure with no
+    entry                                       probes 2 and 3, quoted
+  focus returns correctly                       Overlay, reused rather than
+                                                reimplemented, and asserted to be
+  npm test                                      939 passed, 54 files
+  npm run typecheck                             clean
+  npm run lint                                  clean
+  npm run build                                 clean, budget green
+```
+
+**No simulation change.** Nothing under `src/sim/` was touched. `src/content/` is untouched by this stage. The three tuning files, `docs/SCIENCE.md` and `docs/ECONOMY.md` are all untouched: the four rows this stage cites already existed and were cited rather than written.
 
 ---
 
