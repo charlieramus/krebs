@@ -1,6 +1,6 @@
 # Now
 
-Last updated: 2026-08-09, by V9
+Last updated: 2026-08-09, by V12
 
 Where the project actually is. Read this before the spec docs.
 
@@ -9,6 +9,40 @@ This file holds state. CLAUDE.md holds instruction and changes rarely. This chan
 If this file disagrees with a spec doc, the spec doc wins and this file is stale. Fix it.
 
 ## Status
+
+**The game has a spine, a character, a map through deep time and an answer for every number on screen, and it has one act.**
+
+That is the strange state this log leaves the project in and it is worth stating first, because a reader of this page would otherwise have to work it out: **V12 built the connective tissue for four acts and wrapped it around one.** The timeline draws seven stops from the Hadean to now and the player's marker sits on the second of them. The beast reads a cell that has two of its four states available. Provenance answers for every badge in a game whose science is act 1's. **None of that is waste and all of it is early**, because everything after this is content going into a frame that already fits it, which is the opposite of the position the last nine logs were in.
+
+**The two elements DESIGN.md says supply the game's meaning exist for the first time.** Both were cut in V3's Decisions section and neither was ever rescheduled, so the interface spent nine logs being the design working exactly as specified with both of its connective elements removed. `npm run dev` now gives three columns: deep time, the pools, the pathway. Left to right is where am I, what is happening, why.
+
+**Eleven hand-drawn assets entered a project where every illustration was computed from a table, and the governance rule was written before the first one.** `Blob.tsx` contains no path data by rule, so the computed set inherits the palette for free and cannot name a colour it should not. Drawn assets inherit none of that: the accessibility guard reads colours out of `index.css` and an SVG `fill` presentation attribute is neither a token nor a class, and `forced-colors` does not force `fill` either. **A drawn asset was the one thing in this game that could leave the palette and ignore a user's colour setting at once, in a file nobody diffs.** The seventh guard walks `src/ui/art/` and fails the build on a colour literal, a stroke weight outside 3 to 3.5, an asset with no stroked path, or any gradient, filter, raster or opacity below 0.85. Proved by planting `#E8503C` in place of `var(--color-loss)`, which is the identical colour, and reading the failure. **No asset needed an exception.**
+
+**The art was never the risk and the budget is what says so.** V9 built a size budget one log before this moment specifically for it. Eleven assets plus two components cost **21.04 kB of a 460 kB ceiling**, and the total went from 382.98 kB to 404.02 kB. Application sits at 89.55 kB against 130 kB.
+
+**Two open questions from 2026-07-29 are closed and the second was closed by connecting two things DESIGN.md already contained.** Open question 7 asked what distinguishes holding at a high rate from stopped. The beast's state table has said Lively is high flux and Sluggish is flux near zero since 2026-07-28. Question and answer sat in two sections of one file for eleven days of build logs. **The join is real rather than verbal**: the beast reads gross throughput and every pool card shows a net rate, and a net rate is genuinely the same 0.00 whether a lot is happening steadily or nothing is happening at all.
+
+**The beast makes the quiet legible. It does not make the quiet shorter, and blocking item 2 does not close here.** A picture of a cell holding steady is not a thing to do in a fourteen-minute gap. Worse for the claim and recorded anyway: act 1 produces **three beast transitions across 84000 frames and two of them are inside the first four seconds**, so across the gap itself the beast changes zero times. It is legible during the quiet and it is not eventful during it.
+
+**The second channel is measured rather than argued, at 9.03:1 against a colour channel that peaks at 1.68:1.** DESIGN.md proposed motion for three of the four beast states and V7's rule bans movement or colour alone, so the collision had to be resolved in design. The answer is the stroked silhouette: posture, eye form, mouth form, and for Powered a closed sub-outline inside the body. Thirty measurements across six pairs and five viewing conditions, using the Machado 2009 matrices Chromium's own emulation uses, all above V7's 5.70:1 standard. **Lively and Powered share a fill outright**, so between those two the colour channel is 1.00:1 in every condition, which is not a weak channel but no channel at all.
+
+**The game will now tell you, on demand, which of its numbers are measured, which are tuned for pacing, and which have no real counterpart at all.** Every science game claims accuracy. Per docs/ECONOMY.md the tuned scalars are 33 DEPARTURE and 15 UNSOURCED, **so for most numbers on screen the honest answer is a divergence row rather than a paper**, and the panel says so without softening it: "There is no real counterpart at all. Nothing in biology corresponds to this number and the row leaves its real behaviour column empty on purpose." A test fails the build if that sentence ever acquires the words approximately, roughly, based on or inspired.
+
+**A timeline that can say "we do not know when" at full confidence is making the same move.** Two of the seven stops carry no date and that is a sourcing result rather than a gap: the 2.7 Ga oxygenic photosynthesis figure was removed by a 2015 contamination result and the vent stop is a proposal about a mechanism. **An undated stop is not a missing date, it is a one-sided ordering constraint**, so the date column carries a word at a figure's own weight and the spine carries a bracket running off its open end without a cap. Nothing in the treatment is dashed, dimmed or grey, because this system uses those to mean unfinished and these are the two stops where the sourcing was done hardest. The one dashed card on the view is the locked one, and that contrast is asserted.
+
+**Blocking item 4 is closed.** Under `forced-colors: active` the offset shadow is switched off and a second outline is drawn outside the border in `CanvasText`. It was a conflict rather than a bug and both sides stay right: the substitution says what the shadow said in the one channel forced colours guarantees. **V7's decision to draw the focus indicator INSIDE is what made it affordable**, two logs before anything needed it, because the two rings never collide.
+
+**The wordmark is fixed after four logs, and what forced it is that the timeline needed the band.** 60 to 104px is a title scale and on the act screen the wordmark is chrome. It was recorded as wrong on 2026-07-29 and no log fixed it because the fix is a design decision and none of them had a design stage. **The largest type in the game should be the thing that changes rather than the thing that never does**, which is Direction's own flux-is-the-headline applied to the chrome.
+
+**Three of stage 1's own decisions were corrected by the build, and the corrections are the useful part.** The beast's dead band was designed in on sound general reasoning and measured out: a bare threshold and a band with the off level at half the on level produce the same 3 transitions, because act 1 does not wander across that line. The undated bracket's length carries nothing, because the thing at its far end is exactly what is not known. And the beast sits on the marker's card rather than on the spine, because 20px is not enough to draw a second channel in.
+
+**The beast brings no tuned number, which is why this log owes docs/ECONOMY.md nothing.** Its lively boundary is `ZERO_FLUX_THRESHOLD`, the number the pathway arrows already use and the stall detector already shares. One threshold, three readings, nothing that can drift.
+
+**Provenance cost tab stops and the cost is paid rather than hidden.** The badge is the affordance, which gives complete coverage with no call-site edits, and it took the pool rail from 3 tab stops to 13 and added 9 more on the timeline. **That inverts a decision V7 took and V7 wrote down the condition for revisiting it**: "if a later log makes pool cards interactive this fails, which is the right moment to revisit it." It failed. The skip link is built. V7's argument was right on its numbers and its numbers changed, which is a better outcome than either being wrong.
+
+**A screen reader hears exactly what it heard before, and that number was checked rather than assumed.** 17 announcements across a full act, counted by replaying the announcer's own event derivation against a real run, against an upper bound of 17. **V12 added zero.** The timeline would have announced the act boundary a second time and the beast would have restated the stall and the recovery, and two announcements about one fact is the same defect as two copies of one fact in a save.
+
+**Nobody who is not the author has still looked at this game.** Blocking items 0 and 0b are exactly where V6 and V7 left them. V12 added a timeline, a character, seven dated stops and a provenance panel for a reader who does not exist to fail to understand.
 
 **The guards run now, the determinism claim is measured rather than argued, and the game is still not deployed.**
 
@@ -107,7 +141,7 @@ One sentence per log. The "does not" column is the fence each stage doc inherits
 | V9 | CI, cross-engine determinism and deployment: the workflow, the eight guards running on every push, the four-engine determinism measurement, the Cloudflare configuration and the strict CSP, the bundle budget, a real build id, and the act 2 oxygen constraint | Any simulation, content, economy or interface change. **And the deploy itself**, which is configured and gated and was not run for want of credentials | Done 2026-08-09, **not deployed** |
 | V10 | Act 1 completion: ethanol fermentation and the first carbon released, glycogen storage, the named glycolytic enzymes, and the act re-derived end to end | An ending for act 1, the timeline, the beast, the act boundary, act 2, and any change to docs/SCIENCE.md outside stage 1 | Done 2026-08-06 |
 | V11 | Spine A, the structural half: the act registry, the runtime de-specialised, content.ts as a directory, the act boundary and act 1's ending, the future-act refusal, the guards walking, and the first end-to-end playthrough | The timeline, the beast, provenance-on-click, any new visual surface, a second act, the descriptor's full shape, and any change to a tuned number | Done 2026-08-06 |
-| V12 | Spine B, the surface half. See `docs/designs/game-spine-and-four-acts.md` | | Written, not started |
+| V12 | Spine B, the surface half: the DESIGN.md stage and its six decisions, the timeline as the spine with a discrete marker, the beast and its four states, provenance on click with four destinations, the rail reading the running act, the viewport story, and the first eleven hand-drawn assets under a governance rule and a guard | A second act. Anything that makes ATP spendable. The endgame summary, the sandbox, act 3's compartment and gradient illustration rules, the pool rail regrouped for act 3, per-claim citation anchors in docs/SCIENCE.md, and any change to a tuned number | Done 2026-08-09 |
 
 **docs/SIMULATION.md is finished and that changes what the table is for.** Every part of the engine specification is implemented: the tick loop in V1, reaction kinetics in V1 and V2, offline progress in V8, number representation in V1, determinism throughout and the constants summary as of this log. It has been the document every log was measured against since V1 and there is nothing left in it to build. **What is left in the project's specifications is content**, which is docs/PROGRESSION.md acts 2 to 4, and process, which is V9.
 
@@ -511,6 +545,91 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
 
 **One test fails the build when act 2 lands**, asserting the registry holds one act while the copy names act 2. Same mechanism `schemaVersionGate.test.ts` uses for hard rule 7.
 
+## What the spine does
+
+`src/ui/timeline.ts`, `src/ui/components/Timeline.tsx`, `src/ui/components/Beast.tsx`, `src/ui/art/` and `src/ui/content/provenance.ts`, added by V12.
+
+    timeline.ts       seven stops, the admission rule, the marker mapping.
+                      No player-facing string in it
+    Timeline.tsx      the column. Landmark, heading, focusable scroll region
+    Beast.tsx         four states as React state, and nothing continuous
+    art/              ArtFrame plus eleven drawings, and a README carrying
+                      the governance rule the guard enforces
+    provenance.ts     four destinations, composed from the badge
+
+**The seven stops, newest first, with the marker on the second from the bottom.**
+
+```
+  Now                modern eukaryotic cell        Tuned      locked
+  ~1.7 to 1.5 Ga     early aerobic eukaryotes      Sourced    act 4
+  ~2.2 to 1.5 Ga     mitochondrial endosymbiosis   Contested  act 3
+  ~2.4 to 2.0 Ga     Great Oxidation Event         Sourced    act 2
+  unresolved         oxygenic photosynthesis       Contested
+  ~3.48 to 3.43 Ga   microbial mats                Sourced    act 1, YOU ARE HERE
+  hypothesis         alkaline hydrothermal vents   Contested
+```
+
+**Every date traces to docs/SCIENCE.md Part 6 and the citations resolve against the document rather than against a list.** Six of the seven carry a Part citation and the count is asserted at six, so the seventh cannot quietly acquire one or lose it. The seventh is `Now`, which is not a claim about the record at all.
+
+**The admission rule has real load on it for the first time and three stops do not pass cleanly.** A figure earns its place by its metabolism, not its morphology, settled 2026-07-28 as the guardrail against drifting into the tree of life. Making the timeline the frame is exactly what raises the pressure it exists to resist. The rule is written in the file somebody edits to add a stop, as four things that disqualify a candidate, and asserted.
+
+```
+  eukaryotes   PASSES ONLY ON THE REFRAME. Part 6 stop 6 says it "fails as
+               drafted, passes if reframed". Eukaryotic identity in the
+               Proterozoic record is size, wall and ornamentation, all
+               morphology. It is on the view because the same fossils sit
+               almost entirely in oxygenated bottom water
+
+  mats         NARROW. The mats themselves are morphology. What earns the
+               place is the anoxygenic phototrophy on the card
+
+  now          DOES NOT PASS AND IS NOT MEANT TO. It is where the player's own
+               cell ends up rather than a claim about the record, so it carries
+               a Tuned badge and no Part. A deliberate exemption, recorded so
+               nobody counts seven sourced stops
+```
+
+**The marker is discrete and its signature is the proof.** `markerStopId(act: number)` takes an act number and nothing else, so it cannot read cumulative ATP, elapsed time or a pool level, because it is not given one. **A marker that slides with a running total is a progress bar however it is drawn**, and this is the largest always-on surface in the game, so it is also where the project's central architectural claim would break first.
+
+**Asserted twice, from two directions, and the first version of the assertion could not have failed.** The markup identity check built a runtime, drove it 200000 frames, then rendered through `RuntimeProvider`, which builds its **own** runtime and ignores the one the test aged. Both sides were a fresh cell at tick 0, so a timeline wired straight to `snapshot.tickCount` passed it. **The probe found that, not review.** It is fixed with a driver component rendered inside the provider, and re-probing fails as it should. A source-level check that the module names none of `useLive`, `useLiveNode`, `useSnapshotEffect` or `.subscribe(` sits beside it, and **the two are complementary rather than redundant**: the planted violation used `useRuntime().snapshot` directly, which the source scan does not name and did not catch.
+
+**The beast's four states, and act 1 reaches two.**
+
+```
+  lively    the act's gross throughput is at or above the stopped threshold
+  sluggish  below it. Covers the walled cell AND the starved cell
+  sick      the act reports active damage.     unreachable in act 1
+  powered   the act has a compartment.         unreachable in act 1
+```
+
+**No fifth state for starvation, and that was the real question.** A walled cell and a starved cell are both stopped, which is what the beast says, and which one it is sits on the pool rail where the cause lives. **The beast says the cell has stopped, the rail says why.** A fifth state means a state per cause and a character that is a status bar with legs. Decisive on timing too: act 1's environment empties at 93m07s and its authored ending fires at about 54m03s, so **starvation is a post-content condition**, reached forty minutes after the game has said the act is over.
+
+**Powered is the only topological change in the illustration set**, asserted directly: a closed sub-outline inside a closed outline is a compartment, nothing else the game draws has one, and it reads with every fill removed because a hole in a shape is not a colour. The same sub-outline is on the timeline's endosymbiosis figure, so the moment on the column and the moment on the body are drawn as one event.
+
+**Provenance has four destinations and the fourth was missing from the design doc's first version.**
+
+```
+  Sourced     its docs/SCIENCE.md Part, plus what that Part covers. Subject
+              lines authored for all seven, not only the three cited today
+  Tuned       its docs/ECONOMY.md row, and the row's verdict in the row's own
+              words. UNSOURCED is a table category and not a badge, so this
+              branch cannot be taken from the badge alone
+  Contested   what is argued about, and who argues which side
+  measured    your own session and the system clock. It points nowhere
+```
+
+**Contested is the one that had nowhere to go and it is the one that matters most later**, because the act 3 log makes a contested-science beat a headline feature. Three topics are authored from Part 6: the vent hypothesis with Jackson 2016 against and Lane 2017 in reply, oxygenic photosynthesis with the 2015 contamination result, and endosymbiosis with mitochondria-early against mitochondria-late.
+
+**`divergenceRow` was shaped by V3 for exactly this and had never been populated by anything.** Four badges name a row now, chosen so both verdicts are reachable in play: `C5` and `C20` on the pathway, `U7` on the shelf, and `S1` on the save panel, which is the UNSOURCED one. `U7`'s badge already named the row **in prose**, where no panel could reach it.
+
+**The verdict is derived from the document rather than transcribed.** docs/ECONOMY.md's own "How to read a row" says the real behaviour column is left empty where the science says nothing, so the guard reads the fourth cell and calls an empty one UNSOURCED. Guard-the-guarded on `C1` giving DEPARTURE and `U1` giving UNSOURCED, so a parser reading the wrong column stops disagreeing and fails.
+
+**All three guard checks were broken deliberately and the failures are quoted in UPDATELOGV12.md stage 4.** A Part that does not exist, a Contested badge with nothing authored, and a Tuned badge naming a real row nobody wrote a verdict for. **Where the third check does not have teeth is stated rather than implied**: a Tuned badge naming no row falls to the build-statement destination and the only thing checked is that it carries a reason, because the guard cannot know whether a sentence about this build should have been a row.
+
+**Nothing about focus or Escape is reimplemented.** The panel is `Overlay` plus a `Card`, and a test asserts `ProvenancePanel.tsx` contains no `addEventListener`, no `Escape`, no `activeElement` and no `focus()` outside its comments. Overlay has held all of it since V7 stage 3.
+
+**The rail reads the running act for the last thing that was still act 1's.** Spine A made the card table act-keyed; `poolCards.ts` was still building its conserved-weight map from `act1PoolDefinitions()` directly, so illustration rules 1 and 2 would have drawn act 2's molecules with act 1's weights. The descriptor gains `poolDefinitions()` and the map is built from the registry. **One map across all acts rather than one per act**, because docs/SAVE_SCHEMA.md Part 3 makes a pool id permanent contract surface, so its conserved weights are a property of the pool rather than of the act reading it. A test fails if two acts ever disagree about a shared id.
+
 ## What CI enforces
 
 `.github/workflows/ci.yml`, added by V9. On every push and every pull request, `ubuntu-latest`, Node pinned to the exact patch `24.11.1` in `.nvmrc`, which Cloudflare Pages reads too so CI and the deploy build cannot drift.
@@ -646,6 +765,37 @@ Written out for the same reason V10's section exists: a reader should not be abl
 
 **No tuned number moved and docs/SCIENCE.md was not touched at all.** Not in any stage, including stage 4, which is the one stage that adds behaviour.
 
+## What V12 did not do
+
+**The game has the connective tissue for four acts wrapped around one, and that is the honest way to describe what it is now.** Everything below follows from it.
+
+**It did not make ATP weigh anything, and a well-drawn character must not be read as having done so.** DESIGN.md's argument for the beast is that nothing else in the design consumes ATP, so the game produces a currency with no visible sink. **A state readout is not a sink.** The sharper version of the problem, found while answering it: the game already HAS an ATP sink and it is `maintain`, one of act 1's five reactions, turning ATP into ADP and phosphate every tick, entirely invisible. Two different things are missing.
+
+    visible     `maintain` runs constantly and nothing attributes it to
+                anything. The beast is the obvious place to attribute it,
+                because the cell costs ATP to keep running and the character IS
+                the cell. That is a readout change and a later log could do it
+                cheaply
+
+    spendable   purchases are thresholds against a LIFETIME ATP counter and
+                debit nothing. docs/ECONOMY.md lists that as structural
+                departure 1 and src/ui/tuning.ts says it outright: the adenylate
+                pool is fixed, closed and conserved. Making ATP spendable is an
+                economy change, a docs/ECONOMY.md pass and a re-derivation of
+                act 1's pacing
+
+**It did not shorten the quiet.** See Blocking item 2, which does not close and now says why in its own words. The beast makes the quiet legible and changes zero times across the fourteen-minute gap.
+
+**It did not add an act, a pathway, a pool, a reaction or a tuned number.** `git diff` is empty across `src/sim/`, the three tuning files, `docs/SCIENCE.md` and `docs/ECONOMY.md` for the whole log, and both canonical hashes are unmoved at `172f83fb` and `65b43d27`. One file under `src/content/` changed and it is `acts.ts`, which gained `vitality()` and `poolDefinitions()` because stage 3 and stage 5 both require the act to answer a question rather than a component to assume one. **Neither is read by any simulation code.**
+
+**It did not regroup the pool rail for act 3, and that is a decision written into `poolCards.ts` and asserted.** Act 3's pools are not written down anywhere, docs/PROGRESSION.md gives act 3 eight unlocks and names no pools, and the design doc's own risk table defers act 3's compartment and gradient illustration rules to the act 3 log. A grouping designed against an imagined act 3 gets redesigned there anyway, so the cost is paid twice and the version in between is worse than either.
+
+**It did not build per-claim citation anchors in docs/SCIENCE.md**, which stays deferred to its own log. Provenance cites a Part, which is honest about its own resolution: the panel names the Part and says what the Part covers, and never implies it is pointing at a sentence.
+
+**It did not run spike C.** The art spike was a named gate in `docs/designs/game-spine-and-four-acts.md`, two figures before committing to eleven, and it was meant to price execution and answer governance. **Governance was answered, in the design stage, before any asset was drawn, and the guard landed with the first seven.** Execution was not priced in advance; it was priced by doing it, and the answer is that eleven assets and two components cost 21.04 kB against a 460 kB ceiling. The gate was skipped and it is recorded as skipped rather than as satisfied.
+
+**And nobody who is not the author has still looked at this game.** Blocking items 0 and 0b are exactly where V6 and V7 left them.
+
 ## What a second act would still need
 
 The honest measure of whether this log worked is how short this list is. Concretely, and not a plan.
@@ -691,8 +841,10 @@ Written into docs/SAVE_SCHEMA.md Part 1 rather than only here, because a decisio
     DESIGN.md              visual contract, direction Honest Cartoon
     NOW.md                 this file
 
-    docs/ECONOMY.md        tuned numbers and the divergence table, 37 rows
+    docs/ECONOMY.md        tuned numbers and the divergence table, 48 rows
     docs/CONTENT_STYLE.md  the writing contract, eight parts and a decisions log
+    src/ui/art/README.md   the governance rule for hand-authored art, and the
+                           guard that enforces it. Added by V12
 
 **Every document CLAUDE.md's index promises is now real.** docs/ECONOMY.md landed in V5 and docs/CONTENT_STYLE.md in V6, and they were the last two the index described as deferred.
 
@@ -708,6 +860,7 @@ Written into docs/SAVE_SCHEMA.md Part 1 rather than only here, because a decisio
     UPDATELOGV8.md         the offline progress log, six stages, all reported
     UPDATELOGV10.md        the act 1 completion log, six stages, all reported
     UPDATELOGV11.md        Spine A, the structural half, seven stages, all reported
+    UPDATELOGV12.md        Spine B, the surface half, six stages, all reported
 
 Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system-20260728/`. `preview-cartoon.html` is the current direction. `preview.html` is a rejected earlier direction kept for comparison.
 
@@ -738,6 +891,39 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - Act 2 models two damage mechanisms, not one. ROS and molecular oxygen have different targets and the antioxidant enzymes only address the first. The target inside act 1's own loop is GAPDH by thiol oxidation.
 - Content lives in `src/content/` and the kernel never imports it. The arrow points one way, permanently.
 - ATP is a flux, not a score. The adenylate pool is fixed and closed and `maintain` hydrolyses ATP back to ADP and phosphate. Cumulative production is a counter beside the simulation, never a pool inside it.
+
+## Settled 2026-08-09, by V12
+
+- **An undated timeline stop gets a word where a figure goes and a bracket where a node goes.** DESIGN.md open question 5, open since 2026-07-29. An undated stop is not a missing date, it is a one-sided ordering constraint, and both of the two turned out to be one-sided in the same direction because a stop is undated precisely when one side of it has no evidence. Nothing in the treatment is dashed, dimmed or grey. Five alternatives are recorded with the reason each lost, including a central estimate with an error bar, which would have restored a number through the back door.
+- **The bracket's length carries nothing.** It cannot be drawn to scale because the thing at its far end is exactly what is not known, so the cap is the reading and the length is a fixed overhang.
+- **The beast is the answer to DESIGN.md open question 7, and the answer was already in the document.** Question and answer sat in two sections of one file since 2026-07-28. The join is real because the beast reads gross throughput while every pool card reads a net rate, and a net rate is the same 0.00 in both situations.
+- **The claim stops at legibility.** The quiet becomes readable and does not become shorter. Blocking item 2 does not close.
+- **Every beast state is distinguishable by its stroked silhouette alone**, at 9.03:1 worst against a colour channel that peaks at 1.68:1 and is 1.00:1 between Lively and Powered. Posture is not motion: a figure drawn mid-stride does not move.
+- **Four beast states and no fifth for starvation.** The beast is a readout of one quantity and not a diagnosis of its cause. A fifth state means a state per cause. Starvation is also a post-content condition, reached forty minutes after act 1's authored ending.
+- **The beast has no dead band, and stage 1's reasoning for one was measured out rather than argued out.** A bare threshold and a band at half the on level both give 3 transitions across 84000 frames.
+- **The beast brings no tuned number.** Its boundary is `ZERO_FLUX_THRESHOLD`, already shared between the pathway arrows and the stall detector. One threshold, three readings.
+- **Hand-authored art is governed by a rule with a mechanism, written before the first asset.** Tokens only and by reference, ink carries the reading with every fill removed, one stroke band, and nothing the rest of the system already forbids. Assets live in one directory and the seventh guard walks it.
+- **Under `forced-colors` the offset shadow is dropped and a second outline is drawn outside the border.** Blocking item 4, closed. A substitution rather than a removal, and V7's inside focus ring is what made it affordable.
+- **The wordmark gets a compact scale and the act screen uses it.** The largest type in the game should be the thing that changes rather than the thing that never does.
+- **The badge is the provenance affordance, and it cost tab stops.** The rail went from 3 to 13 and the timeline added 9, which inverted V7's decision to skip a skip link on the condition V7 itself wrote down. The skip link is built.
+- **Below `lg` the timeline is first and capped at 20rem, and nothing is hidden at any width.** Decided by what the player loses: where am I is asked on arrival, what is happening and why are watched.
+
+**The bundle, and the budget V9 built one log early for this moment.**
+
+```
+                              V11         V12       delta   budget
+  application (apportioned)  75.28 kB   89.55 kB   +14.27   130.00 kB
+  dependencies (apportioned)  215.42     219.12     +3.70   230.00 kB
+  fonts                        68.86      68.86      0.00    72.00 kB
+  styles                       19.57      22.64     +3.07    32.00 kB
+  other (html, _headers)        3.85       3.85      0.00         -
+  total                     382.98 kB  404.02 kB   +21.04   460.00 kB
+
+  emitted JS                290.70 kB  308.67 kB   +17.97
+  gzipped JS                 89.97 kB   95.54 kB    +5.57
+```
+
+**Nothing was cut and the ceiling was not raised.** Eleven drawn assets, two components, a stop table, three content files, a context and a panel cost 21.04 kB. The apportioned dependency figure moved without a dependency being added, which is the apportionment doing what its own header says it does when application modules are added; the total is the exact figure and it is the one to read.
 
 ## Settled 2026-08-06, by V11
 
@@ -858,7 +1044,19 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
    **One thing is permanently lost and should be recorded rather than hoped away.** Stage 2 was a pre-change baseline and the change has now landed. A cold read taken today measures this build, with the first run and the teaching layer in it, against nothing. **The comparison V6 was designed around cannot be recovered.** A single post-change reading is still worth far more than none.
 
-4. **Forced-colors mode removes the hard offset shadow without removing it, and this is a conflict rather than a bug.** Opened 2026-08-04 by V7 stage 1.
+4. ~~**Forced-colors mode removes the hard offset shadow without removing it, and this is a conflict rather than a bug.**~~ **Closed 2026-08-09 by V12**, decided in stage 1 and shipped in stage 5. Struck rather than deleted, because the reasoning is the useful part and both sides of it stayed right.
+
+   **The fix is a substitution, not a removal.** Under `forced-colors: active` the offset shadow is switched OFF rather than recoloured, because a shadow in a system colour participates in a palette it was never designed against, and a second rule is drawn outside the card's own border in `CanvasText` at `inset: -6px`. What the shadow says is "this is a separate piece of paper above the page", and a second outline says it in the one channel forced colours guarantees.
+
+   **V7's decision to draw the focus indicator INSIDE is what made it affordable**, taken two logs before anything needed it. The focus ring is at `outline-offset: -6px`, inside the border, and this rule is outside it, so the two never collide and a focused card under forced colours reads as separated and focused at once. Had focus been an outer ring, this fix would have had to fight it. It is a pseudo-element rather than an `outline` for the same reason: `outline` is spoken for.
+
+   **Only cards that carry a shadow are marked.** A dashed slot has none, so there is nothing to substitute for, and drawing a second outline around it would say "separate piece of paper" about the one thing on the screen that is deliberately not one yet.
+
+   **It took a design stage rather than a repair, which is why four logs did not fix it.** V7 declined inside an audit stage and said so. V12 stage 1 is the first design stage since, and it took it.
+
+   The original entry, kept because it is the record of what was measured:
+
+4b. **The original finding, 2026-08-04 by V7 stage 1.**
 
    In `forced-colors: active` the page goes black ground, white text, white outlines. Text and card outlines are fine and every card still reads as a card. `box-shadow` is not forced, so DESIGN.md's `4px 4px 0` ink shadow is still painted, onto a black ground, where it is invisible while the layout still reserves its offset. **The paper cutout read collapses entirely**, and DESIGN.md calls that shadow load-bearing.
 
@@ -897,6 +1095,14 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
    **CONTENT CANNOT CLOSE IT FROM HERE, and V10 is the log with the standing to say so.** docs/PROGRESSION.md's act 1 unlock list is nine items and all nine are built. There is no tenth thing to sell, no configuration left unpurchased, and the gaps are even. Whatever remains after 6m43s is DESIGN.md open question 7 and the beast, which is V12.
 
    **One thing did change about the quiet and it is recorded rather than counted as progress.** V6's note under this item says "every net rate reads 0.00 for fourteen minutes". That is no longer true: with storage bought the glycogen card's net rate is non-zero for most of the act, charging while the environment is full and discharging as it drains. Whether a slowly moving number counts as something happening is exactly the question this item has never been able to answer without a reader.
+
+   **V12 built the beast and this item still does not close, and V10's own entry above predicted exactly that.** V10 wrote that whatever remains after 6m43s is DESIGN.md open question 7 and the beast, which is V12. **Open question 7 is closed. This item is not, and the two are different claims.**
+
+   **What the beast actually changed.** A solved act 1 and a walled act 1 both show 0.00 on every net rate, and no pool card can tell them apart because the number is genuinely the same number. The beast reads gross throughput, which is the quantity that differs, so **the quiet is now legible: Sluggish is a picture of a cell holding steady rather than an absence of information.** That reading exists nowhere else on the screen and it did not exist before.
+
+   **What it did not change, in the terms this project uses.** A picture is not a thing to do. And the measurement is worse for the claim than the argument is: act 1 produces **three beast transitions across 84000 frames, and two of them land inside the first four seconds**. Across the fourteen-minute gap itself **the beast changes zero times.** It is legible during the quiet and it is not eventful during it, and anybody reading "the beast answers open question 7" should read it with that number attached.
+
+   **So the standard this item has always set is still unmet and still cannot be met from inside.** Closing it requires saying what "short enough" means as a number and why, no such number exists in this project, and nobody here has the standing to invent one. **Content cannot close it, V10 established that with all nine unlocks built, and now a visual treatment cannot close it either.** What is left is a reader. See Blocking item 0.
 
    **And the tail got worse, which belongs here rather than in a footnote.** The last purchase moved from 61m57s to 54m03s and the environment still empties around 93 minutes, so the silence between the end of the content and the end of the food grew from 30m45s to **39m03s**. Eleven of those minutes are now the cell running down its reserve rather than nothing, and the other twenty-eight are not. Act 1 has all its content and still no ending. That is V11.
 
@@ -999,13 +1205,17 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 0. **Find one cold reader.** Not a log and not a stage. It is listed first because it is the only item on this page that no amount of building advances, because it gates docs/PILLARS.md's first two success conditions, and because every log after this one adds more to a screen nobody outside this project has looked at. See Blocking item 0. It does not block V9 and V9 should not wait for it.
 
-1. **Spine B, the surface half.** `UPDATELOGV12.md`. See `docs/designs/game-spine-and-four-acts.md` rather than a restatement of it here. The DESIGN.md stage first, then the timeline as the spine with a discrete marker, the beast subject to the art spike, provenance-on-click, the pool rail reading the running act, and the viewport story.
+1. **The act jump.** `UPDATELOGV13.md`, not written. The first half of teacher mode, and `docs/designs/game-spine-and-four-acts.md` carries its scope rather than this file.
 
-   **It is the log the project now needs, and the reason is the shape of what V11 shipped.** Spine A built the half nobody looks at: a registry, a rename, a directory, a boundary, a refusal and a playthrough. **What is still missing is everything you can see.** DESIGN.md has specified the timeline and the beast since 2026-07-28, both were deferred in V3 and neither has been picked back up since, and `docs/designs/game-spine-and-four-acts.md` names them as the two design elements that supply meaning.
+   **Its value depends on the act ordering decision below and it must not become a second definition of what an act's start state is.** The boundary machinery Spine A built already defines one, and NOW.md has settled the rule this would break: two copies of one fact is the specific way save formats rot.
 
-   **One thing gates part of it.** Spike C, two hand-drawn figures to DESIGN.md's standard, prices the illustration scope and has to answer governance as well as execution: nothing currently constrains a hand-authored asset to the token palette, because every illustration so far is derived from the conserved-weight table and `Blob.tsx` contains no path data by rule.
+   **What V12 leaves it.** An act registry, a runtime that takes a descriptor, an act boundary, a future-act refusal on load, a timeline whose marker reads the act number and moves at act boundaries and nowhere else, and a beast whose four states are answered by the act rather than by a component. **A jump has somewhere to land and something to draw when it does**, which was not true before this log.
 
-   **Spine A, the structural half, is done.** `UPDATELOGV11.md`, seven stages, all reported.
+   ~~**Spine B, the surface half.**~~ **Done 2026-08-09.** `UPDATELOGV12.md`, six stages, all reported. See "What the spine does" above. Spike C, the art spike that was meant to gate the illustration scope, **was not run and the log went ahead without it**: governance was answered in the design stage instead, before any asset was drawn, and the guard that enforces it landed with the first seven. Recorded rather than glossed, because the spike was a named gate and it was skipped.
+
+   ~~**Spine A, the structural half.**~~ **Done 2026-08-06.** `UPDATELOGV11.md`, seven stages, all reported.
+
+   **The act ordering decision is still open and still blocks nothing before V14.** Act 3's payoff needs oxygen as the terminal electron acceptor and act 2 is what supplies it, so act 3 first requires a placeholder oxygen constant carrying a DEPARTURE row and an act 3 rebalance when act 2 lands. Either accept that price in writing or flip the order and withdraw the value-ordering argument. **Unchanged by V12**, which touched no act content and no tuned number, and the entry below carries the full pricing.
 
 2. ~~**CI, cross-engine determinism and deployment.**~~ **Done 2026-08-09.** `UPDATELOGV9.md`, five stages, all reported. See "What CI enforces" above rather than a restatement here. The one piece left undone is the deploy itself and it is under "Open, not blocking".
 

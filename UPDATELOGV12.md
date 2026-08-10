@@ -1359,7 +1359,182 @@ and the NOW.md diff summary.
 
 ## Stage 6 Report
 
-_Pending._
+Everything green, no canonical hash moved, and the bundle is inside every budget line with 55.97 kB of total headroom left.
+
+### 1. Full verify
+
+```
+  npm run typecheck        clean
+  npm run lint             clean
+  npm run build            clean, and the budget plugin reports green
+  npm test                 960 passed, 55 files
+  npm run sim              3 scenarios, conservation drift 3.259e-14 worst
+  npm run sim:act1         3 scenarios, drift 2.001e-15 worst on redox
+  npm run offline:validate 47 cases, every one inside tolerance, 0 fallbacks,
+                           0 budget exhaustions
+  playthrough              12 tests, part of the suite. 70 game-minutes each
+                           way, 10 purchases, 0.0067 percent disagreement
+```
+
+**The test count against V11's.** 632 at the start of this log, **960 now, up 328 across 6 new files.**
+
+```
+  timeline.test.tsx           19    stage 2
+  art.test.ts                 56    stage 2, the seventh guard
+  beast.test.tsx              46    stage 3
+  beastPacing.report.test.ts   4    stage 3
+  provenance.test.tsx        158    stage 4, the eighth guard
+  surfaces.test.tsx           20    stage 5
+```
+
+`provenance.test.tsx` is 158 because it is parameterised over every badge the game ships, which is the point of it: the set is walked rather than listed, so a badge added tomorrow is checked tomorrow.
+
+### 2. The bundle, three ways
+
+```
+                              V11         V12       delta   budget   headroom
+  application (apportioned)  75.28 kB   89.56 kB   +14.28   130.00    40.44 kB
+  dependencies (apportioned) 215.42     219.12      +3.70   230.00    10.88 kB
+  fonts                       68.86      68.86       0.00    72.00     3.14 kB
+  styles                      19.57      22.64      +3.07    32.00     9.36 kB
+  other (html, _headers)       3.85       3.85       0.00        -          -
+  total                     382.98 kB  404.03 kB   +21.05   460.00    55.97 kB
+
+  emitted JS                290.70 kB  308.67 kB   +17.97
+  gzipped JS                 89.97 kB   95.54 kB    +5.57
+  sourcemaps                1679.63    1784.64    +105.01   unbudgeted
+```
+
+**Nothing was cut and the ceiling was not raised.** Eleven hand-drawn assets, two components, a stop table, four content files, a context, a panel and a skip link cost 21.05 kB against a 460 kB total. **The budget existed for exactly this moment and the answer it gives is that the art was never the risk**: the whole art directory including its frame is a small part of the 14.28 kB the application grew, and the dominant cost is prose and components.
+
+**One figure needs reading carefully rather than at face value.** The apportioned dependency line moved by 3.70 kB without a dependency being added. That is the apportionment doing what `vite/bundleBudget.ts` says in its own header: the JS chunk is split by `renderedLength` ratio, which is pre-minification, so adding application modules shifts the ratio. **The total is exact and it is the figure to trust**, and `dependencies` is still the line to watch for the thing it was built to catch, which is a library arriving.
+
+### 3. No simulation change
+
+```
+  git diff 6bc6f97..HEAD -- src/sim/                        empty
+                            src/content/act1/               empty
+                            src/ui/tuning.ts                empty
+                            src/save/tuning.ts              empty
+                            docs/SCIENCE.md                 empty
+                            docs/ECONOMY.md                 empty
+
+  toy canonical hash        172f83fb   unmoved, asserted
+  act 1 canonical hash      65b43d27   unmoved, asserted
+```
+
+**One file under `src/content/` did change and it is `acts.ts`**, flagged in stage 3 and again in stage 5 rather than discovered here. It gained two members:
+
+```
+  vitality()          stage 3 step 1 requires the beast's condition to live in
+                      the descriptor rather than as a threshold in a component
+  poolDefinitions()   stage 5 step 1 requires the illustration rules to read
+                      the running act's conserved weights rather than act 1's
+```
+
+**Neither is read by any simulation code, neither moved a pool, a reaction, a coefficient or a tuned value, and both canonical hashes are unmoved**, which is the property the fence exists to protect. `vitality()` is a pure reading of two arrays the tick already produced. `poolDefinitions()` returns act 1's existing definitions unchanged. The fence's intent is that the log did not change the simulation, and it did not.
+
+### 4. What stages 2 to 5 settled that stage 1 did not anticipate
+
+Seven rows added to DESIGN.md's decisions log, dated 2026-08-09. **Three of them correct stage 1 and the corrections are the useful part.**
+
+```
+  the bracket's length carries nothing      stage 2. It cannot be drawn to
+                                            scale, because the thing at its far
+                                            end is what is not known, and a
+                                            varying length implies an extent
+
+  the beast has NO dead band                stage 3. Stage 1's reasoning was
+                                            right in general and false here.
+                                            Measured: bare and banded both give
+                                            3 transitions across 84000 frames
+
+  the beast is on the marker's CARD         stage 3. A deviation from DESIGN.md
+                                            itself. 20px of spine cannot carry a
+                                            posture, an eye form and a mouth
+                                            form, which are the whole second
+                                            channel
+
+  the beast brings no tuned number          stage 3. It joins the threshold the
+                                            arrows and the stall detector
+                                            already share, which is also why
+                                            docs/ECONOMY.md is untouched
+
+  the badge is the affordance, and it       stage 4. The rail went 3 to 13 tab
+    costs tab stops                         stops. V7's skip-link decision
+                                            inverted on the condition V7 wrote
+
+  a measured value gets the info            stage 4. A fourth pill would imply
+    affordance, not a fourth pill           provenance is an open question about
+                                            a value declared exempt in 2026-07-31
+
+  below lg the timeline is first and        stage 5. Decided by what the player
+    capped, and nothing is hidden           loses rather than by what fits
+```
+
+**Three other DESIGN.md sections were corrected rather than left standing.** The screen inventory's "the timeline is a second view" is struck, because it is the spine now, and the same sentence's claim that it "gives ATP a visible destination" is marked as not yet true rather than quietly inherited. "Deferred, deliberately" records that two of its five came back. And "The cell as beast" carries the honest half-answer on the sink question.
+
+**This is the pattern NOW.md already names, holding again.** The parts of a document derived from the shipped build have held and the parts that were chosen have not: stage 1's three corrected decisions were all chosen, and its three that survived untouched, the undated stop's substitution, the silhouette channel and the art governance rule, were all derived from something already in the build.
+
+### 5. NOW.md
+
+```
+  Status                  rewritten. Leads on the strange state: the
+                          connective tissue for four acts around one act
+  Build state             V12 row, done, with its "does not" column
+  What the spine does     new section. The seven stops, the admission-rule
+                          check with its three imperfect passes, the marker
+                          assertion and the test that could not have failed,
+                          the four beast states, the four destinations, and
+                          the rail reading the act
+  Blocking item 4         STRUCK, closed, with the reasoning kept and the
+                          original finding preserved under it as 4b
+  Blocking item 2         NOT closed, and it now says why in its own words,
+                          including that the beast changes zero times across
+                          the gap it is supposed to address
+  What V12 did not do     new section. The ATP sink in two halves, the quiet,
+                          the act 3 regrouping, the citation anchors, and the
+                          spike that was skipped
+  Settled 2026-08-09      thirteen decisions and the bundle table
+  What exists             docs/ECONOMY.md corrected from 37 rows to 48, which
+                          had been stale since V10, plus the art README
+  Next, in order          V13 the act jump, with what V12 leaves it. The act
+                          ordering decision restated as still open and still
+                          blocking nothing before V14
+```
+
+**Open questions 5 and 7 are struck in DESIGN.md rather than in NOW.md**, because they are DESIGN.md's own list and NOW.md has never carried a copy of it. Both are struck through with the answer and the alternatives kept, the way item 1 was struck.
+
+**One thing recorded as skipped rather than as satisfied.** Spike C, the art spike, was a named gate in `docs/designs/game-spine-and-four-acts.md`: two figures before committing to eleven, pricing execution and answering governance. **Governance was answered, in the design stage, before any asset was drawn.** Execution was not priced in advance; it was priced by doing it. The gate was skipped and NOW.md says so.
+
+### 6. What the game still cannot do
+
+**It has a spine, a character, a timeline and provenance, and it has one act.**
+
+The timeline draws seven stops from the Hadean to now and the marker sits on the second from the bottom. The beast has four states and act 1 can reach two. Provenance answers for every badge in a game whose science is act 1's. **The connective tissue for four acts, wrapped around one.**
+
+That is a strange state and it is the right one to be in, because everything after this is content going into a frame that already fits it, which is the opposite of the position the previous nine logs were in. But it should be said plainly rather than left for a reader to work out, so NOW.md leads with it.
+
+**Three things it specifically cannot do.**
+
+**It cannot make ATP weigh anything.** DESIGN.md's argument for the beast is that the game produces a currency with no visible sink, and a state readout is not a sink. The game already has a sink, `maintain`, and it is invisible; and purchases are thresholds against a lifetime counter that debit nothing. Attributing maintenance to the beast is cheap and is a later log. Making ATP spendable is an economy change.
+
+**It cannot make the fourteen minutes shorter.** The beast makes the quiet legible and changes zero times across the gap. Content could not close blocking item 2 with all nine unlocks built and a visual treatment cannot close it either. What is left is a reader.
+
+**And it still cannot be read by somebody who has never seen it**, which is V7's sentence, still first among the things this project has not done. **Readers found: 0. Readers asked: 0.** V12 added a timeline, a character, seven dated stops and a provenance panel to a screen nobody outside this project has looked at.
+
+### Verify
+
+```
+  everything green                    yes, all eight commands
+  no canonical hash moved             172f83fb and 65b43d27, asserted
+  the bundle inside its budget        every line, 55.97 kB total headroom
+  the test count                      960, up from 632 at V11
+  the three-way bundle breakdown      above, with the apportionment caveat
+  the empty simulation diff           six paths, all empty
+  the DESIGN.md decisions additions   7 rows, 3 of them correcting stage 1
+  the NOW.md diff summary             above
+```
 
 ---
 
