@@ -82,6 +82,12 @@
      responsive. clamp expresses that directly rather than needing a breakpoint
      at every step. The fixed one, body at 15.5px, is not clamped. */
   --text-wordmark: clamp(60px, 6.5vw, 104px);
+  /* The act screen's wordmark. DESIGN.md, Typography, "wordmark cmp", added
+     2026-08-09. The hero scale above is a title scale and stays in the system,
+     reserved for the first run card and the endgame summary. On the act screen
+     the wordmark is chrome, and the largest type in the game should be the thing
+     that changes rather than the thing that never does. */
+  --text-wordmark-compact: clamp(17px, 1.5vw, 20px);
   --text-h2: clamp(26px, 3vw, 38px);
   --text-card-title: clamp(15px, 1.2vw, 17px);
   --text-headline-num: clamp(26px, 3.2vw, 40px);
@@ -90,6 +96,7 @@
   --text-micro: clamp(9.5px, 0.9vw, 10.5px);
 
   --tracking-wordmark: -0.03em;
+  --tracking-wordmark-compact: -0.02em;
   --tracking-h2: -0.01em;
   --tracking-headline-num: -0.02em;
   --tracking-label: 0.1em;
@@ -198,6 +205,53 @@ body {
    safe rather than a special case. */
 [data-focus-ring='outer']:focus-visible {
   outline-offset: 3px;
+}
+
+/* ===========================================================================
+   FORCED COLOURS, AND THE OFFSET SHADOW. UPDATELOGV12.md stages 1 and 5.
+
+   NOW.md blocking item 4, recorded as a CONFLICT rather than a bug because both
+   sides of it are right. A user setting that says use my colours is not
+   negotiable, and the hard offset shadow is what makes this system legible as
+   separated paper rather than as flat panels.
+
+   THE DEFECT IS THAT FORCED COLOURS REMOVES THE SHADOW WITHOUT REMOVING IT. The
+   shadow is not forced, so `4px 4px 0 ink` keeps painting a near-black copy of
+   the shape onto a forced background it cannot be seen against, while every
+   layout that reserved room for the offset still reserves it. That is not the
+   design and it is not the user's colours either.
+
+   SO IT IS A SUBSTITUTION RATHER THAN A REMOVAL, which is the same move the
+   undated timeline stop makes. The shadow is switched OFF rather than recoloured,
+   because a shadow in a system colour participates in a palette it was never
+   designed against, and a second rule is drawn outside the card's own border in
+   `CanvasText`. What the shadow says is "this is a separate piece of paper above
+   the page". A second outline says it in the one channel forced colours
+   guarantees.
+
+   V7's DECISION TO DRAW FOCUS INSIDE IS WHAT MAKES THIS AFFORDABLE. The focus
+   ring is at `outline-offset: -6px` and this rule is outside the border, so the
+   two never collide and a focused card under forced colours reads as separated
+   and focused at once. Had focus been an outer ring, this would have had to
+   fight it. It is a pseudo-element for the same reason: `outline` is spoken for.
+
+   Taken now because it gets more expensive with every surface, and this log adds
+   the two largest ones.
+   =========================================================================== */
+
+@media (forced-colors: active) {
+  [data-paper] {
+    box-shadow: none;
+  }
+
+  [data-paper]::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border: 2px solid CanvasText;
+    border-radius: calc(var(--radius-card) + 6px);
+    pointer-events: none;
+  }
 }
 
 /* ===========================================================================

@@ -21,6 +21,9 @@
  *     offline.ts        the offline return
  *     endOfContent.ts   the act boundary, and what it says
  *     save.ts           the save panel
+ *     timeline.ts       the seven stops, the marker and the axis disclosure
+ *     beast.ts          what each of the cell's four readings is called
+ *     provenance.ts     where every number comes from, and the four destinations
  *
  * THIS FILE IS A RE-EXPORT AND NOTHING ELSE. No string is declared here. Every
  * existing `from '../content'` import resolves to it unchanged, which is what
@@ -29,7 +32,7 @@
  */
 
 export type { Entry } from './common';
-export { PART1, PART2, ABOUT_THE_BUILD } from './common';
+export { PART1, PART2, PART6, ABOUT_THE_BUILD } from './common';
 export * from './molecules';
 export * from './pathway';
 export * from './topBar';
@@ -41,3 +44,6 @@ export * from './about';
 export * from './offline';
 export * from './endOfContent';
 export * from './save';
+export * from './timeline';
+export * from './beast';
+export * from './provenance';

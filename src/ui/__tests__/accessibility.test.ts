@@ -132,7 +132,11 @@ function pairs(): { what: string; fg: string; bg: string; need: number }[] {
     rows.push({ what: `ink text on ${s}`, fg: t('ink'), bg: t(s), need: 4.5 });
     rows.push({ what: `ink outline on ${s}`, fg: t('ink'), bg: t(s), need: 3 });
   }
-  for (const s of ['page', 'cream', 'pink', 'mint', 'sky', 'white']) {
+  // `lilac` joins the list in UPDATELOGV12.md stage 5. It was the one surface
+  // no secondary text had ever sat on, because lilac means contested and nothing
+  // was contested until the timeline landed three contested stops and the
+  // provenance panel gave them a card. Their one-line readings are `ink2`.
+  for (const s of ['page', 'cream', 'pink', 'mint', 'sky', 'white', 'lilac']) {
     rows.push({ what: `ink2 text on ${s}`, fg: t('ink2'), bg: t(s), need: 4.5 });
   }
 

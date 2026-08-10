@@ -98,10 +98,21 @@ export function TopBar({ onOpenAbout }: { onOpenAbout: () => void }) {
           nesting and the browser will happily render it while a validator will
           not. */}
       <div className="flex items-baseline gap-3">
-        {/* DESIGN.md: wordmark, Fredoka 600, tracking -0.03em. The weight is
-            explicit because Tailwind's preflight resets h1 to inherit, which on
-            a variable face silently renders 400. */}
-        <h1 className="font-display font-semibold text-wordmark tracking-wordmark leading-none text-ink">
+        {/*
+          THE COMPACT SCALE, NOT THE HERO ONE. UPDATELOGV12.md stage 1.
+
+          DESIGN.md, Typography: the hero scale is 60 to 104px and it is a title
+          scale. On this bar the wordmark is chrome, a word that never changes,
+          and at the hero scale it took a permanent 100px band and was the
+          largest thing on screen at all times, next to a number that moves
+          twenty times a second. Recorded as wrong on 2026-07-29 and unfixable by
+          four logs because it is a design decision rather than a repair.
+
+          The band it gives back is what pays for the timeline. The weight is
+          explicit because Tailwind's preflight resets h1 to inherit, which on a
+          variable face silently renders 400.
+        */}
+        <h1 className="font-display font-semibold text-wordmark-compact tracking-wordmark-compact leading-none text-ink">
           {WORDMARK.text}
         </h1>
 

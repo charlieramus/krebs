@@ -23,6 +23,8 @@
 import { useLive } from '../RuntimeContext';
 import type { ActSnapshot } from '../runtime';
 import { Badge, badgeTrace, type BadgeSpec } from './Badge';
+import { useOpenProvenance } from './ProvenanceContext';
+import { INFO_GLYPH, MEASURED_OPEN } from '../content/provenance';
 
 /**
  * DESIGN.md's type scale, restricted to the sizes a figure can legitimately
@@ -164,7 +166,38 @@ export function Figure({
       {badge !== undefined && badgeDisplay === 'inline' ? (
         <Badge badge={badge} className="ml-1 self-center" />
       ) : null}
+      {badge === undefined ? <MeasuredAffordance measured={measured as string} /> : null}
     </span>
+  );
+}
+
+/**
+ * The provenance affordance for a value that carries no badge.
+ *
+ * A measured value is exempt from the badge contract, so there is no pill for
+ * the panel to open from, and asking where it came from is still a fair
+ * question with a real answer. It gets the 16px circular info affordance
+ * DESIGN.md already defines for a coach mark, which is this system's existing
+ * vocabulary for "there is more here if you want it", rather than a fourth pill
+ * that would imply provenance is an open question about it.
+ *
+ * Renders nothing where nothing is offering to answer, so the offline return and
+ * the save panel look exactly as they did in every existing assertion.
+ */
+function MeasuredAffordance({ measured }: { measured: string }) {
+  const open = useOpenProvenance();
+  if (open === null) return null;
+  return (
+    <button
+      type="button"
+      aria-label={MEASURED_OPEN.text}
+      onClick={() => open(null, measured)}
+      data-focus-ring="outer"
+      className="ml-1 h-4 w-4 shrink-0 self-center rounded-pill border-ink bg-white text-micro font-body font-extrabold leading-none text-ink"
+      style={{ borderWidth: 'var(--outline-pill)' }}
+    >
+      {INFO_GLYPH}
+    </button>
   );
 }
 

@@ -44,9 +44,12 @@ import { PathwayCard } from './ui/components/PathwayCard';
 import { PoolRail } from './ui/components/PoolRail';
 import { SavePanel } from './ui/components/SavePanel';
 import { TeachingPanel, TeachingPanelProvider } from './ui/components/TeachingPanel';
+import { Timeline } from './ui/components/Timeline';
+import { ProvenanceProvider } from './ui/components/ProvenanceContext';
+import { ProvenancePanel } from './ui/components/ProvenancePanel';
 import { UnlockShelf } from './ui/components/UnlockShelf';
 import { TopBar } from './ui/components/TopBar';
-import { YIELD_PANEL } from './ui/content';
+import { LANDMARKS, provenanceFor, YIELD_PANEL, type Provenance } from './ui/content';
 import { OFFLINE_REPORT_THRESHOLD_MS } from './ui/tuning';
 import { scenarioFromLocation } from './ui/scenario';
 
@@ -95,6 +98,17 @@ function ActScreen() {
   const [boundary, setBoundary] = useState(false);
   const boundaryFired = useRef(false);
 
+  /**
+   * PROVENANCE ON CLICK. UPDATELOGV12.md stage 4.
+   *
+   * One panel, owned here for the reason the teaching panel is: the affordance
+   * is on every badge in the tree and there is one surface for all of them. It
+   * does not exist until the player asks, which is what makes "it does not take
+   * focus unless the player asked for it" true by construction rather than by a
+   * rule somebody has to remember.
+   */
+  const [provenance, setProvenance] = useState<Provenance | null>(null);
+
   useSnapshotEffect((snapshot) => {
     if (boundaryFired.current) return;
     if (!snapshot.actComplete) return;
@@ -119,7 +133,10 @@ function ActScreen() {
     // The NAD+ coach mark fires automatically on the wall, which arrives about
     // three seconds in, so on a fresh run it would open underneath the first run
     // card and spend its one firing unseen. See Overlay.tsx.
-    <OverlayOpenProvider open={firstRun || about || panel || offlineReturn || boundary}>
+    <OverlayOpenProvider
+      open={firstRun || about || panel || offlineReturn || boundary || provenance !== null}
+    >
+      <ProvenanceProvider onOpen={(badge, measured) => setProvenance(provenanceFor(badge, measured))}>
       <TeachingPanelProvider onOpen={() => setPanel(true)}>
         {/*
           THE TOP BAR IS A SIBLING OF main, NOT A CHILD OF IT. UPDATELOGV7.md
@@ -133,13 +150,82 @@ function ActScreen() {
           <TopBar onOpenAbout={() => setAbout(true)} />
 
           <main>
-            {/* DESIGN.md, Layout: a grid column holding a wide pathway SVG must
-                set min-width: 0, or the SVG forces the track wider than its
-                container. */}
-            <div className="grid grid-cols-1 gap-4 px-8 pb-8 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+            {/*
+              THE SKIP LINK. UPDATELOGV12.md stage 4, and UPDATELOGV7.md stage 3
+              step 5 asked for it first.
+
+              V7 declined and was right to: it measured three tab stops in the
+              pool rail and called a skip link over three stops more furniture
+              than it saves. Provenance-on-click inverts that argument, because
+              every badge becomes an affordance and the timeline plus the rail
+              are 21 stops before the shelf.
+
+              Hidden until focused, so it costs a sighted pointer user nothing
+              and is the first thing a keyboard user meets.
+            */}
+            <a
+              href="#pathway-column"
+              className="sr-only focus:not-sr-only focus:mx-8 focus:mb-2 focus:inline-block focus:rounded-button focus:border-ink focus:bg-white focus:px-3 focus:py-1 focus:text-label focus:font-body focus:font-extrabold focus:uppercase focus:tracking-label"
+              style={{ borderWidth: 'var(--outline-pill)' }}
+            >
+              {LANDMARKS.skip.text}
+            </a>
+
+            {/*
+              THREE COLUMNS, AND THE TIMELINE IS THE FIRST OF THEM.
+              UPDATELOGV12.md stage 2 step 4.
+
+              Left to right is where am I, what is happening, why: deep time, the
+              pools, the pathway. The timeline is the spine rather than a second
+              view, so it is on screen with the act always and it needs a real
+              column rather than a strip.
+
+              WHAT GAVE. The wordmark band, decided in stage 1, which was a
+              permanent 100px of the largest type in the game spent on a word
+              that never changes. Plus one rem off the pool rail, 17 to 16, which
+              is the only other thing on this screen that is a fixed width. The
+              pathway and the shelf keep every pixel they had, because they are
+              the two surfaces that answer what is happening and why.
+
+              Below `lg` everything stacks in one column, as it already did. The
+              timeline stays vertical there, because down is older is the whole
+              of its reading and a horizontal timeline is a different component.
+              Stage 5 owns the narrow end.
+
+              DESIGN.md, Layout: a grid column holding a wide pathway SVG must
+              set min-width: 0, or the SVG forces the track wider than its
+              container.
+            */}
+            <div className="grid grid-cols-1 gap-4 px-8 pb-8 lg:grid-cols-[minmax(0,14rem)_minmax(0,16rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,16rem)_minmax(0,17rem)_minmax(0,1fr)]">
+              {/* Sticky and height-bounded, so the column scrolls inside itself
+                  rather than making the page taller than the act. */}
+              {/*
+                THE NARROW END, AND IT IS DECIDED BY WHAT THE PLAYER LOSES.
+                UPDATELOGV12.md stage 5 step 3.
+
+                The timeline answers where am I. The pool cards answer what is
+                happening. The pathway answers why. Below `lg` there is one
+                column and only one of the three can be first, so the question is
+                which question is asked least often while playing. It is the
+                first one: you ask where am I on arrival and occasionally after,
+                and you watch the other two.
+
+                So the timeline keeps its place and its form and is capped at
+                20rem of its own scroll, which bounds the cost at less than one
+                screenful instead of seven card heights. Every stop stays
+                reachable, "down is older" survives, and the skip link stage 4
+                built jumps straight past it.
+
+                Nothing collapses and nothing is hidden. The pathway, the shelf
+                and the save panel keep every pixel they had at every width.
+              */}
+              <div className="max-h-[20rem] lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)]">
+                <Timeline />
+              </div>
+
               <PoolRail />
 
-              <div className="flex min-w-0 flex-col gap-4">
+              <div id="pathway-column" tabIndex={-1} className="flex min-w-0 flex-col gap-4">
                 <PathwayCard />
                 <UnlockShelf />
                 <SavePanel />
@@ -167,7 +253,13 @@ function ActScreen() {
         ) : null}
         {about ? <About onDismiss={() => setAbout(false)} /> : null}
         {panel ? <TeachingPanel content={YIELD_PANEL} onDismiss={() => setPanel(false)} /> : null}
+        {/* Last, so it opens over whatever the player was reading when they
+            asked, and Overlay returns focus to the affordance on close. */}
+        {provenance === null ? null : (
+          <ProvenancePanel content={provenance} onDismiss={() => setProvenance(null)} />
+        )}
       </TeachingPanelProvider>
+      </ProvenanceProvider>
     </OverlayOpenProvider>
   );
 }

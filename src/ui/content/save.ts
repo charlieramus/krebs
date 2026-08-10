@@ -2,7 +2,7 @@
  * The save panel. Export, import, backup recovery.
  */
 
-import { tuned } from '../components/Badge';
+import { tuned, tunedRow } from '../components/Badge';
 import type { Entry } from './common';
 import { ABOUT_THE_BUILD } from './common';
 
@@ -13,7 +13,12 @@ export const SAVE = {
   },
   autosaved: {
     text: 'Saved automatically',
-    badge: tuned(`${ABOUT_THE_BUILD}. Autosave interval is provisional and lives in src/save/tuning.ts`),
+    // UNSOURCED, and the panel says so in those words. Nothing in biology
+    // corresponds to how often a browser writes to localStorage.
+    badge: tunedRow(
+      `${ABOUT_THE_BUILD}. Autosave interval is provisional and lives in src/save/tuning.ts`,
+      'S1',
+    ),
   },
   neverSaved: {
     text: 'Not saved yet',

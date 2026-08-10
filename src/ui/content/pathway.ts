@@ -2,7 +2,7 @@
  * The pathway card. One entry per reaction, and the arrows read from it.
  */
 
-import { sourced, tuned } from '../components/Badge';
+import { sourced, tunedRow } from '../components/Badge';
 import type { Act1ReactionId } from '../../content/act1/reactions';
 import type { Entry } from './common';
 import { PART1, PART2 } from './common';
@@ -35,8 +35,9 @@ export const REACTIONS: Readonly<Record<Act1ReactionId, Entry>> = {
     // the `store` comment in src/content/act1/reactions.ts and the structural departure in docs/ECONOMY.md: the
     // real cycle costs 2 ATP in and refunds 1 on the way out, this charges the
     // net of 1 at the front, and the badge says which half is which.
-    badge: tuned(
+    badge: tunedRow(
       'Storing and retrieving a glucose really costs 1 ATP equivalent, which is sourced. Charging all of it at the storing end is not',
+      'C20',
     ),
   },
   mobilise: {
@@ -50,8 +51,9 @@ export const REACTIONS: Readonly<Record<Act1ReactionId, Entry>> = {
     // saturating reaction in ATP, and since UPDATELOGV5.md stage 2, that its
     // response is cooperative. The badge below says the invented part out loud
     // and does not name a curve, which is why it did not have to change.
-    badge: tuned(
+    badge: tunedRow(
       'ATP hydrolysis to ADP and phosphate is real. Standing in for the entire rest of cellular metabolism with one reaction is not',
+      'C5',
     ),
   },
 };
