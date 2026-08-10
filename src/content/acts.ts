@@ -55,8 +55,9 @@ import type { SimulationState } from '../sim/state';
 import type { OfflineObserver } from '../sim/jump';
 import type { SaveSettingsV1, SaveV1 } from '../save/schema';
 
+import type { PoolDefinition } from '../sim/pools';
 import { createAct1, ACT1_REACTION_IDS } from './act1/reactions';
-import { ACT1_POOL_IDS } from './act1/pools';
+import { ACT1_POOL_IDS, act1PoolDefinitions } from './act1/pools';
 import {
   atpPerCompletedGlucose,
   createAct1Meter,
@@ -134,6 +135,23 @@ export interface ActDescriptor {
 
   /** Snapshot layout, and the offline report's pool naming. */
   readonly poolIds: readonly string[];
+
+  /**
+   * This act's pool definitions, conserved weights and all.
+   *
+   * WHAT IT IS FOR, AND IT IS THE ONLY CALLER. DESIGN.md's illustration rules 1
+   * and 2 are derived rather than drawn: a blob has six sides because glucose
+   * carries six carbon, read out of this table. `src/ui/poolCards.ts` was
+   * reading `act1PoolDefinitions()` directly, which is the last place in the
+   * interface that named act 1 by hand after Spine A, and it meant the geometry
+   * of every act would have been act 1's.
+   *
+   * Returns the definitions rather than a carbon-and-phosphate pair, because
+   * naming those two quantities here would put illustration vocabulary into the
+   * content layer, and act 3 needs a membrane and a gradient that this file
+   * should not have opinions about.
+   */
+  poolDefinitions(): readonly PoolDefinition[];
   /** Snapshot layout. */
   readonly reactionIds: readonly string[];
 
@@ -279,6 +297,7 @@ const ACT1_NAD = ACT1_POOL_INDEX.get('nad') as number;
 export const ACT1: ActDescriptor = {
   act: 1,
   poolIds: ACT1_POOL_IDS,
+  poolDefinitions: act1PoolDefinitions,
   reactionIds: ACT1_REACTION_IDS,
 
   poolIndex(id: string): number {

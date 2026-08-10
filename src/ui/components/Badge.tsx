@@ -156,6 +156,9 @@ export function Badge({ badge, className = '' }: { badge: BadgeSpec; className?:
         type="button"
         aria-label={openLabel(word).text}
         onClick={() => open(badge)}
+        // A pill carries no shadow, so the ring goes outside. DESIGN.md, and
+        // index.css names this exact hook for the 16px info affordance.
+        data-focus-ring="outer"
         className="rounded-pill align-middle"
       >
         {pill}

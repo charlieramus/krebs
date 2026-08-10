@@ -192,6 +192,7 @@ function MeasuredAffordance({ measured }: { measured: string }) {
       type="button"
       aria-label={MEASURED_OPEN.text}
       onClick={() => open(null, measured)}
+      data-focus-ring="outer"
       className="ml-1 h-4 w-4 shrink-0 self-center rounded-pill border-ink bg-white text-micro font-body font-extrabold leading-none text-ink"
       style={{ borderWidth: 'var(--outline-pill)' }}
     >
