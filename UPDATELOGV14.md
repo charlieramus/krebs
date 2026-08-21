@@ -380,7 +380,144 @@ channels, and the bundle impact.
 
 ## Stage 2 Report
 
-_Pending._
+**The flat kernel holds, and the stage found the one thing it does not protect.**
+
+### The decision, with the alternative considered rather than assumed away
+
+**A compartment is nothing to the kernel.** `src/sim/pools.ts` stays a flat `Float64Array` with a frozen id-to-index map, `tick.ts` keeps iterating by index, and `totalConserved` stays one linear pass over a weight matrix. What a compartment gets is a suffix convention in pool ids, a grouping the descriptor can read, and transport reactions. **A proton crossing a membrane is a reaction and not a special case.**
+
+The stage asked for the alternative to be tested rather than dismissed, and for the report to name what would force a real kernel compartment if anything did. **Four candidates were considered and none of them survives.**
+
+```
+  per-compartment volumes      would matter if flux were computed from
+                               concentration. It is not: docs/SCIENCE.md
+                               Part 1 says pools are abstracted amounts and
+                               not molar concentrations in a defined volume,
+                               so there is no volume anywhere to divide by
+
+  a pool that must not mix     containment is already total. Two ids are two
+                               array slots and nothing mixes them. Geography
+                               in the kernel would be a way to express a
+                               separation the flat model already has
+
+  conservation per compartment the invariant that matters is over the whole
+                               system, because matter crossing a boundary is
+                               matter that stayed. A per-compartment total is
+                               a diagnostic, computable from ids at any time,
+                               and asserting it would assert transport is a
+                               leak
+
+  the membrane potential       this is the one that could have forced it, and
+                               it is answered by the model rather than the
+                               kernel. See rule 9 and the departure below
+```
+
+**What would force it, stated so a later act can check itself against it: a rule that is a function of a compartment rather than of a pool.** A volume, a per-compartment pH driving every rate inside it, or a capacity on a place rather than on a substance. Act 3 has none, and act 4's compartment-specific conditions are the place to re-ask.
+
+**And the flat model is not merely adequate, it is what makes act 3 cheap.** Every pool the act adds is a slot in an array the tick loop already walks. Transport is a reaction the reaction table already runs. **Nothing in `src/sim/` changed in this stage at all**, which is the strongest form the decision could take.
+
+### Conservation across transport, and the failure it exists to catch
+
+`src/sim/__tests__/fixtures/toyCompartment.ts` is a synthetic two-compartment pathway in the spirit of `toyPathway.ts` beside it, clearly marked as not biology, with act 3's shape and none of its chemistry:
+
+```
+  t_import:  S_out + H_out  ->  S_in + H_in    symport, the way the real
+                                               pyruvate carrier works
+  t_pump:    H_in           ->  H_out          a carrier crossing a membrane
+  r_use:     S_in           ->  W_in           work inside, so transport has
+                                               a reason to keep running
+```
+
+Two conserved quantities, chosen so each catches a different mistake. `carbon` is carried at the same weight on both sides of the boundary, which is the entire claim a compartment makes. `proton` exists only on the two carrier pools, so the gradient the fixture builds is a difference across a fixed total rather than an amount from nowhere.
+
+`src/sim/__tests__/compartment.test.ts` is eight tests. **Conservation holds** for the default configuration over 5000 ticks, across 200 randomized configurations, and under shortfall scaling with the carrier scarce on the pumped side, which is the path most likely to leak because it is the one place a flux is altered after it was computed. **Worst honest drift across 60 long runs is 2.316e-13**, against a 1e-9 tolerance, sitting beside the toy pathway's 1.964e-13 and act 1's 1.113e-13. One test asserts the fixture actually moves something, because a simulation in which no transport happens conserves everything trivially.
+
+**The first planted violation is the one the flat array invites, and it fires enormously.**
+
+```
+  planted leak "pump-forgets-the-far-side": proton 60.000000 -> 0.000000,
+    relative drift 1.000e+0
+```
+
+The pump decrements the near pool and never increments the far one, which in a `Float64Array` is two unrelated indices with nothing about the shape of the data saying one is the far side of the other. Every proton in the system is gone.
+
+### The second planted violation refused the assertion, and that is the stage's real finding
+
+**A twin-weight disagreement is not caught by conservation in the way the test first claimed, and the measurement is what said so.**
+
+The second leak gives `S_in` a carbon weight of 2 where `S_out` carries 3, which is the mistake the new location convention invites: two ids for one substance, drifting apart in their weights. Every reaction still reads one in and one out. Nothing is unbalanced read reaction by reaction.
+
+The test asserted a relative drift above 1e-3, on the sibling file's argument that a leak destroys an O(1) share of throughput. **It measured 6.051e-4 and would not move**, at 400 ticks or at 2000. Probed rather than retuned:
+
+```
+  t=100    lost 5.341016   S_in 5.341016
+  t=400    lost 5.445547   S_in 5.445547
+  t=2000   lost 5.445547   S_in 5.445547
+  t=6000   lost 0.000000   S_in 0.000000    substrate exhausted
+```
+
+**The loss equals the amount standing in the mismatched pool, to every digit, because the two errors cancel through the pathway.** The crossing destroys one carbon per unit and `r_use` creates one back, since `W_in` carries the true weight and `S_in` carries the corrupted one. So the drift is bounded by a pool level rather than by flux, it does not grow with throughput, and **run to substrate exhaustion the books balance exactly with the corruption still in the table**:
+
+```
+  the same corrupted table, run to exhaustion:
+    carbon 9000.000000 -> 9000.000000, undetectable
+```
+
+**So the most valuable invariant in the project has a blind spot exactly where this stage's naming convention creates a hazard.** A conservation check comparing a start total against an end total can miss a twin-weight disagreement completely, because the mismatched pool is empty at both ends of a complete run.
+
+The test now asserts the mechanism instead of a magnitude it does not have: that the drift is six orders above tolerance, that the loss equals the standing amount to nine decimal places, and separately that it vanishes at exhaustion. **A test that had been tuned until it passed would have recorded none of that.**
+
+### So the convention got a structural guard, which it would not otherwise have had
+
+`src/content/__tests__/compartmentIds.test.ts`, five tests, over every registered act's pool definitions rather than over a written list.
+
+**Two ids differing only by a location suffix are one substance, and one substance has one set of conserved weights.** The guard splits every pool id into a substance and a place, groups by substance, and fails on any disagreement. **It has real coverage the day it lands rather than waiting for act 3: `glucose` and `glucose_env` are a twin pair today**, both `{ carbon: 6, redox: 2 }`, and a test asserts the guard reached them so it cannot pass by finding nothing. The suffix list is written out rather than pattern matched, for `divergenceTable.test.ts`'s reason about allowlists, so a new compartment has to be a deliberate edit.
+
+Two more assertions cover the parsing rather than the traversal: a planted `pyruvate` against `pyruvate_matrix` at differing weights is detected, and a substance whose name merely ends in a suffix word is not mistaken for a twin, since stripping is anchored to the underscore.
+
+**Its sibling is V12's cross-act check.** That one holds a pool id to one meaning across acts. This one holds a substance to one meaning across places.
+
+### The three illustration rules
+
+In DESIGN.md, written before any component renders them, which is V12 stage 1's ordering.
+
+**Rule 7. A compartment is a closed sub-outline, and a pool inside it is drawn inside it.** No new mark and no emblem: the drawing gains a region and the molecules in it sit inside. **The precedent was already drawn.** The Beast section settled in V12 that a closed sub-outline inside a closed outline is a compartment, that nothing else in the language has one, and that it reads with every fill removed. Rule 7 says the same topology means the same thing on the rail, so **the moment on the character and the moment on the pools are one drawing of one event.** Which compartment a pool is in comes from its id suffix, so it is derived exactly as rules 1 to 3 are derived from the weight table.
+
+**Rule 8. A transport arrow crosses the membrane, and every other arrow does not.** Computed from the reaction: substrates and products resolve to compartments through their ids, so a crossing is a reaction whose two sides disagree about where they are. **A flag would be a second copy of a fact the ids already carry**, which is the defect `actStart.ts` exists to prevent one level up. It makes the pyruvate carrier legible for free, since import is proton symport and under rules 7 and 8 that is one arrow crossing the boundary carrying a proton the wrong way, as geometry rather than as a sentence.
+
+**Rule 9. A gradient is a step in a rule, and it is the first rule in the system that reads two pools.** Two levels share the membrane line as a baseline and the reading is the offset. That is recorded as a structural change rather than a sixth bullet, because it breaks what the illustration code is built on: **`Blob` takes a pool and draws itself, and a gradient is not a pool.**
+
+**Rule 9 was chosen for its null state.** At zero gradient the two levels line up and the boundary is one continuous rule, so the invisibility says the true thing. Rule 3's redox level goes blind at both ends and needs the electron dots to cover them; this one goes blind at exactly one value and that value means no gradient. **And it makes the act's beat mechanical on the surface as well as in the simulation**: a player with the chain and no synthase watches the step grow while no ATP arrives, so the picture of chemiosmosis is a line that does not join up.
+
+### Second channels, one per rule, none of them motion or colour
+
+```
+  rule 7   containment is topology. Survives greyscale, every colour vision
+           deficiency, forced-colors and a photocopy. Fast channel is the
+           compartment's surface tint, carrying nothing on its own
+  rule 8   position. An arrow that crosses reads as crossing when frozen,
+           which is the test the Beast section applies to posture. The dash
+           motion still carries rate and rule 8 adds no meaning to it
+  rule 9   the step is position and is load-bearing. The higher side's fill
+           is colour and is the fast channel, which is V7's division for
+           redox and V12's for the beast. The figure carries the number
+```
+
+**And one departure is named now rather than discovered.** docs/SCIENCE.md Part 4 records that the real proton-motive force is mostly membrane voltage and only slightly a concentration difference, and that the intermembrane space is not a sealed room. **A step drawn between two levels is a departure and it is the act's central one.** It is taken because the model represents the gradient as an amount, and a voltage across a membrane is not something a player can be given a count of. It owes a docs/ECONOMY.md row when the pool exists, and DESIGN.md says so where the stage that writes it will look.
+
+### Bundle
+
+**Zero. Total 404.78 kB against a 460 kB budget, application 90.24 kB against 130 kB, identical to stage 1 to the hundredth of a kilobyte.**
+
+All three rules are derivable, so nothing is drawn, the Hand-authored art clauses and the art guard do not apply, and no asset enters `src/ui/art/`. A compartment is one closed path, a membrane is that same path, and a gradient is two rectangles and a rule. Against V12's eleven drawn assets at 21.04 kB, **this is the one architectural decision in the log that is free**, and that was a consequence of choosing containment over an emblem rather than a goal.
+
+### Verify
+
+`npx tsc --noEmit` clean. `npm run build` clean, total unchanged at 404.78 kB. `npm test` **1024 passed across 63 files, zero failures**, up from stage 1's 1011 across 61: eight transport conservation tests and five id convention tests. Act 1's canonical hash and every act 1 figure unmoved, since nothing in `src/sim/` or `src/content/act1/` was touched. No tuned number moved and docs/SCIENCE.md was not edited in this stage.
+
+Files added: `src/sim/__tests__/fixtures/toyCompartment.ts`, `src/sim/__tests__/compartment.test.ts`, `src/content/__tests__/compartmentIds.test.ts`. Files edited: `DESIGN.md`, four decisions-log rows and the rules.
+
+**Deviation, and it is the stage's most useful output.** Step 2 says to prove conservation fails if a transport reaction leaks and to quote the failure. One planted leak does exactly that. The second does not fail the way the stage assumed, and rather than retuning the fixture until it did, the behaviour was measured, the cancellation was identified, and the gap it exposes was closed with a structural guard the stage did not ask for. **The conservation test is not sufficient for the hazard this stage's own convention creates, and that is now written down in three places rather than in nobody's head.**
 
 ---
 
