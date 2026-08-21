@@ -1,6 +1,6 @@
 # Save Schema
 
-Last updated: 2026-07-31
+Last updated: 2026-08-20
 Current schema version: 1
 
 The data contract. Treated as frozen in the same sense as the MyLifeInARepo contract: additive changes are cheap, breaking changes require a migration and a test, and nothing ships that can silently corrupt a save.
@@ -164,6 +164,106 @@ Determinism requires that a reloaded save continue the same random sequence. Per
 ## Ids are permanent
 
 Pool ids, enzyme ids and unlock ids are contract surface. Once a build ships with an id, that id is never reused for a different meaning. Renaming requires a migration.
+
+**An id becomes permanent when a build ships with it and not when a document writes it down.** Recorded 2026-08-20, because the act 3 registry below names ids for things that are not built. V10 stage 1 named `enzyme-hexokinase`, `enzyme-pfk1` and `enzyme-pyruvate-kinase` and stage 4 measured that none of the three could be sold as written, so all three disappeared and `enzyme-pfk1-pk` shipped instead. Nothing was owed to the names, because no build had ever carried them. **A list like the one below is a proposal with a naming convention attached, and the convention is the part that is binding.**
+
+## The location convention for pool ids
+
+Added 2026-08-20 by UPDATELOGV14.md stage 1, ahead of act 3, because act 3 is the first act in which the same molecule exists in two places at once and a save that cannot tell them apart is a save that has lost the act's subject.
+
+**A pool id ends in a suffix naming where the pool is. No suffix means the cytosol.**
+
+```
+  (none)     the cytosol. Every act 1 pool id, unchanged
+  _env       the environment, outside the cell. glucose_env, since V2
+  _matrix    the mitochondrial matrix
+  _ims       the intermembrane space
+  _membrane  in the inner membrane itself, for the quinone pool
+```
+
+**This renames nothing and needs no migration.** Act 1's ids already had a location and it was already the cytosol, and `glucose_env` already used a suffix for exactly this purpose. What is new is that the absence of a suffix is now a statement rather than an accident, and a guard can check it.
+
+Three notes on the boundaries of the convention, each of which is a real fact about the cell rather than a convenience.
+
+**Carbon dioxide is not compartmented and gets no suffix.** It crosses membranes by simple diffusion, so the existing `co2` pool serves the matrix reactions that produce it as well as the act 1 branch that already does. This is one of the few places where the honest model and the cheap model agree.
+
+**The intermembrane space is chemically continuous with the cytosol for everything except protons.** docs/SCIENCE.md Part 4 records that the outer membrane is porous up to roughly 5 kDa. So `_ims` is used only where the inner membrane's gradient makes the distinction real, and a metabolite that would be identical on both sides does not get an `_ims` twin.
+
+**`_membrane` is the inner membrane and there is no other membrane pool.** It exists for ubiquinone and ubiquinol, which are dissolved in the lipid rather than in either aqueous compartment, and which have to be a pool because the electron transport chain is sold complex by complex and the complexes hand off through them.
+
+## The act 3 id registry
+
+Added 2026-08-20 by UPDATELOGV14.md stage 1, which owns naming and owns no code. **Every id below is a proposal under the permanence rule above.** The stage that mints one makes it permanent; the stage that measures it away costs nothing.
+
+Pools, matrix:
+
+```
+  pyruvate_matrix        acetyl_coa_matrix      coa_matrix
+  citrate_matrix         isocitrate_matrix      akg_matrix
+  succinyl_coa_matrix    succinate_matrix       fumarate_matrix
+  malate_matrix          oxaloacetate_matrix
+  nad_matrix             nadh_matrix
+  fad_matrix             fadh2_matrix
+  atp_matrix             adp_matrix             pi_matrix
+  proton_matrix
+```
+
+Pools, inner membrane and intermembrane space:
+
+```
+  q_membrane             qh2_membrane
+  cytc_ox_ims            cytc_red_ims
+  proton_ims
+```
+
+Pools, cytosol, new:
+
+```
+  water                  where the electrons end up. See the note below
+```
+
+`akg_matrix` is alpha-ketoglutarate, shortened because the full name is long and the abbreviation is the one every source uses. `cytc_ox_ims` and `cytc_red_ims` are oxidised and reduced cytochrome c.
+
+**`water` is the one addition that is not obviously content, and the reason is a conservation law.** docs/SCIENCE.md Part 1 says water is mostly implicit, and it can stay implicit everywhere except one reaction. Act 1 never disposed of reducing power outside the model: both fermentation branches hand the electrons back to carbon, so `redox` balances. **Act 3's terminal step hands them to oxygen, and if oxygen and water are both outside the model then redox is destroyed on that tick and the conservation test fails.** Giving water a pool with a redox weight closes the loop and keeps the invariant that Part 1 calls the reason redox is modelled as a conserved quantity at all. The alternative is to exempt the terminal reaction from the conservation test, which would remove the check from the exact reaction most worth checking.
+
+**Oxygen is deliberately absent from this list and that is an open question rather than an omission.** `environment.oxygenLevel` already exists in this schema as a scalar set by act 2's schedule. A pool called `oxygen_env` would be a second representation of the same fact, which is the defect this document exists to prevent, and it would also make oxygen a quantity one cell can draw down, which the atmosphere is not. The stage that builds the terminal reaction decides whether oxygen is a level it reads or a pool it consumes, and it cannot be both.
+
+Compartments:
+
+```
+  env        cytosol        matrix        ims        membrane
+```
+
+The first two exist implicitly today and are named here so the set is complete.
+
+Unlocks:
+
+```
+  pyruvate-transport
+  pyruvate-dehydrogenase
+  tca-cycle                      the cycle as one unit
+  enzyme-citrate-synthase        the three regulated steps, sold by name,
+  enzyme-isocitrate-dh             the way enzyme-pfk1-pk is sold in act 1
+  enzyme-akg-dh
+  complex-1  complex-2  complex-3  complex-4
+  atp-synthase
+  shuttle-malate-aspartate
+  shuttle-glycerol-phosphate
+  gene-transfer-N                per rung
+  mitochondria-count-N           per rung
+```
+
+**The complexes are numbered in Arabic and the biology numbers them in Roman, on purpose.** `complex-i` and `complex-ii` differ by one character in a string that a reader skims and a migration matches exactly, and the cost of the mismatch with the literature is one sentence of player-facing text.
+
+**`complex-2` is succinate dehydrogenase, which is also step 6 of the TCA cycle**, so it is the one unlock in the list that could belong to two purchases. docs/SCIENCE.md Part 4 records that the cycle and the chain share this enzyme rather than handing a metabolite between them. Whether the game sells it once or twice is a content decision and the id is reserved either way.
+
+**The three named TCA enzymes are the ones act 1's precedent says to be careful about.** V10 named three glycolytic enzymes and shipped one purchase, because measurement said two of them could not be sold alone. These three are the regulated steps by the same argument docs/SCIENCE.md Part 2 makes for glycolysis, and the same measurement has to be run before any of them is minted.
+
+Progression fields, and one finding that belongs to a later stage:
+
+**`progression.transitionTaken` is a boolean and the transition has three states.** Not yet offered or not yet chosen, kept, and digested. docs/PROGRESSION.md act 3 gives the player a choice to keep or digest the endosymbiont, where digesting is a large one-off payout and a soft lock with an undo. A boolean can record that something happened and cannot record which of two things happened, so a save written after a digest is indistinguishable from one written after a keep. This is a version 1 field that no build has ever written as `true`, so it is still free to change shape, and the stage that builds the transition inherits it.
+
+**`progression.shuttleChoice` is a single nullable string and the answer to the shuttle question is that a cell can run both.** docs/PROGRESSION.md act 3 item 6 settled that on 2026-08-20. The field as documented holds one of two names, which is the permanent-choice model that was rejected. Same situation as above: never written as anything but `null`, so still free.
 
 ## Diagnostics are not decoration
 

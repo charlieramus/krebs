@@ -1,6 +1,6 @@
 # Now
 
-Last updated: 2026-08-20, by V13
+Last updated: 2026-08-20, by V13, then the same day by the act ordering decision, which is not a log
 
 Where the project actually is. Read this before the spec docs.
 
@@ -10,9 +10,17 @@ If this file disagrees with a spec doc, the spec doc wins and this file is stale
 
 ## Status
 
-**V14 cannot start until somebody decides which act comes next, and V13 is the last log that could be finished without that decision.**
+**The act ordering decision is taken. Act 3 is next, oxygen is placed at saturation, and the price is a constraint on act 2 rather than a rebalance of act 3.**
 
-That is the first thing on this page because it is the only thing on it that no amount of building resolves. See "The act ordering decision", below, which states it as blocking for the first time and names both exits.
+Taken 2026-08-20, after V13, by the author. It had been open since the engineering review and it became blocking the moment V13 finished, because two spine logs and a jump are act-agnostic by construction and V14 is not. `UPDATELOGV14.md` is unblocked and its BLOCKED block is now a decision block carrying the grounds.
+
+**What made it affordable is that oxygen threatens act 3's pacing and not act 3's claim.** Yield per glucose is stoichiometric, and oxygen as terminal electron acceptor sets rate rather than yield, so the 2 to 30 figure traces to docs/SCIENCE.md and survives act 2 landing untouched. **Pinning the placeholder at saturation is what converts the price.** Act 3 declares oxygen non-limiting at its beginning, so act 2's schedule inherits "reach saturation by the boundary" rather than a number act 3 will have to chase. That is V9's move with the schedule shape, made one log ahead of the log that has to satisfy it, for the same stated reason: a constraint written by the log that has to satisfy it is not a constraint.
+
+**And act 3 first gives act 2 an authored destination**, which is the argument V13 handed up without meaning to. The boundary does not hand over, so the endosymbiosis handover is authored exactly once whichever order is chosen. Writing act 3's beginning first means act 2 is built toward a known end state.
+
+**The argument against was weighed and it is the review's own.** Unverifiable work goes first, and act 2's damage beat is the more unverifiable one. It did not win because building act 2 first does not make it verifiable, it commits the guess earlier at higher stakes with still zero readers, and act 3's chemiosmosis beat is forced by the mechanics rather than read.
+
+**What it costs, recorded rather than glossed: the act descriptor is widened by the largest act in the game rather than by the smaller one.** V11 deliberately left the general unlock model until two acts existed, on the argument that two is the sample size at which it can be designed rather than guessed. That wait is now spent inside a seven-stage log that also carries a new illustration language and the compartment decision.
 
 **There is one definition of what an act looks like at its beginning, and that is worth more than the door V13 was scheduled to build.**
 
@@ -954,6 +962,18 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - Content lives in `src/content/` and the kernel never imports it. The arrow points one way, permanently.
 - ATP is a flux, not a score. The adenylate pool is fixed and closed and `maintain` hydrolyses ATP back to ADP and phosphate. Cumulative production is a counter beside the simulation, never a pool inside it.
 
+## Settled 2026-08-20, the act ordering decision
+
+Not by a log. Open from the engineering review to the end of V13, blocking for the length of one handover, and taken by the author.
+
+- **Act 3 is next and act 2 follows it.** Exit A, in a hardened form. The value-ordering argument in `docs/designs/game-spine-and-four-acts.md` stands rather than being withdrawn: acts are ordered by value and act 3 carries the only success condition an act can carry.
+- **The placeholder is oxygen at saturation, not oxygen at some level.** Act 3's subject is chemiosmosis and not oxygen availability, so oxygen is a substrate that is present and not limiting. This is what turns the price from an act 3 rebalance into an act 2 constraint.
+- **Act 2's oxygen schedule must reach saturation by the act 2 to act 3 boundary.** Written into docs/SIMULATION.md Part 3 by V14 stage 1, beside the schedule shape V9 put there and for V9's reason. It fixes where the schedule ends up and nothing about its step size, its step count or its duration, which stay act 2's balance decisions.
+- **Act 3's yield is not provisional and act 3's rates are.** Yield per glucose is stoichiometric. Oxygen sets rate. The 2 to 30 figure was never the thing the ordering put at risk, and saying so is what made the decision affordable.
+- **Act 1's `oxygenLevel: 0` stays a fact about the world.** Act 1 really is anaerobic. What act 3 adds is the project's first oxygen level that genuinely is a placeholder, so the three sites saying no oxygen level is one have to stop saying it. `src/save/schema.ts`, `src/content/act1/save.ts` and the assertion in `src/content/__tests__/actStart.test.ts`.
+- **The counter-argument is recorded as not having won rather than as not having been made.** The review's own later amendment puts unverifiable work first and act 2's damage beat is the more unverifiable one. Building it first would commit the guess earlier and at higher stakes with still zero readers, and act 3's beat is forced by the mechanics.
+- **The cost is that the act descriptor is widened by the largest act rather than the smaller one.** V11 deferred the general unlock model until two acts existed. That wait is spent inside a seven-stage log that also carries a new illustration language and the compartment decision.
+
 ## Settled 2026-08-20, by V13
 
 - **There is one definition of what an act looks like at its beginning and it is `actStartState`.** The runtime's new-game path calls it and the jump calls it. Nothing else may build one, and the test that holds it compares the whole captured save with `meta` excluded rather than a list of fields somebody remembered.
@@ -1318,7 +1338,7 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 0. **Find one cold reader.** Not a log and not a stage. It is listed first because it is the only item on this page that no amount of building advances, because it gates docs/PILLARS.md's first two success conditions, and because every log after this one adds more to a screen nobody outside this project has looked at. See Blocking item 0. It does not block V9 and V9 should not wait for it.
 
-1. **Act 3, and it cannot start.** `UPDATELOGV14.md`, seven stages, written and unrun. **BLOCKED ON THE ACT ORDERING DECISION**, which is stated as blocking below for the first time.
+1. **Act 3, and it can start.** `UPDATELOGV14.md`, seven stages, written and unrun. **The act ordering decision is taken**, 2026-08-20, and the log's BLOCKED block is now a decision block. See the Status entry above and "The act ordering decision, as taken" below.
 
    **What V13 leaves it.** An act registry a jump reads, one definition of an act's starting state that a boundary handover will also have to use, and `?jump=3` working the day act 3 is registered with no edit to the jump. **Every stage of V14 would otherwise have begun by playing act 1**, which is the reason the jump was scheduled ahead of it and the reason that still holds.
 
@@ -1330,41 +1350,45 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
    ~~**Spine A, the structural half.**~~ **Done 2026-08-06.** `UPDATELOGV11.md`, seven stages, all reported.
 
-   **THE ACT ORDERING DECISION IS NOW BLOCKING, AND V13 IS THE LAST LOG THAT COULD BE FINISHED WITHOUT IT.**
+   **THE ACT ORDERING DECISION, AS TAKEN. 2026-08-20, EXIT A IN ITS HARDENED FORM.**
 
-   It has been open since the engineering review and it has cost nothing, because everything scheduled before V14 could proceed either way: two spine logs and a jump are all act-agnostic by construction. **V14 is not.** It has to write act 3's chemistry, and act 3's payoff is yield going from 2 to roughly 30, which needs oxygen as the terminal electron acceptor, and **act 2 is what supplies the oxygen.**
+   It was open from the engineering review to the end of V13 and it cost nothing for five logs, because everything scheduled before V14 could proceed either way: two spine logs and a jump are all act-agnostic by construction. **V14 is not.** It has to write act 3's chemistry, and act 3's payoff is yield going from 2 to roughly 30, which needs oxygen as the terminal electron acceptor, and **act 2 is what supplies the oxygen.**
 
-   **Two exits, and both are real.**
+   **Two exits were real and the first was taken.**
 
    ```
-     A.  act 3 next, as the design doc schedules it
-         Price: a placeholder oxygen constant, a DEPARTURE row in
+     A.  act 3 next, as the design doc schedules it            TAKEN
+         Priced as: a placeholder oxygen constant, a DEPARTURE row in
          docs/ECONOMY.md that says so, and an act 3 rebalance when act 2
-         lands. The 2 to 30 figure ships against a number act 2 will move.
+         lands. Hardened: the placeholder is saturation, so act 2 inherits
+         a target rather than act 3 inheriting a number act 2 will move.
 
-     B.  flip the order, V14 becomes act 2
-         Price: withdraw the value-ordering argument that put act 3 first,
-         which was that act 3 carries the game's headline claim and should
-         exist earliest. Act 2 is also the higher-risk act, because damage
-         is the first mechanic that takes something away from a player and
-         nobody outside this project has read anything yet.
+     B.  flip the order, V14 becomes act 2                     NOT TAKEN
+         Price would have been withdrawing the value-ordering argument
+         that put act 3 first, which was that act 3 carries the game's
+         headline claim and should exist earliest. Act 2 is also the
+         higher-risk act, because damage is the first mechanic that takes
+         something away from a player and nobody outside this project has
+         read anything yet.
    ```
 
-   **This is a decision for a person and no measurement resolves it.** What has been removed from it: V9 wrote act 2's oxygen schedule constraint into docs/SIMULATION.md Part 3, so whichever act introduces a rising environment inherits a shape rather than inventing one; and docs/SAVE_SCHEMA.md Part 1 names the act 2 log as the next expected schema bump either way, forced by per-reaction Vmax becoming hashed state. **Neither of those picks an order.**
+   **It was a decision for a person and no measurement resolved it.** What had already been removed from it: V9 wrote act 2's oxygen schedule constraint into docs/SIMULATION.md Part 3, so whichever act introduces a rising environment inherits a shape rather than inventing one; and docs/SAVE_SCHEMA.md Part 1 names the act 2 log as the next expected schema bump either way, forced by per-reaction Vmax becoming hashed state. **Neither of those picked an order** and neither is disturbed by the one taken.
 
-   `UPDATELOGV14.md` opens with a BLOCKED UNTIL A DECISION IS TAKEN block naming this file as where the answer goes. **Nothing else in the project is waiting**, which is the only reason this has been affordable for five logs and is why it stops being affordable now.
+   **The hardening is the part worth carrying forward.** Yield per glucose is stoichiometric and oxygen sets rate rather than yield, so act 3's headline claim was never the thing at risk. Act 3's rates were. Declaring oxygen non-limiting at act 3's beginning makes act 2's job "reach saturation by the boundary", which V14 stage 1 writes into docs/SIMULATION.md Part 3 beside the schedule shape, for V9's stated reason. Part 3 already leaves step size, step count and total duration to act 2 and this touches none of them. **It fixes only where the schedule ends up.**
+
+   **What is genuinely deferred, and it is not the oxygen.** The general unlock model. V11 left it until two acts existed, on the argument that two is the sample size at which it can be designed rather than guessed, and exit A spends that wait inside the largest log in the project.
 
 2. ~~**CI, cross-engine determinism and deployment.**~~ **Done 2026-08-09.** `UPDATELOGV9.md`, five stages, all reported. See "What CI enforces" above rather than a restatement here. The one piece left undone is the deploy itself and it is under "Open, not blocking".
 
    **The rest of the roadmap lives in `docs/designs/game-spine-and-four-acts.md` and not here.** That document runs to V18: the two spine logs, an act jump, three more acts, teacher mode and an endgame. A roadmap in two places drifts in one of them, so this file points at it rather than copying it.
 
-   **One decision does still belong here, by the standard this page has applied since V3, and it is open.** The design doc schedules act 3 ahead of act 2 and its own engineering review found a reason that may not survive: **act 3's payoff is yield going from 2 to roughly 30 and that needs oxygen as the terminal electron acceptor, which act 2 is what supplies.** `src/save/schema.ts` reserves `environment.oxygenLevel` and act 1 writes it as a literal 0 with a comment saying that is not a placeholder. So act 3 first requires a placeholder oxygen constant carrying a DEPARTURE row, and an act 3 rebalance when act 2 lands.
+   **The one decision that belonged here rather than there is now taken.** The design doc schedules act 3 ahead of act 2 and its own engineering review found the reason that might not survive: **act 3's payoff is yield going from 2 to roughly 30 and that needs oxygen as the terminal electron acceptor, which act 2 is what supplies.** `src/save/schema.ts` reserves `environment.oxygenLevel` and act 1 writes it as a literal 0 with a comment saying that is not a placeholder. The design doc priced act 3 first and left it unresolved on purpose, because a roadmap entry reads as a decision and that one had not been taken.
 
-   The design doc prices that and leaves it unresolved on purpose. **It is recorded here as open rather than settled**, because a roadmap entry reads as a decision and this one has not been taken. `UPDATELOGV14.md` will not start until it is: that log opens with a BLOCKED UNTIL A DECISION IS TAKEN block naming this file as where the answer goes. Nothing before V14 waits on it.
+   It was taken on 2026-08-20, as exit A hardened, and it is written out in item 1 above rather than twice here. The design doc's risk row and its open item T6 are closed against this file.
 
-   **V9 removed one input to that decision.** Act 2's oxygen schedule now has a written constraint in docs/SIMULATION.md Part 3, so whichever order is chosen, the act that introduces a rising environment inherits a shape rather than inventing one.
+   **V9 removed one input to it and the decision leans on that removal.** Act 2's oxygen schedule has a written constraint in docs/SIMULATION.md Part 3, so the act that introduces a rising environment inherits a shape rather than inventing one. V14 stage 1 adds where that schedule has to end up.
 
-3. **Act 2, and it is decidable for the first time.** Not scheduled and not written. What changed is that every reason to defer it has been discharged: the economy is settled and documented, the text has a style guide, the interface is perceivable, saves migrate, and the engine specification is fully implemented rather than partly. **Act 2 was never blocked on the engine and it is now not blocked on anything technical.**
+3. **Act 2, and it now has a place in the order and a target to hit.** Still not scheduled and not written, and it follows act 3 as of 2026-08-20. **It inherits two things from a log it does not appear in**: the shape of its oxygen schedule, from V9, and where that schedule has to end up, from V14 stage 1. What changed before either of those is that every reason to defer it has been discharged: the economy is settled and documented, the text has a style guide, the interface is perceivable, saves migrate, and the engine specification is fully implemented rather than partly. **Act 2 was never blocked on the engine and it is now not blocked on anything technical.**
 
    **What is still true is the reason it has never been on the table.** docs/PROGRESSION.md lists act 2's shape as an open question for the prototype, and act 2 is the highest-risk beat in the game because it introduces damage, which is the first mechanic that can take something away from a player. Whether that reads as a metabolic consequence or as a punishment is a comprehension question, and this project has never had a reader.
 

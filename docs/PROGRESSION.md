@@ -1,6 +1,6 @@
 # Progression
 
-Last updated: 2026-08-06
+Last updated: 2026-08-20
 
 The content spine. Defines acts, unlock order, gating and the single major transition. This doc determines the shape of the data model, so it is settled before engine code gets written.
 
@@ -115,6 +115,18 @@ Unlock order:
 7. Endosymbiotic gene transfer, moving genes to the host genome to regain control
 8. Mitochondrial replication, scaling the number of mitochondria
 
+**Item 6 is switchable and both shuttles are ownable, answered 2026-08-20 by UPDATELOGV14.md stage 1.** The open question below asked permanent or switchable and it is answered here rather than inherited by the stage that builds it, because a mechanic built against an open question answers it by accident.
+
+Three reasons, and the third is the one that decides it.
+
+**The game has exactly one hard transition and a second irreversible decision would dilute it.** This document's own structural decision is that there is one, at the act 2 to act 3 boundary, and docs/PILLARS.md rule 1 is why. A permanent shuttle choice is a second one-way door standing a few unlocks away from the real one, and two one-way doors in one act teach that the game is full of them.
+
+**Permanent is the departure and switchable is the biology.** docs/SCIENCE.md Part 4, "The two NADH shuttles", records that real cells run both, in proportions that vary by tissue and shift with cytosolic redox state and demand, and that the malate-aspartate route is reversible by construction. A cell that owns one shuttle forever is a game invention. A cell whose mix moves is what the sources describe.
+
+**And act 1 already taught the player what a choice in this game is.** Lactate and ethanol are both buyable, both can run at once, and UPDATELOGV10.md measured that running both changes nothing except what the cell is left holding. Making the shuttle choice a fork would mean the game's second real choice contradicts the shape of its first. **So the shuttle is the same kind of choice as fermentation and a different kind from the transition**, and the act is clearer for having one of each.
+
+What this costs, recorded rather than glossed. The tradeoff stops being a fork and becomes continuous, so the yield difference has to be legible while both are running or the choice reads as free. And `progression.shuttleChoice` in docs/SAVE_SCHEMA.md is a single nullable field, which can hold one answer and not a mix. That is a schema finding rather than a content one and the stage that builds the shuttles inherits it.
+
 The teaching beat: chemiosmosis. Electron transport does not make ATP. It pumps protons. The gradient makes ATP. This is the single least intuitive idea in the whole game and the mechanics should force the player to build the gradient before they can spend it, so the two-step structure is felt rather than read.
 
 The payoff: yield per glucose goes from 2 to roughly 30. That multiplier is real and it is the emotional peak of the game.
@@ -160,5 +172,5 @@ On completion: a summary of what was built, the real timeline it maps to, the fu
 
 - Does act 2 feel like a compelling crisis or like an unfair difficulty spike? Highest-risk beat in the game.
 - Is act 4 self-sustaining without a transition beat, or does it need cutting?
-- Should the shuttle choice in act 3 be permanent or switchable?
+- ~~Should the shuttle choice in act 3 be permanent or switchable?~~ **Answered 2026-08-20: switchable, both ownable.** See act 3 item 6 above for the reasoning. Struck rather than deleted, because a question that was open for three weeks and the answer to it are both worth reading.
 - Where does the tutorial end and the game begin?

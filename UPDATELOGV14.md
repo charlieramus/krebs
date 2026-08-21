@@ -5,19 +5,29 @@ charlie
 
 ---
 
-## BLOCKED UNTIL A DECISION IS TAKEN
+## THE DECISION IS TAKEN. ACCEPT, HARDENED. 2026-08-20
 
-**Do not start stage 1 until the act ordering decision is recorded in `NOW.md`.**
+**Act 3 is next, as the design doc schedules it, and the placeholder is oxygen at saturation rather than at an arbitrary level.** Stage 1 owns the constant, its `docs/ECONOMY.md` DEPARTURE row and the constraint that row places on act 2. This log is unblocked.
+
+The grounds are kept below rather than deleted, because a decision recorded without them is a decision that gets reopened.
 
 Act 3's payoff is yield per glucose going from 2 to roughly 30, and that requires oxygen as the terminal electron acceptor. Act 2 is what supplies oxygen. `src/save/schema.ts` reserves `environment.oxygenLevel` and act 1 writes it as a literal `0`, with the comment saying that is not a placeholder. So act 3 built before act 2 needs a nonzero oxygen level that comes from nowhere.
 
-Two exits and both are legitimate:
+Two exits were open and both were legitimate. ACCEPT was taken, in the hardened form.
 
-**ACCEPT.** Act 3 ships with a placeholder oxygen constant, carrying a DEPARTURE row in `docs/ECONOMY.md` that says plainly it stands in for a schedule act 2 has not built yet, and act 3's balance is re-derived when act 2 lands. The cost is one tuned number that is knowingly wrong and one rebalance.
+**Oxygen threatens act 3's pacing and not act 3's claim.** Yield per glucose is stoichiometric. Oxygen as terminal electron acceptor sets rate, not yield, so the 2 to 30 figure traces to `docs/SCIENCE.md` and survives act 2 landing untouched. What a placeholder puts at risk is electron transport and ATP synthase Vmax tuning, which is what `docs/ECONOMY.md` exists for. There are 33 DEPARTURE rows already.
 
-**FLIP.** Act 2 moves ahead of act 3, this log becomes act 2, and the value-ordering argument in `docs/designs/game-spine-and-four-acts.md` is withdrawn rather than quietly ignored. The cost is that the game's emotional peak arrives later and the highest-risk beat arrives first.
+**Pinning the placeholder at saturation converts most of the rebalance into a constraint.** `docs/SIMULATION.md` Part 3 fixes the shape of the oxygen schedule and leaves its step size, its number of steps and its total duration to act 2. Act 3 declaring oxygen non-limiting at its beginning makes act 2's job "reach saturation by the boundary", which act 2 inherits rather than negotiates. That is the move V9 made with the schedule shape, one log ahead of the log that has to satisfy it. **It is not a number act 2 will move. It is a target act 2 must hit.**
 
-If ACCEPT, stage 1 owns the placeholder and its row, and every later stage inherits the knowledge that act 3's numbers are provisional. If FLIP, this file is not the next log.
+**Act 3 first gives act 2 an authored destination.** V13's finding is that the act boundary does not hand over. The endosymbiosis handover is authored exactly once whichever order is chosen, and writing act 3's beginning first means act 2 is built toward a known end state rather than act 3 accepting whatever act 2 happens to produce.
+
+**The argument against, weighed rather than missed.** The engineering review's own later amendment says unverifiable work goes first, and act 2's damage beat, whether losing something reads as a metabolic consequence or as a punishment, is the more unverifiable one. Building act 2 first does not make it verifiable. It commits the guess earlier and at higher stakes with still zero readers. Act 3's chemiosmosis beat is forced by the mechanics, so it is the one act that can be checked without a reader.
+
+**What this costs, written here so no stage discovers it.** The act descriptor is widened by the largest act in the game rather than by the smaller one, under seven stages, a new illustration language and the compartment decision.
+
+**And three sites currently say a zero oxygen level is a fact rather than a placeholder**: `src/save/schema.ts` line 102, `src/content/act1/save.ts` line 388 and the assertion at `src/content/__tests__/actStart.test.ts` line 123. **Act 1's zero stays a fact and nothing in this log makes that sentence less true.** Act 1 really is anaerobic. What changes is that act 3 introduces a second, nonzero value which is a placeholder, so those comments have to stop implying that no oxygen level anywhere is one.
+
+Every later stage inherits the knowledge that act 3's rates are provisional and that act 3's yield is not.
 
 ---
 
@@ -78,14 +88,33 @@ Read `NOW.md` first, then `docs/PROGRESSION.md` act 3, then `docs/SCIENCE.md` on
 ```
 A documentation stage. No TypeScript. Read docs/SCIENCE.md end to end first.
 
-1. Record the ordering decision as taken, at the top of the report. ACCEPT or
-   FLIP, who decided, and on what grounds. If ACCEPT, this stage owns the
-   placeholder oxygen constant and its docs/ECONOMY.md row, and the row says in
-   plain words that the number stands in for a schedule act 2 has not built.
+1. The ordering decision is taken. ACCEPT, hardened, 2026-08-20, recorded in
+   NOW.md and in the block at the top of this file. This stage owns three
+   things that follow from it.
+
+   The placeholder oxygen constant, at saturation. Not an arbitrary nonzero
+   level. Act 3's subject is chemiosmosis and not oxygen availability, so
+   oxygen is a substrate that is present and not limiting, and the level is
+   whatever makes the terminal reaction's saturation term effectively 1.
+
+   Its docs/ECONOMY.md row, which says in plain words that the number stands in
+   for a schedule act 2 has not built, and which states the constraint the
+   other way round too: act 2's oxygen schedule must reach saturation by the
+   act 2 to act 3 boundary, or act 3 is rebalanced.
+
+   And the same constraint written into docs/SIMULATION.md Part 3, beside the
+   schedule shape V9 put there, for V9's reason: a constraint written by the
+   log that has to satisfy it is not a constraint. Part 3 already says step
+   size, step count and total duration are act 2's balance decisions and this
+   does not touch any of them. It fixes only where the schedule ends up.
 
    A number that is knowingly wrong and labelled as such is fine. A number that
    is knowingly wrong and looks like the others is not, and the divergence
    table exists for exactly this.
+
+   Say in the report which of act 3's numbers this makes provisional and which
+   it does not. Yield per glucose is stoichiometric and is not provisional.
+   Rates are.
 
 2. The chemistry act 3 needs, checked against docs/SCIENCE.md and written where
    it is missing:
@@ -126,15 +155,162 @@ A documentation stage. No TypeScript. Read docs/SCIENCE.md end to end first.
    it.
 
 Verify: docs/SCIENCE.md covers everything in step 2 with citations, the yield
-range is established with its reasons, and the shuttle question is answered.
-Report the ordering decision, the placeholder row if ACCEPT, everything added
-to docs/SCIENCE.md, the yield range, the shuttle answer, and the permanent id
-list with its compartment convention.
+range is established with its reasons, the shuttle question is answered, the
+saturation placeholder has a docs/ECONOMY.md row, and docs/SIMULATION.md Part 3
+carries the act 2 terminal constraint. Report the placeholder and both halves
+of its constraint, everything added to docs/SCIENCE.md, the yield range, the
+shuttle answer, and the permanent id list with its compartment convention.
 ```
 
 ## Stage 1 Report
 
-_Pending._
+**The ordering decision is recorded, and the physiology turned out to be on its side rather than merely tolerating it.**
+
+ACCEPT, hardened, 2026-08-20, by the author, on the grounds in the block at the top of this file and in NOW.md. This stage owns the placeholder, its docs/ECONOMY.md row and the constraint that row places on act 2, and all three exist.
+
+**The saturation placeholder is not a free number and the rule that fixes it is written down.** `ACT3_OXYGEN_SATURATION` is **100 times the terminal reaction's own Km**. The saturation term is `[S] / (Km + [S])`, requiring it within one percent of 1 gives `[S] >= 99 * Km`, and 100 yields 0.9901. It is derived from a constant act 3 sets rather than chosen, so the stage that mints it does not get to pick.
+
+**And the reason the pin is honest rather than convenient is a sourced fact that was not in the document before this stage.** Cytochrome c oxidase half-saturates in oxygen in the **sub-micromolar range**, far below ordinary intracellular oxygen, so respiration runs at essentially full rate until oxygen falls very low. **A real respiring cell in an oxygenated world really is saturated in oxygen**, and oxygen really does set when respiration is possible rather than how fast it runs. The decision block argued oxygen threatens act 3's pacing and not act 3's claim on stoichiometric grounds. The enzyme kinetics say the same thing independently, and that is a second leg the decision did not have this morning.
+
+**Both halves of the constraint, and the second half is written where act 2 will read it.**
+
+```
+  toward act 3   the constant stands in for a schedule act 2 has not built.
+                 It is replaced by a schedule value rather than retuned
+
+  toward act 2   the oxygen schedule must reach at least this level by the
+                 act 2 to act 3 boundary and hold there. A target act 2 must
+                 hit, not a number act 2 may move
+```
+
+docs/SIMULATION.md Part 3 gained "Where the oxygen schedule has to end up", sitting directly under V9's "Constraint on environmental schedules" and citing V9's own reason for being there a log early. **It adds one endpoint and touches none of act 2's three balance decisions**: step size, step count and total duration are still act 2's, and a four-step schedule and a forty-step schedule both satisfy it.
+
+**What this makes provisional is sharper than the decision block claimed, and the correction is in act 3's favour.** The block said act 3's rates are provisional. Measured against the arithmetic, they are **conditional rather than provisional**: if act 2 lands at or above the target, no act 3 rate moves at all, because a saturation term of 0.9901 is what every act 3 rate was tuned against. Only a miss triggers a rebalance, and then it takes every rate downstream of the terminal step and every unlock threshold derived from them. Not provisional: yield per glucose, the proton counts, the carrier counts and the conserved weights, all of which are stoichiometry. **The row is a contingency and not a debt.**
+
+### The docs/ECONOMY.md row is outside the divergence table, and the guard is why
+
+**A row written ahead of its constant is the same defect as a row left behind by a deleted one, and V5's guard cannot tell them apart.** Planted in the table and run rather than reasoned about:
+
+```
+  FAIL  the divergence table > has no row naming a constant that no longer exists
+  AssertionError: expected [ 'ACT3_OXYGEN_SATURATION' ] to deeply equal []
+```
+
+That guard's own comment says such a row "is a table that describes an economy the game does not have, which is worse than a missing row because it reads as true", and it is right in both directions. So the row lives in a new section, "Rows owed by a constant that does not exist yet", carrying the full seven columns as a labelled block rather than as table cells, with the failure above quoted in place. **The id C25 is reserved and the table still says 48 rows for 48 constants that exist.** The stage that creates the constant moves the row in and updates the counts in the same edit.
+
+This is a deviation from the stage's wording, which says the placeholder gets "a docs/ECONOMY.md row" and assumes the table. Weakening the guard to fit was the alternative and it was not taken.
+
+### What was added to docs/SCIENCE.md
+
+Part 4 goes from 90 lines to roughly 210. Everything below is new unless marked.
+
+**The two membranes, and which one is the barrier.** The document called the matrix a location and never said what makes it one, which is the fact the whole compartment mechanic rests on. The outer membrane is porous up to roughly 5 kDa through voltage-dependent anion channels, so **the intermembrane space is the cytosol on the other side of a pore**. The inner membrane is the barrier. Three transporters and each one charges something: the mitochondrial pyruvate carrier imports pyruvate in **proton symport**, so getting the substrate in costs gradient; the phosphate carrier does the same for phosphate; and the adenine nucleotide translocase exchanges ATP4- out for ADP3- one for one, moving a net negative charge and spending the membrane potential. **The ATP the cell gets to spend is not the ATP that ATP synthase made, and the difference is one more proton.**
+
+**The proton-motive force is mostly voltage, not concentration.** Roughly 150 to 180 millivolts of membrane potential against under one pH unit. A membrane holds very little charge, so pumping builds a large voltage long before it builds a large concentration difference, and the porous outer membrane could not hold a bulk difference anyway. **This is the single most important qualification on the act's central mechanic and it is written before the mechanic, on purpose.** Any model representing the gradient as an amount in a compartment is departing from it, and the departure is named for the stage that builds the pool rather than left to be discovered afterwards.
+
+**Pyruvate oxidation, expanded from three paragraphs.** The equation, the three enzymes E1, E2 and E3, the five cofactors, and the regulation by a dedicated kinase and phosphatase that the products themselves stimulate. Two joins the stage asked for and one it did not:
+
+```
+  back to act 1   E1 decarboxylates pyruvate using thiamine pyrophosphate,
+                  which is exactly what pyruvate decarboxylase does in V10's
+                  ethanol branch. Same fragment, same cofactor. In act 1 it
+                  leaves as acetaldehyde and becomes waste; here it never
+                  leaves the complex and becomes fuel. The player already
+                  bought this decarboxylation once
+
+  back to act 2   Part 3 says anaerobes run PFOR for this step, that oxygen
+                  inactivates it irreversibly and that it cannot be repaired.
+                  PDH is the oxygen-stable replacement. The enzyme act 3
+                  hands over is the one act 2 takes away
+```
+
+**The TCA cycle decomposed into its eight steps**, with enzyme names and per-step stoichiometry, since docs/PROGRESSION.md sells the cycle as a unit and then decomposes it and the decomposition had nowhere to read from. Four findings came out of writing it down:
+
+Step 4's alpha-ketoglutarate dehydrogenase complex is **structurally homologous to the link reaction's complex**, same three-enzyme architecture, same five cofactors, and E3 is literally the same protein. Step 6's succinate dehydrogenase is **in the inner membrane and is also complex II**, so the cycle and the chain share an enzyme rather than handing a metabolite between them. Step 5 is the **only substrate-level phosphorylation**, so eleven of the twelve energy-carrying products of two turns are promissory, which is the act's teaching beat visible in the stoichiometry. And **the two CO2 released in a turn are not the two carbons that entered in that turn**, shown by isotope labelling since the 1940s; the mass balance is exact either way, so a model conserving carbon as a total is correct and a model claiming to track which carbon is not.
+
+**The chain complex by complex, with the numbers.** The document said which complexes pump and never how much, and the yield range is computed from exactly those figures.
+
+```
+  complex I     4 H+ per 2 electrons
+  complex II    0. Not a pump, no proton path
+  complex III   4 H+ appear outside per ubiquinol, 2 pumped and 2 scalar,
+                2 taken from the matrix, net charge moved 2
+  complex IV    2 H+ pumped, plus 2 consumed from the matrix to make water
+                --
+  per NADH      10        per FADH2  6
+```
+
+**That single difference of four is the entire reason the shuttle choice is a choice**, and it is also why succinate is worth less than malate. Two things fell out that the stage did not ask for and that later stages want: **complex III has to split a two-electron carrier into a one-electron carrier**, which is what the Q cycle exists for, because cytochrome c takes one electron and NADH and ubiquinol carry two; and **complexes I and III are the main sites of endogenous superoxide production**, so act 3's payoff engine is act 2's hazard, generated by the player this time instead of by the environment.
+
+**ATP synthase and the price of a proton.** One revolution turns three catalytic sites, so one revolution makes 3 ATP, and the proton cost of a revolution is the c-ring size. **That size is not universal**: 8 in mammals, 10 in yeast, 15 reported in a cyanobacterium. Plus about one proton for transport. **So a spendable ATP costs roughly 4 protons, about 3 for the rotor and about 1 for transport**, and 10 over 4 and 6 over 4 are where 2.5 and 1.5 come from. The two figures the yield section quotes are a proton count divided by a proton price, and both halves carry real uncertainty.
+
+**Oxygen as the terminal electron acceptor, and the stage's premise here was wrong in a useful way.** Step 4 says the fact "is currently implicit". It is not: line 431 stated it explicitly and in bold terms. **What was missing was every number attached to it.** The section now carries the reduction equation, the arithmetic that 24 electrons per glucose means **6 O2 consumed and 6 H2O produced**, the sub-micromolar half-saturation, and the corollary that the danger in oxygen is chemistry rather than scarcity. Reported rather than quietly satisfied, because the stage asked for a sentence that already existed and the useful work was one level down.
+
+**Both shuttles, with their mechanisms.** Malate-aspartate is four enzymes and two carriers, ending in a transamination because oxaloacetate has no carrier of its own, and it is reversible so it only imports while the cytosolic ratio exceeds the matrix ratio. Glycerol 3-phosphate crosses nothing at all: the mitochondrial isoform is an FAD enzyme facing the intermembrane space and it hands electrons straight into the quinone pool from outside. **One number is the whole difference, the entry point**, and the two confidences are separated rather than quoted together: the yield half is arithmetic on the proton counts, and the speed half rests on irreversibility and on where the shuttle is found, which is a good argument and not a rate constant.
+
+### The yield range, decomposed into five causes
+
+The document already gave a range, so step 3's worry did not materialise. What it did not do is say what the range is made of, and stage 6 renders this, so a spread reported as a spread would have made that stage decorative.
+
+```
+  1  the stoichiometry above it is not disputed. 4 ATP direct, 10 NADH and
+     2 FADH2 per glucose is the same in every source
+  2  P/O ratios are not integers. The old 36 to 38 assumed 3 and 2
+  3  the denominator is itself uncertain. c-ring 8 gives 3.67 rather than 4
+     protons per ATP, which moves a glucose from 32 to about 34
+  4  shuttle choice moves it by 2. 32 against 30
+  5  leak and slip put real cells below every figure above
+```
+
+**The load-bearing sentence for stage 6 is that the disagreement is not about how many reduced carriers a glucose makes. It is about what a reduced carrier is worth.** Nothing disputes the carrier counts. That distinction is what makes this a contested beat that can be rendered rather than a vague one, and Part 7's known unknown 2 was rewritten to carry it.
+
+The honest statement, unchanged in substance: about 30 to 32 by modern accounting, about 29 to 32 across published estimates, roughly 30 if one figure is needed, 36 to 38 in older sources for a reason worth telling. **The uncertainty is four modelling assumptions and not measurement noise**, three of which the player can be shown and one of which the player gets to make.
+
+### The shuttle question, answered
+
+**Switchable, and both shuttles are ownable.** Recorded in docs/PROGRESSION.md act 3 item 6 with the reasoning, and the open question at the foot of that file is struck through rather than deleted.
+
+Three reasons and the third decides it. **A permanent choice would be a second one-way door**, standing a few unlocks from the real one, and this game has exactly one hard transition by structural decision. **Permanent is the departure and switchable is the biology**: real cells run both, in tissue-specific proportions that shift with cytosolic redox state, and malate-aspartate is reversible by construction. **And act 1 already taught the player what a choice in this game is.** Lactate and ethanol are both buyable, both run at once, and V10 measured that running both changes nothing except what the cell is left holding. A fork here would mean the game's second real choice contradicts the shape of its first.
+
+Costs recorded rather than glossed: the tradeoff becomes continuous, so the yield difference has to be legible while both run or the choice reads as free.
+
+### The id registry, and the convention that is the binding part
+
+In docs/SAVE_SCHEMA.md Part 3, which is the file that owns id permanence, under a new rule stated first: **an id becomes permanent when a build ships with it, not when a document writes it down.** V10 named three enzyme ids that measurement deleted, and nothing was owed to them because no build carried them. So the list is a proposal and the convention is the contract.
+
+**Pool ids end in a suffix naming where the pool is. No suffix means the cytosol.**
+
+```
+  (none)     the cytosol. Every act 1 pool id, unchanged
+  _env       the environment. glucose_env, since V2
+  _matrix    the mitochondrial matrix
+  _ims       the intermembrane space
+  _membrane  in the inner membrane, for the quinone pool
+```
+
+**This renames nothing and needs no migration.** Act 1's ids already had a location and it was already the cytosol; `glucose_env` already used a suffix for exactly this. What is new is that the absence of a suffix is now a statement, which is a thing a guard can check.
+
+Three boundaries of the convention, each a fact about the cell rather than a convenience. **Carbon dioxide gets no suffix** because it crosses membranes by simple diffusion, so the existing `co2` pool serves the matrix too. **`_ims` is used only where the gradient makes the distinction real**, since the outer membrane's pores make the intermembrane space continuous with the cytosol for everything else. **`_membrane` is the inner membrane and there is no other**, and it exists because the chain is sold complex by complex and the complexes hand off through the quinone pool.
+
+Pools named: eighteen matrix, five membrane and intermembrane, one cytosolic. Unlocks named: fourteen, including `complex-1` to `complex-4`. **The complexes are Arabic where the biology is Roman**, because `complex-i` and `complex-ii` differ by one character in a string a reader skims and a migration matches exactly, and the cost of the mismatch is one sentence of player-facing text.
+
+**`complex-2` is succinate dehydrogenase, which is also TCA step 6**, so it is the one unlock that could belong to two purchases. Reserved either way. **And the three named TCA enzymes are exactly the shape V10 got wrong**: they are the regulated steps by the same argument Part 2 makes for glycolysis, and the same measurement that collapsed three glycolytic enzymes into one purchase has to be run before any of them is minted.
+
+### Three findings that belong to later stages, named here so nothing discovers them
+
+**Act 3 is the first time the game disposes of reducing power outside the model, and it breaks redox conservation unless water is a pool.** Both act 1 fermentation branches hand the electrons back to carbon, so `redox` balances. The terminal step hands them to oxygen. If oxygen and water are both outside the model, redox is destroyed on that tick and the conservation test fails on the reaction most worth testing. **`water` is in the registry for this reason and no other**, and the alternative was exempting the terminal reaction from the invariant.
+
+**Oxygen is deliberately absent from the pool list.** `environment.oxygenLevel` already exists as a scalar that act 2's schedule writes. An `oxygen_env` pool would be a second representation of one fact, which is the defect docs/SAVE_SCHEMA.md exists to prevent, and it would make oxygen a quantity one cell can draw down, which the atmosphere is not. **It cannot be both** and the stage that builds the terminal reaction chooses.
+
+**`progression.transitionTaken` is a boolean and the transition has three states**: not yet chosen, kept, digested. docs/PROGRESSION.md gives the player a keep-or-digest choice where digesting is a payout and a soft lock, and a boolean cannot say which of two things happened. **`progression.shuttleChoice` has the matching problem** now that the answer is "both", being a single nullable string documented as holding one of two names. Both are version 1 fields that no build has ever written as anything but `false` and `null`, so both are still free to change shape without a migration. Recorded in docs/SAVE_SCHEMA.md beside the registry.
+
+### Verify
+
+`npx tsc --noEmit` clean. `npm run build` clean, total **404.78 kB against a 460 kB budget**, application 90.24 kB against 130 kB, unmoved by a documentation stage as expected. `npm test` **1011 passed across 61 files, zero failures**, including the divergence table guard whose failure is quoted above and which is green now that the row sits outside the table. Act 1 conservation drift 1.113e-13 worst, unchanged. No TypeScript was written and no tuned number moved.
+
+Files touched: `docs/SCIENCE.md`, `docs/ECONOMY.md`, `docs/SIMULATION.md`, `docs/PROGRESSION.md`, `docs/SAVE_SCHEMA.md`. Four of the five had their "Last updated" line moved to 2026-08-20.
+
+**Deviations from the spec, all three reported above rather than absorbed.** Step 4's premise that oxygen as terminal acceptor is implicit was wrong and the sentence already existed; the numbers did not, and those were written. Step 1's docs/ECONOMY.md row could not go in the divergence table without breaking a V5 guard, so it is a labelled section beside it with the guard's failure quoted. And the stage's claim that the placeholder makes act 3's rates provisional is sharpened to conditional, which is a correction in act 3's favour and is stated as one.
 
 ---
 

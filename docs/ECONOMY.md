@@ -1,6 +1,6 @@
 # Economy
 
-Last updated: 2026-08-06
+Last updated: 2026-08-20
 
 Tuned game numbers and the divergence table.
 
@@ -124,6 +124,42 @@ Twenty-three numbers. Nine are DEPARTURE and fourteen are UNSOURCED, and the spl
 | Id | Value | Where | The real behaviour | What the game does instead | Why | Introduced |
 | --- | --- | --- | --- | --- | --- | --- |
 | S1 | 30000 | `AUTOSAVE_INTERVAL_MS` | | Milliseconds between autosaves | A judgement about tolerable loss reasoned from the pacing measurement rather than a measurement in itself. The worst case for a write interrupted at any step is the work since the last successful one, so the interval is the unit of loss. Purchases save immediately and independently of this timer, because losing a purchase is the loss a player notices, which makes 30 seconds really the granularity of losing progress **toward** the next purchase | V4 stage 5 |
+
+---
+
+# Rows owed by a constant that does not exist yet
+
+Added 2026-08-20 by UPDATELOGV14.md stage 1. **One row lives here rather than in the table above, and the reason was measured rather than assumed.**
+
+`src/ui/__tests__/divergenceTable.test.ts` has a check called "has no row naming a constant that no longer exists", written by V5 stage 5, whose comment says a row left behind by a deleted constant "is a table that describes an economy the game does not have, which is worse than a missing row because it reads as true". A row written *ahead* of its constant is the same failure seen from the other side, and the guard cannot tell the two apart. Planted in the table on 2026-08-20 and the guard fired on the first run:
+
+```
+  FAIL  the divergence table > has no row naming a constant that no longer exists
+  AssertionError: expected [ 'ACT3_OXYGEN_SATURATION' ] to deeply equal []
+```
+
+That is the guard working, so the row is kept out of the table rather than the guard being weakened. **The stage that creates the constant moves this row into the act 3 section of the table, gives it its measured value, and updates the per-file counts and the total at the head of this document in the same edit.** Until then the table's 48 rows describe 48 constants that exist, which is what the table is for.
+
+The id `C25` is reserved for it now, so that nothing else takes it.
+
+## C25, reserved. The act 3 oxygen saturation placeholder
+
+    Where      ACT3_OXYGEN_SATURATION, in src/content/act3/tuning.ts,
+               neither of which exists yet
+    Status     DEPARTURE
+    Value      not a free number. See the rule below
+
+**The real behaviour.** Oxygen is the terminal electron acceptor and cytochrome c oxidase has a very high affinity for it, with a half-saturation in the sub-micromolar range, far below ordinary intracellular oxygen. Respiration therefore runs at essentially its full rate until oxygen falls very low. docs/SCIENCE.md Part 4, "Oxygen as the terminal electron acceptor". **The real environmental level is set by the Great Oxidation Event, which is act 2's subject**, and it rose over a period this game compresses.
+
+**What the game does instead.** Act 3 holds environmental oxygen at a single fixed level, chosen so that the terminal reaction's saturation term is effectively 1, and act 3 never varies it.
+
+**The rule that fixes the value, so the stage that mints it does not get to choose freely.** The saturation term is `[S] / (Km + [S])`. Requiring it within one percent of 1 gives `[S] >= 99 * Km`. **The constant is 100 times the terminal reaction's own Km**, which yields 0.9901 and is a round number rather than a tuned one. It is derived from a constant act 3 sets and it is not independently adjustable.
+
+**Why this number is knowingly wrong, said plainly.** It stands in for an oxygen schedule that act 2 has not built. Act 2 is the act in which oxygen arrives, on a schedule the player neither causes nor controls, and act 3 was built first. So this is a constant standing where a schedule belongs, and it will be replaced by a schedule value rather than retuned.
+
+**The constraint the other way round, which is the half that binds act 2.** Act 2's oxygen schedule must reach at least this level by the act 2 to act 3 boundary. **It is a target act 2 must hit, not a number act 2 may move.** If act 2 lands below it, act 3's terminal step is no longer saturated, every rate downstream of it falls, and act 3 is rebalanced along with every unlock threshold derived from those rates. The same sentence is written into docs/SIMULATION.md Part 3 beside the schedule shape, for the reason V9 gave when it put the shape there: a constraint written by the log that has to satisfy it is not a constraint.
+
+**What this makes provisional, and what it does not.** Act 3's yield per glucose is stoichiometric, computed from the reaction table exactly as act 1's ledger of 4 gross and 2 net is, and nothing about oxygen level touches it. Act 3's proton counts, its carrier counts and its conserved weights are the same kind of fact. **What is conditional is every rate downstream of the terminal step, and it is conditional rather than wrong**: if act 2 hits the target, no act 3 rate moves at all. This row is a contingency and not a debt.
 
 ---
 

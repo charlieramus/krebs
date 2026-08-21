@@ -1,6 +1,6 @@
 # Simulation
 
-Last updated: 2026-07-27
+Last updated: 2026-08-20
 
 Engine specification. This is the document that separates the project from a numbers-go-up toy, so it is specified tightly enough that a naive implementation cannot pass review.
 
@@ -156,6 +156,20 @@ The schedule must be a function of elapsed game time held in the save rather tha
 **What is not decided here.** The step size, the number of steps and the total duration of the oxygen rise are act 2's balance decisions. They belong in docs/ECONOMY.md with divergence rows when act 2 has them. This section fixes the shape of the schedule and nothing about its values, and per CLAUDE.md hard rule 2 it puts no number into docs/SCIENCE.md.
 
 **What this does not solve, named so act 2 inherits it rather than discovers it.** Act 2's second damage mechanism degrades enzyme Vmax as a function of reactive oxygen species, and if that degradation is continuous then reaction rates change continuously even while oxygen is held flat. That is a second and independent reason the steady test may never pass, and quantising the environment does not touch it. Act 2 has to answer it separately, and the same three options apply: quantise it too, make it converge to a fixed point within the settle window, or accept that act 2 cannot use the analytic jump and fix the fallback first.
+
+## Where the oxygen schedule has to end up
+
+Added 2026-08-20 by UPDATELOGV14.md stage 1, beside the section above and for the section above's own stated reason: a constraint written by the log that has to satisfy it is not a constraint. That section fixed the shape of the schedule one log before anything needed it. This one fixes where the schedule finishes, one act before act 2 is built.
+
+**Act 2's oxygen schedule must reach the level at which act 3's terminal electron transport step is saturated in oxygen, by the act 2 to act 3 boundary, and hold there.**
+
+The reason it can be stated now is that act 3 is being built first and it has to name a level. Act 3's subject is chemiosmosis and not oxygen availability, so it holds oxygen at a fixed level chosen so the terminal reaction's saturation term is effectively 1. That constant is `ACT3_OXYGEN_SATURATION` and it carries a reserved divergence row, C25, in docs/ECONOMY.md, which states both the rule that fixes its value and this constraint in full.
+
+**It is a target act 2 must hit and not a number act 2 may move.** Everything the section above leaves to act 2 is still act 2's: the step size, the number of steps and the total duration of the rise are balance decisions and they belong in docs/ECONOMY.md with rows when act 2 has them. **This adds one endpoint and touches none of them.** A schedule with four steps and a schedule with forty both satisfy it, so long as the last one lands at or above the saturation level.
+
+**What happens if it is missed, so the cost is known before it is paid.** Act 3's terminal step stops being saturated, its realised flux falls below the value every act 3 rate was tuned against, and every rate downstream of it plus every unlock threshold derived from those rates is rebalanced. Act 3's yield per glucose is not affected, because yield is stoichiometric and oxygen sets rate rather than yield. **So missing the target costs act 3's pacing and never act 3's claim**, which is the whole basis on which act 3 was allowed to go first.
+
+**And the physiology is on the constraint's side rather than against it.** docs/SCIENCE.md Part 4 records that cytochrome c oxidase half-saturates in the sub-micromolar range, well below ordinary intracellular oxygen, so a real respiring cell in an oxygenated environment really is saturated in oxygen and its respiration rate really is independent of the level until oxygen falls very low. **The constraint is asking act 2 to end in the condition the real post-oxygenation world was in.** It is not asking for a game-convenient number.
 
 ## Validation requirement
 
