@@ -51,7 +51,9 @@ import { UnlockShelf } from './ui/components/UnlockShelf';
 import { TopBar } from './ui/components/TopBar';
 import { LANDMARKS, provenanceFor, YIELD_PANEL, type Provenance } from './ui/content';
 import { OFFLINE_REPORT_THRESHOLD_MS } from './ui/tuning';
-import { scenarioFromLocation } from './ui/scenario';
+import { jumpFromLocation, scenarioFromLocation } from './ui/scenario';
+import type { ActRuntimeOptions } from './ui/runtime';
+import type { ActDescriptor } from './content/acts';
 
 function ActScreen() {
   const runtime = useRuntime();
@@ -265,12 +267,44 @@ function ActScreen() {
 }
 
 export function App() {
-  // Development affordance, see src/ui/scenario.ts. With no query string this is
-  // an empty object and the player gets the real act.
-  const create = scenarioFromLocation(typeof window === 'undefined' ? '' : window.location.search);
+  /*
+   * Development affordances, see src/ui/scenario.ts. With no query string
+   * `create` is an empty object, `jump` is null, and the player gets the real
+   * act off their save.
+   *
+   * RESOLVED ONCE, LAZILY, RATHER THAN PER RENDER. `scenarioFromLocation` parses
+   * a query string and is free; `jumpFromLocation` CONSTRUCTS A SIMULATION, so
+   * calling it on every render would build and discard an act's worth of pools
+   * each time. Same lazy initialiser and the same reason as `RuntimeProvider`'s
+   * own: StrictMode renders twice and only one of them may build anything.
+   */
+  const [provider] = useState((): {
+    act?: ActDescriptor;
+    options: ActRuntimeOptions;
+  } => {
+    const search = typeof window === 'undefined' ? '' : window.location.search;
+    const create = scenarioFromLocation(search);
+    const jump = jumpFromLocation(search, create);
+
+    /*
+     * BOTH KEYS OR NEITHER, WHICH IS THE INVARIANT RATHER THAN A TYPE
+     * WORKAROUND. `createActRuntime` throws when the jump's act and the
+     * descriptor disagree, and building the two props in one branch is what
+     * makes that unreachable from here instead of merely unlikely.
+     *
+     * Omitted rather than set to undefined when there is no jump.
+     * `exactOptionalPropertyTypes` is on, so an optional field explicitly set to
+     * undefined is a caller saying something about it, and here the caller has
+     * nothing to say. With `act` absent, `RuntimeProvider` supplies act 1, which
+     * is where that default lives so nothing below it reaches act 1 by accident.
+     */
+    return jump === null
+      ? { options: { create } }
+      : { act: jump.act, options: { create, jump } };
+  });
 
   return (
-    <RuntimeProvider options={{ create }}>
+    <RuntimeProvider {...provider}>
       <ActScreen />
     </RuntimeProvider>
   );

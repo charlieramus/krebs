@@ -1,6 +1,6 @@
 # Now
 
-Last updated: 2026-08-09, by V12
+Last updated: 2026-08-20, by V13
 
 Where the project actually is. Read this before the spec docs.
 
@@ -9,6 +9,24 @@ This file holds state. CLAUDE.md holds instruction and changes rarely. This chan
 If this file disagrees with a spec doc, the spec doc wins and this file is stale. Fix it.
 
 ## Status
+
+**V14 cannot start until somebody decides which act comes next, and V13 is the last log that could be finished without that decision.**
+
+That is the first thing on this page because it is the only thing on it that no amount of building resolves. See "The act ordering decision", below, which states it as blocking for the first time and names both exits.
+
+**There is one definition of what an act looks like at its beginning, and that is worth more than the door V13 was scheduled to build.**
+
+The jump itself is nine lines. What took the log is that **the act boundary does not hand over and never did.** `src/ui/boundary.ts` is a detector with two members and neither returns a state; the screen on the far side of it is `EndOfContent`, which says where the game currently ends. So there was no handover to extract. What existed instead was **five expressions spread across thirty lines of `createActRuntime`**, unreachable without building a whole runtime, and that was the project's only answer to "what does act N look like at its beginning". It is `src/content/actStart.ts` now, the runtime asks it, the jump asks it, and nothing else defines one. **The two paths in the runtime unified rather than moving**: five `restoredOk === null` ternaries became one `??`, because a restored session and a fresh one differ only in where the same five values come from.
+
+**A jumped save says it was jumped, nothing branches on it, and that is a build failure rather than a promise.** `settings.jumpedToAct` names the target act. Ten patterns for comparison, regex, `switch` and `if` fail the build if anything reads it to do something different, plus a rule V9's equivalent does not have: **no file under `src/ui/components/` or `App.tsx` may mention it at all.** Proved by planting a branch in `App.tsx` and reading three of the four assertions fire independently.
+
+**The determinism claim is three statements and the fourth one was measured rather than assumed.** The three that hold: the same jump produces the same state every time, a session begun by a jump is internally deterministic including under irregular frame delivery, and a jumped session saved and reloaded is hash-identical. **The fourth, that a jumped session matches a played one, came out TRUE in act 1 and it is not a property of the jump.** Two act 1 facts do it: act 1's jump target is its own beginning, and unlock state is not hashed, which V4 established and is exactly why `progression.unlocked` had to be persisted separately. So two cells with identical hashes differ in whether fermentation has been bought. **Neither reason survives act 3**, where a jump has to fabricate a compartment and a transition a played session earned.
+
+**And that measurement is what justifies the mark.** Two saves whose simulation states are byte-identical differ in exactly two places, the settings key and the unlock list, and in nothing else. Without the key a submitted save that skipped four hours of play would be indistinguishable from one that did not.
+
+**The jump costs a player their most recent save, it was measured, and it is not fixed.** See Blocking item 7. `createSaveStore` starts `activeKnownGood` false on the argument that a store which has never been loaded from has not established its active slot is worth preserving. That is right for every session that existed before this log. **A jump is the first session in the project's history that deliberately does not load**, so it is the first one where the active slot genuinely is worth preserving and the store cannot know it. The player loses their latest save and keeps an older one.
+
+**A query string does not serve a teacher and the reason is not the query string.** A jump lands at an act's **beginning**; a lesson wants a **beat**. Those coincide exactly once, in act 1, where the NAD+ wall arrives about three seconds in. Jumping to act 3 to show a class chemiosmosis buys a cell at the start of a 120 to 180 minute act against a 40 to 50 minute period. **So the jump makes act 3 reachable for a developer, which is what this log needed, and not for a teacher.** V15 stage 1 inherits a named-beat selector as work rather than as a question.
 
 **The game has a spine, a character, a map through deep time and an answer for every number on screen, and it has one act.**
 
@@ -142,6 +160,7 @@ One sentence per log. The "does not" column is the fence each stage doc inherits
 | V10 | Act 1 completion: ethanol fermentation and the first carbon released, glycogen storage, the named glycolytic enzymes, and the act re-derived end to end | An ending for act 1, the timeline, the beast, the act boundary, act 2, and any change to docs/SCIENCE.md outside stage 1 | Done 2026-08-06 |
 | V11 | Spine A, the structural half: the act registry, the runtime de-specialised, content.ts as a directory, the act boundary and act 1's ending, the future-act refusal, the guards walking, and the first end-to-end playthrough | The timeline, the beast, provenance-on-click, any new visual surface, a second act, the descriptor's full shape, and any change to a tuned number | Done 2026-08-06 |
 | V12 | Spine B, the surface half: the DESIGN.md stage and its six decisions, the timeline as the spine with a discrete marker, the beast and its four states, provenance on click with four destinations, the rail reading the running act, the viewport story, and the first eleven hand-drawn assets under a governance rule and a guard | A second act. Anything that makes ATP spendable. The endgame summary, the sandbox, act 3's compartment and gradient illustration rules, the pool rail regrouped for act 3, per-claim citation anchors in docs/SCIENCE.md, and any change to a tuned number | Done 2026-08-09 |
+| V13 | The act jump: one definition of an act's starting state, the jump as a second caller of it, the diagnostic mark and its unbranched guard, the determinism scoping in three narrow forms, and `?jump=N` behind the existing development door | A second act. **The rest of teacher mode**, which is lesson pacing, the printable summary, the session record and the named-beat selector, all V15. A repair for the save the jump overwrites. Any interface surface for the jump. Any simulation, content, economy or visual change | Done 2026-08-20 |
 
 **docs/SIMULATION.md is finished and that changes what the table is for.** Every part of the engine specification is implemented: the tick loop in V1, reaction kinetics in V1 and V2, offline progress in V8, number representation in V1, determinism throughout and the constants summary as of this log. It has been the document every log was measured against since V1 and there is nothing left in it to build. **What is left in the project's specifications is content**, which is docs/PROGRESSION.md acts 2 to 4, and process, which is V9.
 
@@ -491,6 +510,18 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
     an offline jump      agrees within tolerance and is NOT bit-identical
     the offline path     reproduces itself exactly, same state in, same state out
 
+**V13 adds three more statements to that list and they are about a different thing, so they are written here rather than beside the offline path's.** A reader who finds one set and not the other will assume the wrong thing, which is the whole reason Part 5 has a Scope section at all.
+
+    the same jump         produces the same state every time
+    a jumped session      is internally deterministic, including under
+                          irregular frame delivery
+    a jumped save         reloads to an identical hash, unlock ids and all
+
+    a jumped session      is NOT the run a player would have had, and no
+      versus a played one test in the project claims it is
+
+**The fourth line is the one that needs the qualifier, because in act 1 it is measured to be false.** A jumped act 1 and a played act 1 at the same tick count hash identically, for two reasons that are both facts about act 1 rather than about jumping: act 1's jump target is its own beginning, and unlock state is not hashed. So two cells with the same hash differ in whether fermentation has been bought. **Neither reason survives act 3.** The test asserts the agreement in the direction it actually holds, so the day it stops holding the failure lands somewhere that explains what changed.
+
 **The second is asserted rather than merely not asserted**: the test requires the two hashes to differ. A change that made them identical would mean the jump had stopped jumping, and asserting the difference is what turns a scoped guarantee into a tested one. **The narrowing was always implied by Part 3 living in the same document**, which has said since it was written that closed-form integration is unavailable and the approach is piecewise. What did not exist until now was the code, so nothing forced the sentence to be written. Same pattern V7 found: a missing statement in a specification survives until something is built on top of it.
 
 **One thing the offline path does that nothing else in the project does: it discards matter.** Retiring a spent pool is the only place. It is bounded at `OFFLINE_DEPLETED_FRACTION` of that pool's peak, which is 1.7e-13 relative against act 1's carbon, below the tick's own observed drift of 1.113e-13, and `OfflineOutcome.discarded` reports the total so nobody has to take the bound on trust. Measured across a full day: 7.47e-17 to 4.35e-10.
@@ -503,15 +534,25 @@ Rule 5 requires departures to be recorded. It does not require inventing a depar
 
 **V10 takes the suite to 540 across 42 files and the bundle to 285.18 kB, 88.58 kB gzipped.** One new test file, `src/ui/__tests__/enzymes.test.ts`. The measured act, both player models, is a report test in `unlockPacing.report.test.ts` rather than a figure in a log, so it can be re-run. The toy pathway's hash is still `172f83fb` and act 1's is `65b43d27`.
 
+**V13 takes the suite to 1011 across 61 files and the bundle to 404.78 kB total, 309.43 kB of JavaScript at 95.89 kB gzipped**, up from V12's 404.02 kB. Application is **90.24 kB against a 130 kB budget**, up 0.69 kB. Six new test files: the start state on both sides of the import rule, the jump on both sides of it, the diagnostic guard, and the route. **Two subjects are split in two because nothing in `src/content/` may import `src/ui/`**, and asserting that the runtime's new-game path IS the start-state function needs a runtime. **Both canonical hashes are unchanged and no tuned number moved across the whole log**: `git diff` across the three tuning files, docs/SCIENCE.md and docs/ECONOMY.md is empty from V12's tip to V13's, and all four probe hashes reproduce V9's values, `172f83fb`, `65b43d27`, `f9292a7e` and `35d7c4b8`.
+
 **V11 takes the suite to 624 across 47 files and the bundle to 290.65 kB, 89.92 kB gzipped.** Five new test files: the act registry's own shape and the import direction, index resolution on both hot paths, the act boundary, the future-act refusal, and the playthrough. **Both hashes are unchanged and no tuned number moved across the whole log**, including the one stage that adds behaviour: `git diff` across the three tuning files, docs/SCIENCE.md and docs/ECONOMY.md is empty from V10's tip to V11's.
 
 ## What the act layer does
 
 `src/content/acts.ts`, plus `src/ui/boundary.ts` and the card table in `src/ui/poolCards.ts`. Added by V11. The part of the project that knows an act is a thing.
 
-    src/content/acts.ts   the descriptor, the registry, and the unknown-act case
-    src/ui/boundary.ts    when an act is finished, keyed by act number
-    src/ui/poolCards.ts   what an act looks like, keyed by the same number
+    src/content/acts.ts     the descriptor, the registry, and the unknown-act case
+    src/content/actStart.ts what an act looks like at its beginning. V13
+    src/content/actJump.ts  landing in one without playing to it. V13
+    src/ui/boundary.ts      when an act is finished, keyed by act number
+    src/ui/poolCards.ts     what an act looks like, keyed by the same number
+
+**`actStart.ts` is the one V13 exists for and it is six fields.** `act`, `state`, `meter`, `unlocked`, `settings`, `carried`. `actStartState(descriptor, options?)` is the ONLY definition of an act's beginning; the runtime's new-game path calls it and the jump calls it, and a test compares the two by hash and by the whole captured save with `meta` excluded.
+
+**Three groups are deliberately absent and each absence is a decision rather than a gap.** `progression.transitionTaken` and `progression.shuttleChoice` are named by the stage as things a start state must carry, and they are **decided by the act's own `capture` instead**, which already writes act 1's `false` and `null` with a comment saying both are honestly true of the state. Carrying them here as well would be two copies of one fact, which is the defect the whole file exists to prevent, and would put act 3's vocabulary into a function abstracting over one act. `enzymes` and `environment` are absent for the same reason. Reaction enabled flags are absent because V4 settled that they derive from `unlocked` at load. **A test captures a start state and asserts the act's values come back, so the two cannot drift apart unnoticed.**
+
+**`actJump.ts` is nine lines and its target list is the registry.** `resolveActJump(n)` returns null for an act this build does not have, which makes act 3 jumpable the day it is registered with no edit. Null rather than clamping, for the reason V11 built `findAct` to return null: clamping succeeds, quietly, at something other than what was asked.
 
 **Eighteen members, and every one of them has a caller in `src/ui/runtime.ts` today.**
 
@@ -684,7 +725,7 @@ Reviewed by V9 stage 3 and **not yet in force**, because nothing has been deploy
 
 ## What the guards do
 
-Eleven now. V11 is the log that stopped two of them agreeing with their own lists, and V9 is the log that made all of them run without being asked. **The count here is larger than the eight in "What CI enforces" because that table counts build-failing guards and this one counts every mechanism, including the sweeps and the two V9 added for its own instruments.**
+Thirteen now. V11 is the log that stopped two of them agreeing with their own lists, and V9 is the log that made all of them run without being asked. **The count here is larger than the eight in "What CI enforces" because that table counts build-failing guards and this one counts every mechanism, including the sweeps and the two V9 added for its own instruments.**
 
     determinism lint          Math.random, Math.pow, Math.exp, Math.log, Date
     Needs source release gate scans the emitted production bundle
@@ -697,8 +738,16 @@ Eleven now. V11 is the log that stopped two of them agreeing with their own list
     bundle budget             four categories, V9. Growth becomes a decision
     cross-engine determinism  four engines, two pathways, V9
     buildId is diagnostic     never compared, matched or switched on, V9
+    jumpedToAct is diagnostic same ten patterns, plus no component may
+                              mention it at all, V13
+    no player path to a jump  one caller each for the resolver and the
+                              route, and App reads it from the URL only, V13
 
-**The last one exists because V9 made the field meaningful.** `meta.buildId` has been in every save since V4 and held the Vite mode, so every save ever written said "production". Nobody branches on a constant. It is the short commit SHA now, with `-dirty` when the tree is not clean, and a field that becomes meaningful is a field somebody will be tempted to branch on, so the temptation is new and the guard is new. docs/SAVE_SCHEMA.md Part 3 has said "never branched on" since V4 and nothing checked it.
+**The two V13 added are the V9 guard applied twice, and the second application is the stronger one.** `settings.jumpedToAct` gets the same treatment `meta.buildId` gets, plus an assertion V9's does not have: **no file under `src/ui/components/` or `App.tsx` may mention it.** That is not about branching, it is about rendering. docs/PROGRESSION.md makes acts strictly sequential, so nothing on screen may say a session skipped play, and a player cannot find by exploring a thing no rendered file knows exists. Proved by planting a branch in `App.tsx` and reading three of the four assertions fire independently.
+
+**V9's guard also caught V13, which is the best evidence that it works.** `buildId.test.ts` failed the moment `actJump.ts` cited the field in a doc comment, because the guard is a substring search with an allowlist of files that legitimately **use** it. The comment was reworded rather than the allowlist widened, because an allowlist admitting citations means two things at once. The property kept is that outside tests, **a mention is a use.**
+
+**The buildId guard exists because V9 made the field meaningful.** `meta.buildId` has been in every save since V4 and held the Vite mode, so every save ever written said "production". Nobody branches on a constant. It is the short commit SHA now, with `-dirty` when the tree is not clean, and a field that becomes meaningful is a field somebody will be tempted to branch on, so the temptation is new and the guard is new. docs/SAVE_SCHEMA.md Part 3 has said "never branched on" since V4 and nothing checked it.
 
 **The bundle budget's own reasoning was measured after being guessed, and the guess was badly wrong.** The application and dependency shares were estimated at 102.6 kB and 188.1 kB before measuring and are **75.28 kB and 215.43 kB**. The first build carrying real budgets failed on numbers its own author had written minutes earlier. That is the argument for printing the figure on every build rather than estimating it in review.
 
@@ -765,6 +814,17 @@ Written out for the same reason V10's section exists: a reader should not be abl
 
 **No tuned number moved and docs/SCIENCE.md was not touched at all.** Not in any stage, including stage 4, which is the one stage that adds behaviour.
 
+## What V13 did not do
+
+**It built a door and a definition. It built no game.** Nothing a player without a query string can see changed, no simulation number moved, and both canonical hashes are where V10 left them.
+
+- **The rest of teacher mode.** Lesson pacing, the printable summary and the session record are all V15, and so is the named-beat selector V13 stage 3 found was needed. The design doc split E6 and V13 is the first half of that split, not the whole of it.
+- **A repair for the save a jump overwrites.** Measured in stage 2, sized in stage 3, left open as Blocking item 7. The fix is a flag on `SaveStoreOptions` and it did not belong in a stage about routing.
+- **Any interface surface for the jump.** Deliberately, and asserted five ways. Acts are strictly sequential and a skip in the interface is a product decision nobody has taken.
+- **A boundary handover.** The finding was that none exists. `actStartState` is what one would call when act 2 or act 3 makes one necessary, and building the handover before there is a second act to hand over to is exactly the wrong sentence in a specification this project has now recorded three times.
+- **Anything about act 3 or act 2.** `?jump=3` returns null today and will work the day an act 3 descriptor is registered, with no edit to `actJump.ts`.
+- **The cold read.** Blocking item 0 is where V6 and V7 left it. V13 added a door for a developer to a game no outside reader has seen.
+
 ## What V12 did not do
 
 **The game has the connective tissue for four acts wrapped around one, and that is the honest way to describe what it is now.** Everything below follows from it.
@@ -818,9 +878,11 @@ The honest measure of whether this log worked is how short this list is. Concret
 
 ## The schema decision
 
-**No bump. Version 1 still, and V11 is the third log to decide that rather than to assume it.**
+**No bump. Version 1 still, and V13 is the fourth log to decide that rather than to assume it.**
 
-The only persisted state this log added is `settings.boundarySeen`, which a save written by V10 defaults to false. docs/SAVE_SCHEMA.md Part 1 makes a field new code can default an additive change, and the project has now proved it three times: V5's two unlock id families, V6's `settings.firstRunSeen` and this. `progression.act` was already in the version 1 shape, documented as 1 to 4, and V11 reads it rather than adding it.
+**V13 added `settings.jumpedToAct`, a number naming the act a session was jumped to, absent on every save produced by play.** That is the same additive case as the two settings keys before it and it makes three keys shipped at version 1. **The decision was not a judgement call**, because V11 was told not to leave the expiry as a silence and did not: docs/SAVE_SCHEMA.md Part 1 names the act 2 log as the next expected bump, and a jump mark has a correct default while a damaged enzyme does not. So hard rule 7 is not engaged, no migration is owed, and no fixture is needed.
+
+The only persisted state V11 added is `settings.boundarySeen`, which a save written by V10 defaults to false. docs/SAVE_SCHEMA.md Part 1 makes a field new code can default an additive change, and the project has now proved it three times: V5's two unlock id families, V6's `settings.firstRunSeen` and this. `progression.act` was already in the version 1 shape, documented as 1 to 4, and V11 reads it rather than adding it.
 
 **The next bump is expected in the act 2 log, and the thing that forces it is per-reaction Vmax as hashed state.** ROS damage means each reaction carries a current Vmax that is part of the simulation rather than a constant read from a tuning file, so a save has to carry it or a reload silently repairs the cell. That is not a field new code can default, because there is no correct default for how damaged an enzyme is: the honest answers are the saved value or a different game.
 
@@ -891,6 +953,16 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 - Act 2 models two damage mechanisms, not one. ROS and molecular oxygen have different targets and the antioxidant enzymes only address the first. The target inside act 1's own loop is GAPDH by thiol oxidation.
 - Content lives in `src/content/` and the kernel never imports it. The arrow points one way, permanently.
 - ATP is a flux, not a score. The adenylate pool is fixed and closed and `maintain` hydrolyses ATP back to ADP and phosphate. Cumulative production is a counter beside the simulation, never a pool inside it.
+
+## Settled 2026-08-20, by V13
+
+- **There is one definition of what an act looks like at its beginning and it is `actStartState`.** The runtime's new-game path calls it and the jump calls it. Nothing else may build one, and the test that holds it compares the whole captured save with `meta` excluded rather than a list of fields somebody remembered.
+- **The act boundary does not hand over and never has.** `ActBoundary` is a detector with two members, neither of which returns a state. Recorded as settled because three logs' worth of planning assumed otherwise, and because the handover a later act needs now has an obvious thing to call rather than an obvious place to reinvent.
+- **`transitionTaken` and `shuttleChoice` belong to the act's `capture` and not to its start state.** They are named by the stage as start-state contents and are deliberately not, because two copies of one fact is the defect the file exists to prevent and because act 3's vocabulary has no business in a function abstracting over one act. A test asserts the two agree.
+- **A determinism claim about a jump is three statements and never one.** The same jump reproduces; a jumped session is internally deterministic; a jumped save reloads identically. **Not that a jumped session matches a played one**, which is measured TRUE in act 1 for two act 1 reasons and will be false in act 3.
+- **The jump mark is diagnostic and never punitive.** `settings.jumpedToAct` says a session skipped play and nothing may read it to behave differently. That is a build failure rather than a convention, and no rendered file may mention it at all.
+- **A jump is not a player feature and is not hidden because it is embarrassing.** Acts are strictly sequential per docs/PROGRESSION.md. A skip in the interface is a product decision nobody has taken, and it must not arrive through a log about a debugging tool.
+- **The jump reaches acts and a lesson needs beats.** Answered rather than assumed, per the stage. V15 inherits a named-beat selector as work.
 
 ## Settled 2026-08-09, by V12
 
@@ -1006,6 +1078,28 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Blocking
 
+**V13 added one, and it is the first item on this list that is a cost the log measured on itself rather than a defect it inherited.**
+
+7. **A jump overwrites the player's most recent save and leaves no copy of it.** Opened 2026-08-20 by V13 stage 2, measured in stage 2 and sized rather than repaired in stage 3.
+
+   **The mechanism is a V4 decision working exactly as designed against a case that did not exist until now.** `createSaveStore` starts `activeKnownGood` at false, and its own comment gives the reason: "a store that has never been loaded from has not established that its active slot is worth preserving, and refusing to promote costs one generation of backup depth on the first write of a session." **Every session in the project's history before this one loads before it writes.** A jump is the first that deliberately does not, so it is the first for which the active slot genuinely is worth preserving and the store has no way to know it.
+
+   Measured over three generations:
+
+   ```
+     session 1   new game, save            active = gen1   backup = none
+     session 2   loads gen1, save          active = gen2   backup = gen1
+     jump        does not load, save       active = jumped backup = gen1
+
+     gen2, the player's most recent save, is in neither slot.
+   ```
+
+   **So the player loses their latest save and keeps an older one**, which is the worst of the three possible outcomes to have to explain. Recorded as a passing test in `src/ui/__tests__/actJump.test.ts` rather than as a note, so a later log that changes the behaviour fails there.
+
+   **It is blocking rather than urgent, and the reason is the same shape as item 6's.** Nothing reaches it by accident: the door is a query parameter with no interface, asserted by five tests to have no player path, and it is the same exposure `?glucose=500` already has against a smaller risk. It is on this list because **a code path that silently destroys a save should not sit in the build unexamined**, which is the sentence item 6 already carries about the offline fallback.
+
+   **The fix, for whoever takes it.** The store has to be told that its active slot is worth preserving without having loaded from it, which is one flag on `SaveStoreOptions` and a line in the jump's persistence options. It is a `src/save/` change, it was out of scope for a stage about routing, and it is small. What is NOT small and should not be smuggled in with it is any question about whether a jump should refuse to write at all, because that would break the reload property stage 2 exists to provide.
+
 **V9 added nothing to this list and closed nothing on it.** The cross-engine measurement came back clean, so the finding it was built to surface does not exist: there is no engine divergence to report and nothing in stages 1 to 5 produced a new blocking item. The two things V9 leaves undone, the deploy and its live verification, are recorded under "Open, not blocking" because neither blocks any planned log.
 
 **The list is still headed by a person rather than a feature, and V9 does not change that.** Item 0 has been open since 2026-08-04 and is the only item on this page that no amount of building advances.
@@ -1114,6 +1208,25 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 ## Open, not blocking
 
+- **A jump reaches an act. A lesson needs a beat. Those coincide exactly once and V15 inherits the gap.** Opened 2026-08-20 by V13 stage 3, which was told to answer this rather than assume the developer answer.
+
+   **The obvious objection is that a teacher will not type a query parameter. That is true and it is the less important half.** The real mismatch is that `?jump=N` lands at an act's **beginning**, and the thing a teacher wants to put in front of a class is a **beat** inside one:
+
+   ```
+     act 1   45 to 90 min     NAD+ wall at ~3 s from the start.  REACHABLE
+     act 2   90 to 150 min    oxygen as poison before fuel, inside the act
+     act 3   120 to 180 min   chemiosmosis, and the 2 to 30 payoff at the END
+     act 4   150 to 240 min   regulation, across the whole act
+
+     a school period          40 to 50 min including setup and packing up
+   ```
+
+   **Jumping to act 3 to show a class chemiosmosis buys a cell at the start of a 120 to 180 minute act.** The period ends before the beat arrives. So the jump makes act 3 reachable for a developer, which is what V13 needed and what it claims, and it does not make act 3's argument reachable for a teacher.
+
+   **What V15 has to build, so its stage 1 has an input rather than a question.** A **named beat** a teacher selects, resolving to an act plus a state within it plus whatever purchases that state implies. `resolveActJump` is the right substrate and is deliberately not that: it takes an act number, and a beat selector takes a beat id and returns a jump. **Which beats are worth a period is a content decision** and it is exactly what V15 stage 1 is for, which is why V13 declined to take it on a teacher's behalf.
+
+   **One property of the query string is worth keeping rather than replacing.** A URL is shareable, bookmarkable and survives being written on a whiteboard. docs/PILLARS.md rule 7 rules out a backend, so a URL is the only thing this game can hand somebody that is not a file.
+
 - **The browser step failed once in CI and nobody has read why. THE HEAD OF `updatelogv9` IS RED.** Opened 2026-08-09 by V9 stage 5.
 
    ```
@@ -1205,17 +1318,41 @@ Mockups live outside the repo at `~/.gstack/projects/krebs/designs/design-system
 
 0. **Find one cold reader.** Not a log and not a stage. It is listed first because it is the only item on this page that no amount of building advances, because it gates docs/PILLARS.md's first two success conditions, and because every log after this one adds more to a screen nobody outside this project has looked at. See Blocking item 0. It does not block V9 and V9 should not wait for it.
 
-1. **The act jump.** `UPDATELOGV13.md`, not written. The first half of teacher mode, and `docs/designs/game-spine-and-four-acts.md` carries its scope rather than this file.
+1. **Act 3, and it cannot start.** `UPDATELOGV14.md`, seven stages, written and unrun. **BLOCKED ON THE ACT ORDERING DECISION**, which is stated as blocking below for the first time.
 
-   **Its value depends on the act ordering decision below and it must not become a second definition of what an act's start state is.** The boundary machinery Spine A built already defines one, and NOW.md has settled the rule this would break: two copies of one fact is the specific way save formats rot.
+   **What V13 leaves it.** An act registry a jump reads, one definition of an act's starting state that a boundary handover will also have to use, and `?jump=3` working the day act 3 is registered with no edit to the jump. **Every stage of V14 would otherwise have begun by playing act 1**, which is the reason the jump was scheduled ahead of it and the reason that still holds.
 
-   **What V12 leaves it.** An act registry, a runtime that takes a descriptor, an act boundary, a future-act refusal on load, a timeline whose marker reads the act number and moves at act boundaries and nowhere else, and a beast whose four states are answered by the act rather than by a component. **A jump has somewhere to land and something to draw when it does**, which was not true before this log.
+   **What V14 must not inherit by accident.** `actStartState` is the only definition of an act's beginning and act 3's entry has to go through it, not beside it. Two of its assumptions are act 1 facts that V14 breaks: a jumped act 3 will not match a played act 3, and act 3's beginning is not "everything at its initial amount" because a transition happened. Both are flagged in `actStart.ts` and in `actJump.test.ts` at the exact assertions that will fail.
+
+   ~~**The act jump.**~~ **Done 2026-08-20.** `UPDATELOGV13.md`, four stages, all reported. See the Status block and "What the act layer does" above. **The finding was that the act boundary does not hand over at all**, so there was nothing to extract and the definition had to be built from the runtime's new-game branch instead.
 
    ~~**Spine B, the surface half.**~~ **Done 2026-08-09.** `UPDATELOGV12.md`, six stages, all reported. See "What the spine does" above. Spike C, the art spike that was meant to gate the illustration scope, **was not run and the log went ahead without it**: governance was answered in the design stage instead, before any asset was drawn, and the guard that enforces it landed with the first seven. Recorded rather than glossed, because the spike was a named gate and it was skipped.
 
    ~~**Spine A, the structural half.**~~ **Done 2026-08-06.** `UPDATELOGV11.md`, seven stages, all reported.
 
-   **The act ordering decision is still open and still blocks nothing before V14.** Act 3's payoff needs oxygen as the terminal electron acceptor and act 2 is what supplies it, so act 3 first requires a placeholder oxygen constant carrying a DEPARTURE row and an act 3 rebalance when act 2 lands. Either accept that price in writing or flip the order and withdraw the value-ordering argument. **Unchanged by V12**, which touched no act content and no tuned number, and the entry below carries the full pricing.
+   **THE ACT ORDERING DECISION IS NOW BLOCKING, AND V13 IS THE LAST LOG THAT COULD BE FINISHED WITHOUT IT.**
+
+   It has been open since the engineering review and it has cost nothing, because everything scheduled before V14 could proceed either way: two spine logs and a jump are all act-agnostic by construction. **V14 is not.** It has to write act 3's chemistry, and act 3's payoff is yield going from 2 to roughly 30, which needs oxygen as the terminal electron acceptor, and **act 2 is what supplies the oxygen.**
+
+   **Two exits, and both are real.**
+
+   ```
+     A.  act 3 next, as the design doc schedules it
+         Price: a placeholder oxygen constant, a DEPARTURE row in
+         docs/ECONOMY.md that says so, and an act 3 rebalance when act 2
+         lands. The 2 to 30 figure ships against a number act 2 will move.
+
+     B.  flip the order, V14 becomes act 2
+         Price: withdraw the value-ordering argument that put act 3 first,
+         which was that act 3 carries the game's headline claim and should
+         exist earliest. Act 2 is also the higher-risk act, because damage
+         is the first mechanic that takes something away from a player and
+         nobody outside this project has read anything yet.
+   ```
+
+   **This is a decision for a person and no measurement resolves it.** What has been removed from it: V9 wrote act 2's oxygen schedule constraint into docs/SIMULATION.md Part 3, so whichever act introduces a rising environment inherits a shape rather than inventing one; and docs/SAVE_SCHEMA.md Part 1 names the act 2 log as the next expected schema bump either way, forced by per-reaction Vmax becoming hashed state. **Neither of those picks an order.**
+
+   `UPDATELOGV14.md` opens with a BLOCKED UNTIL A DECISION IS TAKEN block naming this file as where the answer goes. **Nothing else in the project is waiting**, which is the only reason this has been affordable for five logs and is why it stops being affordable now.
 
 2. ~~**CI, cross-engine determinism and deployment.**~~ **Done 2026-08-09.** `UPDATELOGV9.md`, five stages, all reported. See "What CI enforces" above rather than a restatement here. The one piece left undone is the deploy itself and it is under "Open, not blocking".
 

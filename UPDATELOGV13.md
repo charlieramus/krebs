@@ -67,7 +67,95 @@ of a starting state, and the regression bar.
 
 ## Stage 1 Report
 
-_Pending._
+**The handover does not exist, and not in the sense the stage anticipated. There is no inline version to extract, because the act boundary does not produce a state at all.**
+
+Step 1 asked what produces the next act's starting state when act 1 ends. Reported as it is: **nothing does.** `src/ui/boundary.ts` is a detector. `ActBoundary` has exactly two members, `isComplete(snapshot)` and `nextContentAtp(snapshot, meter)`, and neither returns a state or could. `App.tsx` responds to the boundary by opening `EndOfContent`, the screen V11 authored to say where the game currently ends while the cell keeps ticking underneath. The stage offered two possibilities, a handover a caller can request or a handover inline in the boundary path, and the answer is a third one.
+
+**That is the correct state of the project rather than a gap.** V11 built the boundary and refused to author what is on the other side of it, and `src/content/acts.ts` says why in as many words: a descriptor designed against a sample size of one is a wrong sentence in a specification waiting for something to be built on top of it. A handover written before act 2 exists would have been exactly that.
+
+**So the definition this stage had to find was one level down from where it was looking, and it did exist.** There is precisely one answer in the project to "what does act N look like at its beginning", and before this stage it was **five expressions spread across thirty lines of `createActRuntime`**, each on the far side of its own `restoredOk === null` ternary:
+
+```
+  runtime.ts:585   const state    = restoredOk === null ? descriptor.create(options.create) : ...
+  runtime.ts:587   const meter    = restoredOk === null ? descriptor.createMeter()          : ...
+  runtime.ts:590   const unlocked = restoredOk === null ? []                                : ...
+  runtime.ts:606   let   settings = restoredOk === null ? {}                                : ...
+  runtime.ts:613   let   carried  = restoredOk?.carried ?? descriptor.noCarriedCounters
+```
+
+**Unreachable without building a whole runtime**, which is the part that mattered. A jump that wanted a legal act 1 state had two options before this stage: construct a runtime and throw away everything except its state, or rewrite those five expressions. The second is the second definition the log's Decisions section forbids, and it is the same defect as two copies of one fact in a save, one level up.
+
+**The extraction.** `src/content/actStart.ts`, one function:
+
+```
+  actStartState(descriptor: ActDescriptor, options?: ActCreateOptions): ActStartState
+```
+
+It reads the descriptor and nothing else. It does not import `src/ui/`, so the runtime and the jump can both call it without either one owning it, and the import direction `src/content/README.md` protects is unchanged.
+
+**The two paths in the runtime unified rather than moving, which was not the plan and is the better outcome.** Once the new-game side is a value rather than five expressions, a restored session and a fresh one differ only in where the same five values come from, so the five ternaries collapse to one `??`:
+
+```
+  const start = restoredOk ?? actStartState(descriptor, options.create);
+```
+
+`??` short-circuits, so a restored session still never runs the act's constructor. What `restoredOk` still answers below is only what a **load** can answer: the yield-correction baseline, the missing pools, the discarded milliseconds and the derived unlock flags at lines 671, 765 to 798 and 987 to 989. `src/ui/runtime.ts` is 35 lines longer and 5 shorter, and most of the addition is the comment explaining why.
+
+**What a starting state contains, enumerated against docs/SAVE_SCHEMA.md rather than assumed.** Six things, and the schema section each one answers for:
+
+```
+  act        progression.act                    read off the descriptor
+  state      pools, rng, time.elapsedGameMs     one object, tickCount 0
+  meter      stats                              every field zero
+  unlocked   progression.unlocked               [], the source of truth
+  settings   settings                           {}, an open bag
+  carried    the four counters capture cannot read off a simulation
+```
+
+**Three groups are deliberately NOT on it and the largest of them is named by step 3, so it is flagged rather than quietly dropped.** `progression.transitionTaken` and `progression.shuttleChoice` are listed by step 3 as things a starting state has to contain. They are not on `ActStartState`, because **the act's own `capture` already decides them**: `captureAct1` writes `false` and `null` with a comment saying both are honestly true of the state rather than placeholders. Putting them on the start state as well would be two copies of one fact, which is the exact defect the stage exists to prevent, and it would put act 3's vocabulary into a function abstracting over one act, which `src/content/acts.ts` forbids in its header. `enzymes` and `environment` are absent for the same reason and captured the same way, and the derived reaction enabled flags are absent because V4 settled that they come from `unlocked` at load and are never a second copy.
+
+**What replaces them is an assertion rather than a comment.** A test captures a start state and asserts the act's values come back, so the start state and the act's capture cannot drift apart without the suite noticing. When V14 gives act 3 a beginning where `transitionTaken` is true, that test is where the decision has to be made rather than discovered.
+
+**Step 4's test as written cannot be built at stage 1, and this is the one place the stage contradicts itself.** It asks to reach act N by the boundary, reach act N by the jump, and compare. The boundary does not hand over, per the finding above. The jump is stage 2, and step 5 of this stage forbids building it here. Stage 2's own Verify line already says "the jump produces a state identical to the boundary's", so **the boundary-versus-jump comparison is stage 2's test and it is left there.**
+
+**What was built instead is the same property over the two callers that exist**, and they are the two that matter for the defect: the runtime's new-game path, which was the only definition before this stage, and a direct call, which is the shape the jump will use. Identical rather than merely compatible, in five assertions:
+
+```
+  hashState(runtime.state) === hashState(start.state)     byte-identical state
+  pool amounts, tickCount, prng seed and prng state       field for field
+  unlocked, settings and all four carried counters        through a capture
+  the WHOLE captured save, meta excluded                  toEqual, one assertion
+  runtime.state !== start.state                           not the same object
+```
+
+**The fourth is the one worth having.** The others compare the pieces a test happens to name; that one compares the entire persisted document, so a field a later log adds to the save is covered on the day it is added rather than on the day somebody remembers to widen a list. `meta` is the only exclusion, because it carries wall-clock timestamps and the build id, none of which is a fact about an act's beginning.
+
+**And a fresh-allocation test, which exists because without it four of the others pass for the wrong reason.** Two calls must not return the same object. If they did, every comparison above would be comparing an object with itself, and the jump would hand the runtime a state a previous session had already ticked.
+
+**The registry is walked rather than named.** The per-act test iterates `ACTS`, so an act V14 registers is covered the day it is registered. Same posture as the two guards V11 found had stopped agreeing with their own hand-written lists.
+
+**The regression bar, which is what licenses a structural change of this size.**
+
+```
+  suite            973 passed across 57 files, up from 960 across 55
+                   13 tests added, 0 changed, 0 removed
+  toy canonical    172f83fb   unmoved, asserted in the suite
+  act1 canonical   65b43d27   unmoved, asserted in the suite
+  playthrough      10 purchases, 228226.225 ATP live
+                              228210.962 across the absence
+                   0.0067 percent disagreement against a 2 percent tolerance
+                   139 ms continuous, 111 ms across the absence
+  git diff         EMPTY across all three tuning files, docs/SCIENCE.md
+                   and docs/ECONOMY.md
+  tsc --noEmit     clean
+  eslint           clean, including the determinism guard over src/content/**
+```
+
+The playthrough reproduces V11's figures to the digit, which is the assertion that the new-game path did not move: it starts a fresh cell, makes all ten purchases in order, meets the NAD+ wall and recovers, and lands on the identical tick both ways.
+
+**No tuned number was added, so docs/ECONOMY.md is owed nothing.** `actStartState` introduces no scalar at all. Every number in a start state was already a number the act owned.
+
+**The jump is not built, per step 5.** Nothing calls `actStartState` except the runtime and its tests.
 
 ---
 
@@ -119,7 +207,132 @@ three determinism results, and the sweep figures.
 
 ## Stage 2 Report
 
-_Pending._
+**The jump exists, it is nine lines, and every hard question in this stage turned out to be about what happens around it rather than in it.**
+
+```
+  src/content/actJump.ts     resolveActJump(act, options?) -> ActJump | null
+                             JUMPED_TO_ACT = 'jumpedToAct'
+```
+
+`findAct` answers, so an act this build does not have is not jumpable and registering act 3 makes it jumpable with no edit to that file. Null rather than a throw and rather than clamping, which is the posture V11 built `findAct` to make possible: clamping succeeds, quietly, at something other than what was asked. Asserted over the registry rather than over act 1, plus the four refusals: an act above the highest known, 0, a negative, and `1.5`, `NaN` and `Infinity`, which are numbers that are not act numbers at all.
+
+**It defines no state. It asks stage 1's function for one**, and a test compares the jump's state against `actStartState`'s by hash and field for field. That is the whole of the log's stated risk and it is closed by construction rather than by discipline.
+
+### The schema decision: no bump, and the reason it is not a judgement call
+
+`settings` is `Readonly<Record<string, boolean | number | string>>`, an open bag the codec carries through untouched, and `jumpedToAct` is an additive key new code defaults. That is the V6 `firstRunSeen` case and the V11 `boundarySeen` case exactly, and it makes three additive settings keys shipped at version 1.
+
+**docs/SAVE_SCHEMA.md Part 1 already named when the next bump is expected and this is not it.** V11 was told not to leave that decision as a silence and did not: the next bump is **the act 2 log**, forced by per-reaction Vmax becoming hashed simulation state, because there is no correct default for how damaged an enzyme is. A jump mark has a correct default, and the default is "absent means played". So hard rule 7 is not engaged, no migration is owed, and no fixture is needed.
+
+**A number rather than a boolean**, because "was this jumped" and "to which act" are one fact rather than two. Two fields could disagree with each other and one cannot.
+
+### The mark, and the four things asserted about it
+
+Applied at construction rather than on the first write, because a mark applied later needs a flag to remember to apply it, which is a second copy of the same fact. Read from `settings` rather than from the `jump` option, which is the distinction that makes a reload work: **a session that reloaded a jumped save has no jump option and is still a jumped session.**
+
+```
+  written             capture().settings.jumpedToAct === 1, played saves have no key
+  survives a reload   second runtime, no jump option, jumpedToAct() === 1
+  preserved beside    firstRunSeen and boundarySeen written by two different
+    other keys        sessions, all three present after a full save and load
+  not simulation      1200 ticks marked and unmarked, hashes identical
+```
+
+**And a guard, on the V9 model, which fails the build if anything branches on it.** Ten patterns for comparison, regex, prefix tests, `switch` and `if`, applied to the settings key and to the `jumpedToAct()` accessor, plus a file-mention allowlist, plus a fourth assertion V9's version does not have: **no file under `src/ui/components/` or `App.tsx` may mention it at all.** That is the stronger property and it is the one stage 3 needs, because acts are sequential and nothing rendered should say a session skipped play.
+
+**Proved by planting `if (runtime.jumpedToAct() === 3)` in `App.tsx` and reading the failure.** Three of the four assertions fired independently, on the mention list, on the branching patterns and on the interface-surface rule, and the planted line was reverted.
+
+**Why this guard is worth more than the one it copies, recorded because it is the reason to keep it.** A build id is opaque, so branching on it is obviously wrong. A jump mark says a player skipped four hours of content, which is exactly the sort of fact a later log could reach for: to hide an achievement, to skip a teaching beat, to change what the endgame summary says. Every one of those turns a diagnostic into a game rule and makes a save that says something about itself into a save punished for saying it. The log's Decisions section rules that out in three words, "diagnostic rather than punitive".
+
+**One small finding, which is V9's guard working exactly as designed.** `buildId.test.ts` failed the moment `actJump.ts` cited `meta.buildId` in a doc comment, because the guard is a substring search with an allowlist of files that legitimately **use** the field. The fix was to reword the comment rather than to widen the allowlist, because an allowlist that admits citations means two things at once, and the property worth keeping is that outside tests **a mention is a use**. It cost one sentence.
+
+### Determinism, in three narrow forms, and the fourth claim measured rather than assumed
+
+```
+  1. the same jump produces the same state every time            PASS
+  2. a session begun by a jump is internally deterministic       PASS
+     including under irregular frame delivery, 7 51 3 120 16
+     16 240 9 ms against the same game time in even ticks
+  3. a jumped session saved and reloaded is hash-identical       PASS
+     3000 ticks, buy fermentation, 1200 more, save, reload
+```
+
+Form 3 carries the thing stage 2 step 2 warned about. **`?ferment=on` does not survive a reload** because it enables a reaction without minting an unlock id, so a restored save has no ferment in `progression.unlocked`. A jump cannot have that bug because it produces a real state rather than a runtime override, and the test asserts the unlock list and `fermentUnlocked` come back rather than just the hash.
+
+**The fourth claim is that a jumped session matches a played one, and it was measured. It came out TRUE, which is the opposite of what the test was written to assert.** Act 1, 1200 ticks each way, one cell jumped and one played with fermentation bought: **identical hashes.** Two reasons, and both are act 1 facts rather than jump facts:
+
+1. **act 1's jump target is its own beginning**, because it is act 1, so there is nothing for a jump to fabricate
+2. **unlock state is not hashed.** NOW.md has recorded since V4 that `setReactionEnabled` and `setReactionVmax` touch no pool, no tick count and no PRNG, which is precisely why `progression.unlocked` had to be persisted separately
+
+So the hashes agree even though one cell has bought fermentation and the other has not. **Neither reason survives act 3**, where a jump has to fabricate a compartment and a transition that a played session earned. The test asserts the agreement in the direction it actually holds, so the day it stops being true the failure lands on a test that explains what changed.
+
+**And this is the measurement that justifies the mark.** Two sessions whose simulation states are byte-identical: without the mark, a submitted save that skipped play would be indistinguishable from one that did not. Asserted directly, by capturing both and comparing the whole document with `settings` blanked. **The two saves differ in exactly two places, the settings key and the unlock list, and in nothing else.**
+
+### The offline path against a jumped state
+
+**Green, and the sweep figures are V12's rather than merely close to them, for a reason stronger than a comparison.**
+
+```
+  npm run offline:validate, 48 cases, seed 20260805
+
+  worst ATP disagreement       3.903e-3   at case 13, glycogen-charged, 24.6 min
+  worst, in ATP                88.9 of 22695 produced
+  worst misplaced fraction     1.923e-2   at case 18, glycolytic-4
+  worst conservation drift     1.417e-10  at case 15, glycolytic-4
+  tolerance, ATP               2e-2
+  tolerance, misplaced         1e-1
+  fallbacks                    0
+  budget exhaustions           0
+  reference side               12.3 s against 0.77 s for the offline path
+
+  every case inside tolerance.
+```
+
+**The sweep provably cannot have moved.** `git diff --name-only` for this whole stage is one file, `src/ui/runtime.ts`, and the sweep's import graph is `src/sim/**` plus `src/content/act1/**` and reaches the interface nowhere. So these are V12's figures because they are computed by V12's code.
+
+**What that does not check is a jumped state going through the offline path**, so that was run separately and through the runtime. An eight-hour absence credited from a jumped save and from a played save agree on `creditedMs`, on `atpProduced` and on the resulting state hash, with `fellBack` false and `offlineFallbackCount` 0. A one-hour absence from a jumped save likewise does not fall back and does not exhaust the budget. **"It is a legal state so it should just work" is now measured rather than assumed**, which was the stage's own reason for asking.
+
+### What the jump does not touch
+
+**The boundary set piece has one trigger and it is still the act ending.** A jumped session 60 ticks in reports `actComplete` false and `boundarySeen` false, asserted, because a debugging tool that could fire an authored moment would give that moment two triggers.
+
+**A descriptor mismatch throws.** A jump carries its own descriptor and the caller passes one positionally, so the two can disagree, and a runtime built on a disagreement would run one act's chemistry against another act's starting pools without complaining. `createActRuntime` refuses, with a message naming both acts. Same posture as `boundaryFor`, which throws on an act with no end condition.
+
+### The one real cost, measured, and it is worse than the obvious guess
+
+**A jump destroys the player's most recent save on its first write, and leaves no copy of it.**
+
+The obvious guess is that the played save lands in the backup slot and is recoverable for one write. It does not. `createSaveStore` starts `activeKnownGood` at **false**, and its own comment says why: "a store that has never been loaded from has not established that its active slot is worth preserving, and refusing to promote costs one generation of backup depth on the first write of a session." That is correct for every session that existed before this log. **A jump is the first session in the project's history that deliberately does not load**, so it is the first one for which the active slot genuinely is worth preserving and the store has no way to know it.
+
+Measured over three generations:
+
+```
+  session 1   new game, save            active = gen1   backup = none
+  session 2   loads gen1, save          active = gen2   backup = gen1
+  jump        does not load, save       active = jumped backup = gen1
+
+  gen2, the player's most recent save, is in neither slot.
+```
+
+**So the player loses their latest save and keeps an older one**, which is the worst of the three possible outcomes to have to explain. Recorded as a passing test rather than as a note, so a later log that changes the behaviour fails there.
+
+**Not fixed in this stage, deliberately.** Stage 2 builds the mechanism and stage 3 decides who can reach it, and this is the number stage 3 has to decide against rather than a defect stage 2 should have quietly patched. Nothing here is player-reachable yet, because nothing calls `resolveActJump` outside tests.
+
+### Verify
+
+```
+  tsc --noEmit     clean
+  eslint .         clean
+  suite            1001 passed across 60 files, up from stage 1's 973 across 57
+                   28 tests added, 3 files
+  toy canonical    172f83fb   unmoved
+  act1 canonical   65b43d27   unmoved
+  offline sweep    48 cases, every case inside tolerance, 0 fallbacks
+  git diff         one file, src/ui/runtime.ts. All three tuning files,
+                   docs/SCIENCE.md and docs/ECONOMY.md untouched
+```
+
+No tuned number was added, so docs/ECONOMY.md is owed nothing.
 
 ---
 
@@ -166,7 +379,103 @@ surface exposes it.
 
 ## Stage 3 Report
 
-_Pending._
+**`?jump=N`, in `src/ui/scenario.ts`, which is the file the stage named and the mechanism it already uses.**
+
+```
+  /                    the real act. Ferment locked, environment full
+  /?glucose=500        starved. Every flux low together, nothing piling up
+  /?ferment=on         skip the wall, for looking at the solved state
+  /?jump=1             begin in act 1, ignoring the save.  NEW
+```
+
+One new export, `jumpFromLocation(search, create)`, and one new caller, `App.tsx`. **Null for absent, malformed and unknown alike, and they are deliberately not distinguished.** `?jump=banana`, `?jump=1.5` and `?jump=3` against a build that knows one act all mean "no jump", and the player gets the real act off their save. There is nowhere to show a message on a door with no interface, and a development affordance that can break the game for a typo is worse than one that quietly does nothing. That is the behaviour every other parameter in the file already has.
+
+**`?jump=1&glucose=500` composes**, because `create` is threaded into the jump rather than one parameter silently winning. Asserted: the jumped state's `glucose_env` is 500.
+
+### Verified in a real browser rather than in the test that would have been enough
+
+`npm run dev`, Chromium, four navigations. **No console errors on any of them.**
+
+```
+  /?jump=1        fresh cell.  Elapsed 0.0 min, glucose_env 79992.45, no unlocks
+                  bought, the full act screen rendering: deep time, the rail,
+                  the pathway, the shelf
+  after 33 s      autosave fired at the 30 s interval and wrote, into real
+                  localStorage:
+                     settings     {"jumpedToAct":1}
+                     progression  {"act":1,"unlocked":[],
+                                   "transitionTaken":false,"shuttleChoice":null}
+  /               NO query string. Loaded the jumped save and continued it at
+                  Elapsed 1.0 min, with {"jumpedToAct":1} still in settings
+  /?jump=3        did NOT start a fresh cell. Loaded the existing save and
+  /?jump=banana   continued at 1.1 min, which is the refusal working
+```
+
+**The third line is the one that matters.** A reload with no query string and no jump option picked up the jumped save and carried the mark, which is the property the mark reads out of `settings` rather than out of the option in order to have.
+
+### The flaw it had to avoid, and it does
+
+`?ferment=on` does not survive a reload, because it enables a reaction without minting an unlock id, so a restored save has no `ferment` in `progression.unlocked`. NOW.md records that so the next person is not confused by it.
+
+**A jump cannot have that bug, because it produces a real state rather than a runtime override.** Asserted end to end: jump, run 2400 ticks, buy lactate dehydrogenase, save, then construct a fresh runtime with **no query string and no jump option**. Hash identical, `unlocked` identical, `fermentUnlocked` true, `jumpedToAct()` still 1.
+
+### No player path, asserted five ways
+
+The rule is docs/PROGRESSION.md's and it is not negotiable: acts are strictly sequential. So the guard is structural rather than a promise.
+
+```
+  jumpFromLocation is called by exactly    ['App.tsx']
+  resolveActJump  is called by exactly     ['ui/scenario.ts']
+  files under src/ui/components/ naming
+    the jump, the mark or the resolver     []
+  App gets its jump from window.location
+    .search, one call, not in a callback   asserted, plus no onClick and
+                                           no setJump
+  plus stage 2's guard: no component or
+    App may mention jumpedToAct at all     []
+```
+
+**A player cannot find by exploring a thing that no rendered file knows exists.** There is no button, no shelf slot, no menu item and no label, and the tests fail the build if one appears.
+
+**Low discoverability is the decision rather than the side effect.** It is not hidden because it is embarrassing. It is not surfaced because a skip in the interface is a product decision nobody has taken, and docs/PILLARS.md does not obviously forbid one, which is exactly why it should not arrive through a log about a debugging tool.
+
+### Step 3, answered honestly: a query string does not serve a teacher, and the reason is not the query string
+
+**The obvious answer is that a teacher will not type a query parameter. That is true and it is the less important half.**
+
+The real problem is a mismatch between what a jump lands on and what a lesson needs. **A jump lands at an act's BEGINNING. A lesson wants a BEAT.** Those coincide exactly once, in act 1, where the NAD+ wall arrives about three seconds in. Everywhere else they do not:
+
+```
+  act 1   45 to 90 min     NAD+ wall at ~3 s from the start.  REACHABLE
+  act 2   90 to 150 min    oxygen as poison before fuel, inside the act
+  act 3   120 to 180 min   chemiosmosis, and the 2 to 30 payoff at the END
+  act 4   150 to 240 min   regulation, across the whole act
+
+  a school period          40 to 50 min including setup and packing up
+```
+
+**Jumping to act 3 to show a class chemiosmosis buys a cell at the start of a 120 to 180 minute act.** The period ends before the beat arrives. So the jump makes act 3 reachable for a **developer**, which is what this log needed and what its Context claims, and it does not make act 3's argument reachable for a **teacher**.
+
+**What V15 has to build, recorded so its stage 1 has an input rather than a question.** Not a nicer jump. A **named beat** a teacher selects, which resolves to an act plus a state within it plus whatever purchases that state implies. `resolveActJump` is the right substrate for it and is deliberately not that: it takes an act number, and a beat selector would take a beat id and return a jump. That is a content decision about which beats are worth a period, which is what V15 stage 1 is for, and it is exactly the question this log declined to answer on a teacher's behalf.
+
+**One thing the query string already gives a teacher that is worth keeping.** A URL is shareable, bookmarkable and survives being written on a whiteboard. Whatever surface V15 builds should produce one rather than replace it. docs/PILLARS.md rule 7 rules out a backend, so a URL is the only thing this game can hand somebody that is not a file.
+
+### The destructive cost, carried forward from stage 2 and not fixed here
+
+Stage 2 measured it: **a jump overwrites the player's most recent save on its first write and leaves no copy of it**, because `createSaveStore` starts `activeKnownGood` false and a jump is the first session in the project's history that deliberately does not load. The older generation survives in the backup slot; the latest one does not.
+
+**Left as measured, and the door is sized against it.** The mitigation this stage supplies is that the door is a query parameter nobody reaches by accident, with no interface, asserted by five tests. That is the same protection `?glucose=500` has, against a smaller risk, and it is the honest position rather than a fix: **the right fix is for the store to be told the active slot is worth preserving, and that is a `src/save/` change in a stage about routing.** Recorded in the stage 4 NOW.md pass as work, not as a note.
+
+### Verify
+
+```
+  tsc --noEmit     clean
+  eslint .         clean
+  suite            1011 passed across 61 files, up from stage 2's 1001 across 60
+  browser          4 navigations, 0 console errors, mark written and reloaded
+  git diff         src/App.tsx and src/ui/scenario.ts. No simulation file,
+                   no tuning file, no component
+```
 
 ---
 
@@ -212,7 +521,115 @@ blocking with both exits named.
 
 ## Stage 4 Report
 
-_Pending._
+**Everything green, no canonical hash moved, and the log added a door and a definition without touching the game.**
+
+### Full verify
+
+```
+  npm run typecheck        clean
+  npm run lint             clean
+  npm run build            clean, budget printed below
+  npm test                 1011 passed across 61 files
+  npm run sim              conservation drift, worst 3.259e-14 on carbon
+  npm run sim:act1         conservation drift, worst 2.001e-15 on redox
+  npm run offline:validate 48 cases, every case inside tolerance
+  npm run probe:determinism   four hashes, all four unmoved
+  headless playthrough     10 purchases, 0.0067 percent, identical tick
+```
+
+**The suite is 1011 across 61 files, up from V12's 960 across 55.** Six new files and 51 tests:
+
+```
+  content/__tests__/actStart.test.ts    the start state, on the content side
+  content/__tests__/actJump.test.ts     the registry, the refusals, the wrapper
+  ui/__tests__/actStart.test.ts         the runtime new-game path IS the function
+  ui/__tests__/actJump.test.ts          the mark, the three forms, the offline path
+  ui/__tests__/jumpRoute.test.ts        the route, the reload, no player path
+  save/__tests__/jumpedToAct.test.ts    the diagnostic guard
+```
+
+**Two of them are split by the import rule rather than by subject.** `actStart` and `actJump` each have a content half and an interface half, because nothing in `src/content/` may import `src/ui/`, and asserting that the runtime's new-game path IS the start-state function needs a runtime.
+
+### Bundle
+
+```
+  application (apportioned)      90.24 kB  budget 130.00     V12: 89.55
+  dependencies (apportioned)    219.18 kB  budget 230.00
+  fonts                          68.86 kB  budget  72.00
+  styles                         22.64 kB  budget  32.00
+  other                           3.85 kB
+  total                         404.78 kB  budget 460.00     V12: 404.02
+```
+
+**+0.76 kB total and +0.69 kB application**, for one content file, one route function, one runtime option and a settings key. The whole log is 0.19 percent of the ceiling V9 built.
+
+### No simulation change and no visual change, which is step 2's real question
+
+**All four determinism probe hashes reproduce V9's values character for character:**
+
+```
+                  toy canonical   act1 canonical   toy 200000    act1 200000
+  node            172f83fb        65b43d27         f9292a7e      35d7c4b8
+```
+
+**The headless playthrough reports V11's figures to the digit**: 10 purchases, 228226.225 ATP live against 228210.962 across the absence, 0.0067 percent disagreement against a 2 percent tolerance, landing on the identical tick.
+
+**`git diff` from V12's tip is empty across all three tuning files, docs/SCIENCE.md and docs/ECONOMY.md.** No tuned scalar was added, so the divergence table is owed nothing and its guard is silent because there is nothing to say.
+
+**And no component changed.** The interface diff for the whole log is `src/App.tsx`, which gained a lazy initialiser and two props, and `src/ui/scenario.ts`, which gained one exported function. `src/ui/runtime.ts` changed, and its change is behaviour-neutral for every session that is not a jump: five `restoredOk === null` ternaries became one `??`.
+
+### NOW.md
+
+Updated, and the diff is:
+
+```
+  Status            five new paragraphs at the top, headed by the ordering
+                    decision, because it is now the only thing on the page
+                    that no amount of building resolves
+  Build state       V13's row, with the rest of teacher mode in its "does not"
+  What the act      actStart.ts and actJump.ts added to the file list, with
+    layer does      the three deliberate absences and why
+  Offline path      three new determinism statements beside the offline
+                    path's three, plus the fourth claim and its qualifier
+  The guards        eleven to thirteen, and the note that V9's buildId guard
+                    caught V13 in a doc comment
+  The schema        no bump, fourth log to decide it rather than assume it
+    decision
+  What V13          six entries. No teacher mode, no save repair, no interface,
+    did not do      no handover, no act 3, no cold read
+  Settled           seven entries dated 2026-08-20
+  Blocking          item 7, the save a jump overwrites
+  Open              the jump reaches acts and a lesson needs beats
+  Next, in order    item 1 is now act 3, BLOCKED, with both exits priced
+```
+
+### The act ordering decision, stated as blocking
+
+**It has been open since the engineering review, it has cost nothing for five logs, and V13 is the last log that could be finished without it.**
+
+Everything scheduled before V14 was act-agnostic by construction: two spine logs and a jump. **V14 is not.** It has to write act 3's chemistry, act 3's payoff is yield going from 2 to roughly 30, that needs oxygen as the terminal electron acceptor, and act 2 is what supplies the oxygen.
+
+```
+  A.  act 3 next, as the design doc schedules it
+      Price: a placeholder oxygen constant, a DEPARTURE row in
+      docs/ECONOMY.md that says so, and an act 3 rebalance when act 2
+      lands. The 2 to 30 figure ships against a number act 2 will move.
+
+  B.  flip the order, V14 becomes act 2
+      Price: withdraw the value-ordering argument that put act 3 first,
+      which was that act 3 carries the game's headline claim and should
+      exist earliest. Act 2 is also the higher-risk act, because damage
+      is the first mechanic that takes something away from a player and
+      nobody outside this project has read anything yet.
+```
+
+**Two inputs have been removed from it and neither picks an order.** V9 wrote act 2's oxygen schedule constraint into docs/SIMULATION.md Part 3, so whichever act introduces a rising environment inherits a shape rather than inventing one. And docs/SAVE_SCHEMA.md Part 1 names the act 2 log as the next expected schema bump either way.
+
+**This is a decision for a person.** `UPDATELOGV14.md` opens with a BLOCKED UNTIL A DECISION IS TAKEN block naming NOW.md as where the answer goes.
+
+### One thing this log leaves that it did not create and did not fix
+
+**Blocking item 7**, the save a jump overwrites. Measured in stage 2, sized in stage 3, carried into NOW.md as work. The fix is a flag on `SaveStoreOptions` telling the store its active slot is worth preserving without having loaded from it. It is small, it is in `src/save/`, and it was out of scope for a stage about routing.
 
 ---
 
