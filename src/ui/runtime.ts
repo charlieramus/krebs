@@ -43,6 +43,7 @@ import {
   ZERO_FLUX_THRESHOLD,
 } from './tuning';
 import { knowsAct, KNOWN_ACT_NUMBERS } from '../content/acts';
+import { actStartState } from '../content/actStart';
 import type {
   ActCarriedCounters,
   ActCreateOptions,
@@ -582,12 +583,41 @@ export function createActRuntime(
 
   const restoredOk = restored?.kind === 'ok' ? restored.restored : null;
 
-  const state = restoredOk === null ? descriptor.create(options.create) : restoredOk.state;
+  /**
+   * WHAT THIS SESSION STARTS FROM: A SAVE, OR AN ACT AT ITS BEGINNING.
+   * UPDATELOGV13.md stage 1.
+   *
+   * The five values below used to be five separate expressions spread across the
+   * thirty lines that follow, each on the far side of its own
+   * `restoredOk === null` ternary: the constructor call, the meter, an empty
+   * unlocked list, an empty settings bag and the act's zero counters. Together
+   * they were the ONLY definition of act N's starting state in the project, and
+   * a caller could not reach it without building a whole runtime.
+   *
+   * V13's jump needs exactly that state. A jump that rebuilt those five
+   * expressions itself would be a second definition of one fact, which is what
+   * `progression.unlocked` being the single source of truth has ruled out since
+   * 2026-07-31, one level up. So the new-game side moved to
+   * `src/content/actStart.ts` and both callers ask it.
+   *
+   * THE TWO PATHS UNIFY RATHER THAN BRANCHING FIVE TIMES, which is the part
+   * worth reading. A restored session and a fresh one differ in where the five
+   * values come from and in nothing else, so once the new-game side is a value
+   * rather than five expressions there is one `??` and no ternaries at all. What
+   * `restoredOk` still answers below is the questions only a LOAD can answer:
+   * the yield baseline, the missing pools, the discarded milliseconds and the
+   * derived unlock flags.
+   *
+   * `??` short-circuits, so a restored session never runs the act's constructor.
+   */
+  const start = restoredOk ?? actStartState(descriptor, options.create);
+
+  const state = start.state;
   const probes: ActMeterProbes = descriptor.createMeterProbes(state);
-  const meter = restoredOk === null ? descriptor.createMeter() : restoredOk.meter;
+  const meter = start.meter;
 
   /** Unlock ids in purchase order. Persisted as `progression.unlocked`. */
-  const unlocked: string[] = restoredOk === null ? [] : [...restoredOk.unlocked];
+  const unlocked: string[] = [...start.unlocked];
   /**
    * UI settings, carried through and added to.
    *
@@ -603,14 +633,14 @@ export function createActRuntime(
    * the useful half: nothing downstream of `capture` can edit a settings object
    * it was handed.
    */
-  let settings: SaveSettingsV1 = restoredOk === null ? {} : restoredOk.settings;
+  let settings: SaveSettingsV1 = start.settings;
   /**
    * `let` rather than `const` since UPDATELOGV8.md stage 5, and replaced rather
    * than mutated for the same reason `settings` is: the fields are readonly and
    * the readonly half is the useful half. The offline credit is the only thing
    * that moves them.
    */
-  let carried: ActCarriedCounters = restoredOk?.carried ?? descriptor.noCarriedCounters;
+  let carried: ActCarriedCounters = start.carried;
   const createdAt = restoredSave?.meta.createdAt ?? epochClock();
 
   const poolCount = state.pools.count;

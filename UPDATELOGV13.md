@@ -67,7 +67,95 @@ of a starting state, and the regression bar.
 
 ## Stage 1 Report
 
-_Pending._
+**The handover does not exist, and not in the sense the stage anticipated. There is no inline version to extract, because the act boundary does not produce a state at all.**
+
+Step 1 asked what produces the next act's starting state when act 1 ends. Reported as it is: **nothing does.** `src/ui/boundary.ts` is a detector. `ActBoundary` has exactly two members, `isComplete(snapshot)` and `nextContentAtp(snapshot, meter)`, and neither returns a state or could. `App.tsx` responds to the boundary by opening `EndOfContent`, the screen V11 authored to say where the game currently ends while the cell keeps ticking underneath. The stage offered two possibilities, a handover a caller can request or a handover inline in the boundary path, and the answer is a third one.
+
+**That is the correct state of the project rather than a gap.** V11 built the boundary and refused to author what is on the other side of it, and `src/content/acts.ts` says why in as many words: a descriptor designed against a sample size of one is a wrong sentence in a specification waiting for something to be built on top of it. A handover written before act 2 exists would have been exactly that.
+
+**So the definition this stage had to find was one level down from where it was looking, and it did exist.** There is precisely one answer in the project to "what does act N look like at its beginning", and before this stage it was **five expressions spread across thirty lines of `createActRuntime`**, each on the far side of its own `restoredOk === null` ternary:
+
+```
+  runtime.ts:585   const state    = restoredOk === null ? descriptor.create(options.create) : ...
+  runtime.ts:587   const meter    = restoredOk === null ? descriptor.createMeter()          : ...
+  runtime.ts:590   const unlocked = restoredOk === null ? []                                : ...
+  runtime.ts:606   let   settings = restoredOk === null ? {}                                : ...
+  runtime.ts:613   let   carried  = restoredOk?.carried ?? descriptor.noCarriedCounters
+```
+
+**Unreachable without building a whole runtime**, which is the part that mattered. A jump that wanted a legal act 1 state had two options before this stage: construct a runtime and throw away everything except its state, or rewrite those five expressions. The second is the second definition the log's Decisions section forbids, and it is the same defect as two copies of one fact in a save, one level up.
+
+**The extraction.** `src/content/actStart.ts`, one function:
+
+```
+  actStartState(descriptor: ActDescriptor, options?: ActCreateOptions): ActStartState
+```
+
+It reads the descriptor and nothing else. It does not import `src/ui/`, so the runtime and the jump can both call it without either one owning it, and the import direction `src/content/README.md` protects is unchanged.
+
+**The two paths in the runtime unified rather than moving, which was not the plan and is the better outcome.** Once the new-game side is a value rather than five expressions, a restored session and a fresh one differ only in where the same five values come from, so the five ternaries collapse to one `??`:
+
+```
+  const start = restoredOk ?? actStartState(descriptor, options.create);
+```
+
+`??` short-circuits, so a restored session still never runs the act's constructor. What `restoredOk` still answers below is only what a **load** can answer: the yield-correction baseline, the missing pools, the discarded milliseconds and the derived unlock flags at lines 671, 765 to 798 and 987 to 989. `src/ui/runtime.ts` is 35 lines longer and 5 shorter, and most of the addition is the comment explaining why.
+
+**What a starting state contains, enumerated against docs/SAVE_SCHEMA.md rather than assumed.** Six things, and the schema section each one answers for:
+
+```
+  act        progression.act                    read off the descriptor
+  state      pools, rng, time.elapsedGameMs     one object, tickCount 0
+  meter      stats                              every field zero
+  unlocked   progression.unlocked               [], the source of truth
+  settings   settings                           {}, an open bag
+  carried    the four counters capture cannot read off a simulation
+```
+
+**Three groups are deliberately NOT on it and the largest of them is named by step 3, so it is flagged rather than quietly dropped.** `progression.transitionTaken` and `progression.shuttleChoice` are listed by step 3 as things a starting state has to contain. They are not on `ActStartState`, because **the act's own `capture` already decides them**: `captureAct1` writes `false` and `null` with a comment saying both are honestly true of the state rather than placeholders. Putting them on the start state as well would be two copies of one fact, which is the exact defect the stage exists to prevent, and it would put act 3's vocabulary into a function abstracting over one act, which `src/content/acts.ts` forbids in its header. `enzymes` and `environment` are absent for the same reason and captured the same way, and the derived reaction enabled flags are absent because V4 settled that they come from `unlocked` at load and are never a second copy.
+
+**What replaces them is an assertion rather than a comment.** A test captures a start state and asserts the act's values come back, so the start state and the act's capture cannot drift apart without the suite noticing. When V14 gives act 3 a beginning where `transitionTaken` is true, that test is where the decision has to be made rather than discovered.
+
+**Step 4's test as written cannot be built at stage 1, and this is the one place the stage contradicts itself.** It asks to reach act N by the boundary, reach act N by the jump, and compare. The boundary does not hand over, per the finding above. The jump is stage 2, and step 5 of this stage forbids building it here. Stage 2's own Verify line already says "the jump produces a state identical to the boundary's", so **the boundary-versus-jump comparison is stage 2's test and it is left there.**
+
+**What was built instead is the same property over the two callers that exist**, and they are the two that matter for the defect: the runtime's new-game path, which was the only definition before this stage, and a direct call, which is the shape the jump will use. Identical rather than merely compatible, in five assertions:
+
+```
+  hashState(runtime.state) === hashState(start.state)     byte-identical state
+  pool amounts, tickCount, prng seed and prng state       field for field
+  unlocked, settings and all four carried counters        through a capture
+  the WHOLE captured save, meta excluded                  toEqual, one assertion
+  runtime.state !== start.state                           not the same object
+```
+
+**The fourth is the one worth having.** The others compare the pieces a test happens to name; that one compares the entire persisted document, so a field a later log adds to the save is covered on the day it is added rather than on the day somebody remembers to widen a list. `meta` is the only exclusion, because it carries wall-clock timestamps and the build id, none of which is a fact about an act's beginning.
+
+**And a fresh-allocation test, which exists because without it four of the others pass for the wrong reason.** Two calls must not return the same object. If they did, every comparison above would be comparing an object with itself, and the jump would hand the runtime a state a previous session had already ticked.
+
+**The registry is walked rather than named.** The per-act test iterates `ACTS`, so an act V14 registers is covered the day it is registered. Same posture as the two guards V11 found had stopped agreeing with their own hand-written lists.
+
+**The regression bar, which is what licenses a structural change of this size.**
+
+```
+  suite            973 passed across 57 files, up from 960 across 55
+                   13 tests added, 0 changed, 0 removed
+  toy canonical    172f83fb   unmoved, asserted in the suite
+  act1 canonical   65b43d27   unmoved, asserted in the suite
+  playthrough      10 purchases, 228226.225 ATP live
+                              228210.962 across the absence
+                   0.0067 percent disagreement against a 2 percent tolerance
+                   139 ms continuous, 111 ms across the absence
+  git diff         EMPTY across all three tuning files, docs/SCIENCE.md
+                   and docs/ECONOMY.md
+  tsc --noEmit     clean
+  eslint           clean, including the determinism guard over src/content/**
+```
+
+The playthrough reproduces V11's figures to the digit, which is the assertion that the new-game path did not move: it starts a fresh cell, makes all ten purchases in order, meets the NAD+ wall and recovers, and lands on the identical tick both ways.
+
+**No tuned number was added, so docs/ECONOMY.md is owed nothing.** `actStartState` introduces no scalar at all. Every number in a start state was already a number the act owned.
+
+**The jump is not built, per step 5.** Nothing calls `actStartState` except the runtime and its tests.
 
 ---
 
