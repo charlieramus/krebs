@@ -186,15 +186,56 @@ const LABELS: Readonly<Record<Act1PoolId, string>> = {
  * no glucose-6-phosphate pool for either to live in, which is the reason the
  * storage cost is charged where it is. See `store` in reactions.ts.
  */
+/**
+ * THE REDOX ZERO POINT MOVED ON 2026-08-20 AND ACT 3 IS WHY.
+ *
+ * UPDATELOGV14.md stage 4. Until this date `redox` counted electron pairs
+ * against a zero at the FULLY FERMENTED state, so pyruvate carried 0, lactate 1
+ * and glucose 2. docs/SCIENCE.md Part 1 disclosed that convention and said in as
+ * many words that the zero point "is a convention chosen because it makes the
+ * act 1 numbers small integers, not because the fully fermented state is
+ * physically privileged".
+ *
+ * **Act 3 is what reached past it.** Aerobic respiration oxidises pyruvate all
+ * the way to carbon dioxide, which under the old zero point is oxidation BELOW
+ * zero: acetyl-CoA would carry minus one and carbon dioxide minus five.
+ * `PoolRegistry` rejects a negative weight at construction, and it should,
+ * because a conserved quantity that can go negative is not a quantity.
+ *
+ * So the zero point is now the FULLY OXIDISED state, carbon dioxide, and a
+ * weight counts electron pairs a pool holds above it. Carriers hold one pair
+ * each. Water is where the pairs end up when oxygen takes them.
+ *
+ *     was    glucose 2   g3p 1   pyruvate 0   lactate 1   ethanol 1   co2 0
+ *     is     glucose 12  g3p 6   pyruvate 5   lactate 6   ethanol 6   co2 0
+ *
+ * NOTHING ABOUT ACT 1 BEHAVES DIFFERENTLY AND THE HASH DOES NOT MOVE. Conserved
+ * weights are read by `totalConserved`, which is a diagnostic and a property
+ * test. `tick.ts` never touches them, the canonical form does not include them,
+ * and `poolCards.ts` reads carbon and phosphate rather than redox. Every act 1
+ * reaction still balances, which is the assertion that matters:
+ *
+ *     payoff   g3p 6            ->  pyruvate 5 + nadh 1
+ *     ferment  pyruvate 5 + nadh 1  ->  lactate 6
+ *     ethanol  pyruvate 5 + nadh 1  ->  ethanol 6 + co2 0
+ *     prep     glucose 12       ->  2 g3p 12
+ *     store    glucose 12       ->  glycogen 12
+ *
+ * WHY ACT 1 CHANGED RATHER THAN ACT 3 USING ITS OWN SCALE. A pool id is
+ * permanent contract surface and `src/ui/poolCards.ts` says in bold that a
+ * pool's conserved weights are a property of the pool rather than of the act
+ * reading it. Two acts sharing `glucose` share what a glucose is. One scale or
+ * the ids are lying.
+ */
 const CONSERVED: Readonly<Record<Act1PoolId, Readonly<Record<string, number>>>> = {
-  glucose_env: { carbon: 6, redox: 2 },
-  glucose: { carbon: 6, redox: 2 },
-  g3p: { carbon: 3, phosphate: 1, redox: 1 },
-  pyruvate: { carbon: 3 },
-  lactate: { carbon: 3, redox: 1 },
-  ethanol: { carbon: 2, redox: 1 },
+  glucose_env: { carbon: 6, redox: 12 },
+  glucose: { carbon: 6, redox: 12 },
+  g3p: { carbon: 3, phosphate: 1, redox: 6 },
+  pyruvate: { carbon: 3, redox: 5 },
+  lactate: { carbon: 3, redox: 6 },
+  ethanol: { carbon: 2, redox: 6 },
   co2: { carbon: 1 },
-  glycogen: { carbon: 6, redox: 2 },
+  glycogen: { carbon: 6, redox: 12 },
   nad: { nicotinamide: 1 },
   nadh: { nicotinamide: 1, redox: 1 },
   atp: { phosphate: 3, adenylate: 1 },

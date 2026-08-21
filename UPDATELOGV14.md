@@ -782,7 +782,124 @@ and the new ECONOMY.md count.
 
 ## Stage 4 Report
 
-_Pending._
+**The act's headline claim is computed from the reaction table and lands inside the sourced range, and four things had to be measured out before it did.**
+
+`src/content/act3/` is twenty-seven pools, sixteen reactions, ten conserved quantities and fifty-one tuned numbers. Act 1 has thirteen, eight, five and twenty-four.
+
+### The yield, which is the thing the whole game is built toward
+
+```
+  malate-aspartate    31.00   glycolysis 2, cycle 2, synthase 27.00, 112 protons
+  glycerol-phosphate  29.00   glycolysis 2, cycle 2, synthase 25.00, 104 protons
+  sourced range       29 to 32
+  multiplier          15.50x against act 1's net of 2
+```
+
+**Nothing reads a number out of a file.** `ledger.test.ts` traces one glucose through `reactions.ts` at run time, so every figure above is a consequence of coefficients that are all sourced to docs/SCIENCE.md Part 4. A change to any of them moves this number and the test says so.
+
+**Three results fell out rather than being put in.** The chain moves **ten protons per matrix NADH and six per quinone pair**, which is Part 4's own headline, read off the complexes. Ten matrix NADH and two FADH2 per glucose, which is the part of the accounting nothing disputes. And **the shuttle spread is exactly 2**, which is the figure the document attributes to shuttle choice alone and which is not in the model anywhere: it is two cytosolic pairs missing complex I's four protons each, divided by the four protons an exported ATP costs.
+
+**The 2 to roughly 30 claim is 2 to 31 and it is checkable.** That is the first time the game's biggest number has been anything other than a sentence in a design document.
+
+### The chemiosmosis beat, measured
+
+```
+  after 4000 ticks
+    cycle only        protons outside  11.17   cytosolic ATP  0.00
+    cycle plus chain  protons outside 400.00   cytosolic ATP  0.00
+    plus the synthase protons outside 355.71   cytosolic ATP 19.78
+    synthase, no chain                         cytosolic ATP  0.00
+```
+
+**Buying the chain moves every proton in the cell to the wrong side of the membrane and the player gets nothing for it.** 400.00 of a total of 400, from a resting 20. That is not a number changing later, it is a thing to watch build, which is the test the stage set.
+
+**And it costs the chain its own throughput, which is respiratory control arriving without being designed in.** With nothing to return the protons, the chain pumps until `proton_matrix` is empty and then stalls against its own product.
+
+**One assertion in this file was wrong and the correction is the useful part.** It asserted that matrix ATP would not move when the chain was bought. It moves, from 27.11 to 34.96. **That is not the chain making ATP, which it cannot: no reaction in the chain has ATP on either side.** It is the chain regenerating NAD+ so the cycle can keep turning, and the extra is the cycle's own substrate-level phosphorylation running more often. Kept as an assertion rather than tidied away, because it is the act's misconception seen from the other side: buying electron transport really does make more ATP appear, and not by making any.
+
+### Conservation, ten quantities, no exemptions
+
+Worst drift **7.493e-15** across 60 randomized configurations with everything enabled, against a 1e-9 tolerance, per quantity:
+
+```
+  adenylate 8.5e-15   carbon 5.0e-15   coa 5.7e-15   cytochrome 1.6e-14
+  flavin 2.9e-14   nicotinamide 3.9e-14   phosphate 5.1e-15
+  proton 7.0e-15   quinone 4.3e-15   redox 1.5e-15
+```
+
+Act 1's is 1.112e-13, so act 3 is an order tighter. The first test is a property over the reaction table rather than a run, because a run hides an imbalance behind a reaction that never fires.
+
+**Carbon dioxide is the same pool act 1 has and stage 2's convention decided it**, which the stage asked to be checked rather than assumed. `co2` carries no location suffix because it crosses membranes by simple diffusion, so PDH and the cycle write into V10's pool. One of the few places where the honest model and the cheap model agree.
+
+### Four things the measurements overturned
+
+**One. The redox zero point could not express act 3 and act 1's weights had to move.** Under a zero at the fully fermented state, oxidising pyruvate to carbon dioxide is oxidation below zero: acetyl-CoA would carry minus one and carbon dioxide minus five, and `PoolRegistry` rejects a negative weight, correctly. The zero is the fully oxidised state now, and **act 1's weights moved with it rather than act 3 inventing its own scale**, because a pool id is permanent contract surface and two acts sharing `glucose` share what a glucose is.
+
+Nothing about act 1 behaves differently and that was measured, not argued: conserved weights are read by the conservation test and by nothing in the tick loop. **Exactly two assertions in the whole suite changed, and both are arithmetic totals**, 276 to 1661 and 2 to 12 per glucose. Act 1's canonical hash, every rate and every tuned number are untouched.
+
+docs/SCIENCE.md Part 1's entry is rewritten with the old wording kept, because that entry said in as many words that the zero point was "a convention chosen because it makes the act 1 numbers small integers, not because the fully fermented state is physically privileged". **It was right about both halves and act 3 is what reached past it.**
+
+**Two. The `proton` quantity counts free protons and not hydrogen atoms, and the property test forced it.** The first version gave ubiquinol and FADH2 two protons each for the hydrogen they carry, and `tca: proton 0 in, 2 out` fired on the first run. Counting carrier hydrogen would mean tracking a cytosolic proton pool that has nothing to do with the gradient, for a distinction no player can see. **What falls out of the decision is Part 4's own arithmetic**: ten protons reach the intermembrane space per NADH and six per FADH2.
+
+Water lost its proton weight for the same reason and a harder one. **A dead-end pool inside a fixed total is a slow leak with a plausible-looking cause.** At proton 2 the cell pumped until the matrix was empty with 70 protons locked in water, and the whole chain stalled.
+
+**Three. The phosphate carrier was described and not built.** The translocase sends matrix ATP out carrying three phosphates and brings ADP back carrying two, so every export strips one from the matrix and nothing returned it. Measured: `pi_matrix` drained to zero, the synthase stopped for want of substrate, and every proton ended up outside at 400.00 of 400. docs/SCIENCE.md Part 4 names the carrier and stage 1 put it there. **Described and not built is a better failure than the reverse and it is still a failure.**
+
+It is electroneutral here and the real carrier is a proton symport, which is not a convenience: the sourced four protons per exported ATP is three for the rotor plus **one for transport**, and that one already covers both carriers. Charging a proton here as well double-counts and takes the yield from 31 to about 25, outside the sourced range.
+
+**Four. Act 3 has act 1's bootstrap trap twice over.** The pyruvate carrier imports in symport with a proton, so with every proton starting in the matrix nothing crosses in, nothing pumps, and no proton ever reaches the outside. Measured at zero: tick 4000 with `proton_ims` still exactly 0. **A cell that starts with a perfectly flat gradient can never start one.** The repair is a resting gradient, which is also the truer statement, because a newly acquired endosymbiont is a bacterium that has been maintaining its own membrane potential all along.
+
+The second half is ATP. Act 3 produces roughly 248 per game-second against act 1's 32, so its maintenance reaction is sized to match, and that reaction against act 1's adenylate total of 40 empties the cell before the pathway spins up. Measured at act 1's values: **tick 4000 with `atp` at 0.018 and 1586 glucose piled up inside a cell climbing out at 1e-4 per second.** That is NOW.md blocking item 1 exactly. Repaired with an adenylate total of 400 and a maintenance K of 60, which is again the truer statement: a eukaryote with a mitochondrion is a much larger cell.
+
+**And the rates themselves were picked and had to be measured out.** Sized to look like act 1's, the cell pinned at the cytosolic NAD+ wall. **Glycolysis delivers twelve reduced carriers per glucose to the chain where act 1 delivered two and handed them straight back to pyruvate**, so a chain running at glycolysis's own rate is twelve times too slow. Every rate downstream of the payoff phase is `uptake` times the number of times that reaction runs per glucose, with headroom, so the whole table is one number and a stoichiometry.
+
+### The settle budget, which the stage called blocking if it failed
+
+**It does not fail, and the one place it strains is bounded and measured.**
+
+```
+  from a running cell   251 ticks, every configuration, margin 79.1 percent
+  act 1's slowest       1120 ticks, margin 6.7 percent
+  from cold, worst      1369 ticks, 7 of 13 configurations over 1200
+```
+
+**An absence resolves from wherever the player left off, and a saved cell is a running cell.** At 251 ticks act 3 has four times act 1's margin despite twenty-seven pools and sixteen reactions, because `observeSteady` tests the second difference and act 3's steady state is genuinely steady.
+
+The cold case overruns by at most 169 ticks, which is 14 percent. **Every configuration settles**; none is oscillating, which is the distinction the fallback exists for. It is confined to the opening transient and **clears the moment either shuttle is bought**, at 732 to 756 ticks. Since act 3 has no fermentation, the cell is walled without a shuttle, so the first shuttle is the act's first real purchase rather than a late one.
+
+`SETTLE_MAX_TICKS` was not raised to fit and a test asserts it is still 1200. The bound is asserted so that a later change making the transient longer fails there rather than turning a 14 percent overrun into an unbounded one.
+
+### Act 1's ledger, scoped rather than loosened
+
+`src/content/__tests__/ledgerScope.test.ts`, five tests. Act 1's 4 gross and 2 net traced from act 1's own table, unchanged. **Act 3's glycolysis is identical, still 4 and 2**, which is the honest framing: glycolysis did not change, what changed is where the pyruvate goes.
+
+**The scoping is structural rather than incidental.** `act1/__tests__/stoichiometry.test.ts` was already act-scoped by construction, living in act 1's directory and calling `createAct1`. What was never checked is that no act-neutral module hardcodes the figure, so the four files every act runs through are scanned with comments stripped, and the descriptor route is asserted by name so a refactor that inlines it fails.
+
+**One debt is enumerated rather than fixed.** Six player-facing strings across three surfaces say "2 net per glucose", all correct today, none keyed by act. The count is pinned so a seventh cannot be added silently, and keying player text by act is a surface decision that belongs to a later stage.
+
+### The divergence table more than doubled
+
+**Fifty-one rows, C25 to C75, all DEPARTURE.** The table goes from 48 rows at 33 and 15 to **99 rows at 84 and 15**. `src/content/act3/tuning.ts` is the fourth tuning file and is wired into `divergenceTable.test.ts`, which counts scalars and agrees: 51 and 51.
+
+**C25 moved into the table**, which is what stage 1 said would happen. The "Rows owed by a constant that does not exist yet" section is kept rather than deleted, with the guard failure it recorded quoted in place, because the mechanism is worth having a name for.
+
+**Three rows carry a measurement that overturned a first attempt** rather than a justification for one: C32 for the chain's capacity, C38 for the phosphate carrier, C63 for the bootstrap trap. **And what is not in the table is the point of the act**: every stoichiometric coefficient is sourced, and not one number in the fifty-one can move the yield.
+
+`ACT3_INITIAL` sits in `pools.ts` rather than the tuning file, because its twenty-seven values are copies of constants above it and the guard would otherwise demand twenty-seven rows for values nobody can move independently. Act 1 keeps `ACT1_INITIAL` there for the same reason.
+
+### Verify
+
+`npx tsc --noEmit` clean. `npm run build` clean, **405.49 kB against 460 kB**, application 91.33 kB against 130 kB, up 0.01 kB from stage 3: act 3's content layer is not imported by anything the bundle reaches yet. `npm test` **1077 passed across 70 files, zero failures**, up from stage 3's 1050 across 65.
+
+Files added: `src/content/act3/pools.ts`, `reactions.ts`, `tuning.ts`, and four test files under `act3/__tests__/`, plus `src/content/__tests__/ledgerScope.test.ts`. Files edited: `src/content/act1/pools.ts` and its pool test for the redox rescale, `docs/SCIENCE.md` Part 1, `docs/ECONOMY.md`, and `divergenceTable.test.ts`.
+
+**Three deviations, all reported above rather than absorbed.**
+
+**The TCA cycle ships lumped and is not decomposed into eight steps.** docs/PROGRESSION.md asks for it "initially as one unit, then decomposed", and act 1's list says the same about glycolysis while act 1 ships two lumped phases. Every intermediate of the cycle is regenerated, so the lumped form needs no intermediate pools at all. **The decomposition worth selling is the three regulated steps**, which stage 1 named and which V10's precedent says to measure before minting, and that is stage 5's work.
+
+**Act 3 is not registered in the act registry.** `ACTS` still holds one act, so the transition's keep path still returns `act-not-built` and act 3 is not playable. Registration needs a meter, a save mapping, a boundary entry and a card table entry, and stage 5 is the first stage that cannot proceed without them. The content layer is complete and fully tested underneath.
+
+**Act 3 is not balanced and no threshold exists.** The rates are sized by stoichiometric demand so the pathway works and the beat lands; they are not paced. docs/PROGRESSION.md gives act 3 120 to 180 minutes and stage 5 step 5 owns measuring against it. **Every number in the divergence table is honest about being a first pass**, and C75 says in as many words that how long the environment lasts is a measurement stage 5 owns.
 
 ---
 

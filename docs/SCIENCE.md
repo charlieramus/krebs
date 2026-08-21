@@ -96,15 +96,21 @@ Game: one kinetics descriptor per reaction, holding one Km, applied to whichever
 
 Reason: the honest alternative is a per-substrate parameter set, which multiplies the number of tuned values by the substrate count and makes the divergence table unreadable, for a distinction the player cannot see. It is an economy of description rather than a pacing choice. Combined with the entry above, this means a reaction's response curve is a single shape evaluated against whichever pool is scarcest.
 
-### Redox is counted as electron pairs relative to the fully fermented state
+### Redox is counted as electron pairs relative to the fully oxidised state
 
-Added 2026-07-29 for the act 1 content layer.
+Added 2026-07-29 for the act 1 content layer. **The zero point moved on 2026-08-20 and the original wording is kept below, because what it got right and what it could not reach are both worth reading.**
 
 Real: oxidation state is a property of individual atoms and there is no single scalar "redox content" of a molecule. Electron bookkeeping in metabolism is done per reaction, in specified carriers, not as a conserved quantity of the whole system.
 
-Game: `redox` is a conserved quantity with an integer weight per pool, counting electron pairs against a zero point set at the fully fermented state. Glucose carries 2, lactate carries 1, NADH carries 1 and NAD+ carries 0. Glucose to 2 lactate is therefore redox neutral, and glucose to 2 pyruvate plus 2 NADH balances.
+Game: `redox` is a conserved quantity with an integer weight per pool, counting electron pairs a pool holds above the fully oxidised state. Carbon dioxide is the zero. Glucose carries 12, glyceraldehyde-3-phosphate 6, pyruvate 5, lactate 6, ethanol 6, and every carrier holds 1 per pair: NADH, FADH2, ubiquinol and reduced cytochrome c. NAD+, FAD, ubiquinone and oxidised cytochrome c carry 0. Water carries 1, because it is where the pair goes when oxygen takes it.
 
-Reason: it turns the NAD+ constraint into a conservation law the engine can test rather than a behaviour the designer has to remember to preserve. If a future reaction manufactures or destroys reducing power by accident, the conservation test fails on the first tick instead of the imbalance showing up hours later as a broken economy. The zero point is a convention chosen because it makes the act 1 numbers small integers, not because the fully fermented state is physically privileged.
+Reason: it turns the NAD+ constraint into a conservation law the engine can test rather than a behaviour the designer has to remember to preserve. If a future reaction manufactures or destroys reducing power by accident, the conservation test fails on the first tick instead of the imbalance showing up hours later as a broken economy.
+
+**Why the zero point moved, recorded rather than quietly corrected.** It was at the fully fermented state until 2026-08-20, where pyruvate carried 0, glucose 2 and lactate 1. That entry said in as many words that the choice was a convention "because it makes the act 1 numbers small integers, not because the fully fermented state is physically privileged", and it was right about both halves. **What it could not reach is act 3.** Aerobic respiration oxidises pyruvate all the way to carbon dioxide, which under the old zero is oxidation below zero: acetyl-CoA would carry minus one and carbon dioxide minus five. A conserved quantity that can go negative is not a quantity, and the engine rejects a negative weight at construction.
+
+**Moving it changed no behaviour anywhere and that was measured rather than argued.** Conserved weights are read by the conservation property test and by nothing in the tick loop, so act 1's canonical hash, every rate, every pool amount and every tuned number are untouched. Every act 1 reaction still balances: glyceraldehyde-3-phosphate at 6 becomes pyruvate at 5 plus NADH at 1, and pyruvate at 5 plus NADH at 1 becomes lactate at 6 or ethanol at 6 plus carbon dioxide at 0.
+
+**And the numbers are still small integers**, which was the original reason for the original choice. Twelve is not two and it is still countable.
 
 ### Glucose uptake is modeled as untyped transport
 

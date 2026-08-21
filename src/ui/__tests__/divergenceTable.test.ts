@@ -21,7 +21,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import * as contentTuning from '../../content/act1/tuning';
+import * as act1Tuning from '../../content/act1/tuning';
+import * as act3Tuning from '../../content/act3/tuning';
 import * as saveTuning from '../../save/tuning';
 import * as uiTuning from '../tuning';
 
@@ -74,7 +75,8 @@ function rowsNaming(constant: string): number {
 }
 
 const MODULES: readonly (readonly [string, Record<string, unknown>])[] = [
-  ['src/content/act1/tuning.ts', contentTuning as unknown as Record<string, unknown>],
+  ['src/content/act1/tuning.ts', act1Tuning as unknown as Record<string, unknown>],
+  ['src/content/act3/tuning.ts', act3Tuning as unknown as Record<string, unknown>],
   ['src/ui/tuning.ts', uiTuning as unknown as Record<string, unknown>],
   ['src/save/tuning.ts', saveTuning as unknown as Record<string, unknown>],
 ];

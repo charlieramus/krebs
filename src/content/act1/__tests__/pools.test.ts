@@ -81,15 +81,29 @@ describe('act 1 pools', () => {
     //            Glucose is unphosphorylated, pyruvate and lactate are not.
     expect(pools.totalConserved('phosphate')).toBe(58);
 
-    // redox: glucose_env 2*100=200, glucose 2*7=14, g3p 1*4=4,
-    //        lactate 1*5=5, ethanol 1*13=13, glycogen 2*19=38, nadh 1*2=2.
-    //        Glycogen matches glucose at 6 carbon and 2 redox, because a stored
-    //        glucosyl residue IS a glucose. NAD+, pyruvate and
-    //        CARBON DIOXIDE carry zero. The last of those is the one worth
-    //        checking rather than assuming: CO2 is the most oxidised form
-    //        carbon takes, so it holds no reducing power at all, and it is what
-    //        forces ethanol to 1 for the ethanol branch to balance.
-    expect(pools.totalConserved('redox')).toBe(276);
+    /*
+     * redox: glucose_env 12*100=1200, glucose 12*7=84, g3p 6*4=24,
+     *        pyruvate 5*3=15, lactate 6*5=30, ethanol 6*13=78,
+     *        glycogen 12*19=228, nadh 1*2=2.
+     *
+     * THE ZERO POINT MOVED ON 2026-08-20 and this assertion is where the move is
+     * arithmetic rather than prose. It was 276 under a zero at the fully
+     * fermented state, where pyruvate carried 0 and glucose 2. It is 1661 under
+     * a zero at the fully oxidised state, where a weight counts electron pairs a
+     * pool holds above carbon dioxide. UPDATELOGV14.md stage 4 and
+     * src/content/act1/pools.ts say why: act 3 oxidises pyruvate past the old
+     * zero, and a conserved quantity that can go negative is not a quantity.
+     *
+     * CARBON DIOXIDE STILL CARRIES ZERO and it is still the entry worth checking
+     * rather than assuming. It is the most oxidised form carbon takes, it holds
+     * no reducing power, and under the new convention it is not merely zero by
+     * accident: it IS the zero. NAD+ carries zero for the same kind of reason.
+     *
+     * Glycogen still matches glucose exactly, because a stored glucosyl residue
+     * is a glucose, and that is unchanged by which end of the scale we count
+     * from.
+     */
+    expect(pools.totalConserved('redox')).toBe(1661);
 
     // nicotinamide: nad 6 + nadh 2. Nothing else touches it.
     expect(pools.totalConserved('nicotinamide')).toBe(8);
@@ -111,7 +125,8 @@ describe('act 1 pools', () => {
     // starts outside the cell and that the weights are 6 and 2, not what the
     // environment happens to be sized at this week.
     expect(pools.totalConserved('carbon')).toBe(ACT1_GLUCOSE_ENV_INITIAL * 6);
-    expect(pools.totalConserved('redox')).toBe(ACT1_GLUCOSE_ENV_INITIAL * 2);
+    // 12 rather than 2 since 2026-08-20. See the note above.
+    expect(pools.totalConserved('redox')).toBe(ACT1_GLUCOSE_ENV_INITIAL * 12);
 
     // phosphate: atp 3*20=60, adp 2*20=40, pi 1*40=40.
     expect(pools.totalConserved('phosphate')).toBe(140);
