@@ -957,7 +957,89 @@ the pacing measurement for both player models, and the worst gap against act
 
 ## Stage 5 Report
 
-_Pending._
+_In progress (red)._
+
+**Act 3's economy does not close, and the reason is now understood rather than suspected. 1071 of 1082 tests pass, 11 fail across 5 files.**
+
+### What is built and green
+
+`src/content/act3/meter.ts`, which act 3 had no equivalent of. Reads applied flux through probes resolved once at construction, exactly as act 1's does. **It counts `payoff`, `tca` and `atp_synthase` and deliberately not `ant`**, because the translocase moves ATP rather than making it and counting it would put act 3's yield near 58.
+
+`src/content/act3/unlocks.ts`, the act's three kinds of unlock, in content rather than in `src/ui/` where act 1's ladders sit. Two enabling purchases, three finite ladders, `ACT3_CONTENT_PURCHASES` counted from the tables.
+
+`src/content/act3/__tests__/pacing.test.ts`, the V5 stage 5 instrument: two player models, purchase times, gaps, environment drain, and a rung-by-rung check of V5's no-worse-configuration rule.
+
+Lactate fermentation is back in act 3 and that is settled. **Act 3 could not start without it**, measured at 1 purchase of 19 and then a stall. Both shuttles hand the pair to a carrier the chain must re-oxidise, so before the chain exists nothing regenerates cytosolic NAD+. The cell arrives holding what act 1 taught it, and the shuttles become a real choice against fermentation rather than a replacement for it.
+
+### The root cause, which took five measurements to isolate
+
+**Every intermediate configuration between an act 1 cell and a working chain makes the cell worse, and several kill it.** Transport is one-directional, so buying it alone sends pyruvate into a matrix that cannot process it while starving the fermentation that was regenerating NAD+.
+
+That is V5's lethal-intermediate problem and V5's answer applies: bind them. The enabling purchases are now two, `mitochondrial-import` and `atp-synthase`, and the chemiosmosis beat survives intact because the split is exactly chain against synthase.
+
+**Four separate drains were found and three are fixed:**
+
+```
+  phosphate carrier   one-directional with no return path. Pumped the whole
+                      cytosolic phosphate pool into the matrix, payoff lost
+                      its phosphate, glycolysis stopped. 0.05 gross ATP per
+                      game-second against a baseline of 25.38
+                      FIXED: folded into `ant` as one exchange, which is what
+                      the sourced four-protons-per-ATP figure already bundles
+
+  chain pumps dry     with no synthase the chain moved every proton out and
+                      stopped at proton_matrix 0.00, taking the cell with it
+                      FIXED: `proton_leak`, which docs/SCIENCE.md Part 4
+                      already records as a substantial fraction of resting
+                      respiration and as one of the five reasons a real cell
+                      never reaches the theoretical yield
+
+  transport symport   coupling substrate import to the gradient is circular:
+                      a cell with no gradient cannot import, so cannot pump,
+                      so never gets one. A stocked resting gradient drained in
+                      about three game-seconds once the leak existed
+                      FIXED: transport is electroneutral and disclosed
+
+  import still walls  NOT FIXED. See below
+```
+
+### What is still failing, with the numbers
+
+```
+  5 files, 11 tests
+
+  act3/conservation.test.ts   2 fail. The reaction count moved from 16 to 15
+                              and the proton assertion names pyruvate_transport,
+                              which no longer touches a proton
+  act3/chemiosmosis.test.ts   1 fail. Its configuration lists pi_transport,
+                              which no longer exists, and its pile-up assertion
+                              reads 1.27e-35 protons outside
+  act3/steady.test.ts         2 fail. Worst settle 30315 ticks against a budget
+                              of 1200. Was 251 before stage 5
+  act3/pacing.test.ts         4 fail. 1 purchase of 14 reached. Rung 1 measures
+                              1.5033 against rung 0's 1.5482, so the
+                              mitochondrial ladder violates V5's rule
+  divergenceTable.test.ts     2 fail. The document states 51 rows for
+                              act3/tuning.ts and the file now holds 87 scalars
+```
+
+**The one that matters is the pacing stall and it is the same wall in a new place.** With the import purchase enabled the cytosol still reaches `nad` 0.00. The malate-aspartate shuttle is inside that purchase and should be regenerating it, so either the shuttle is not running or something upstream stopped first. **That is the next thing to measure and it has not been measured.**
+
+### Next steps, concretely
+
+1. **Probe the post-import state printing `nadh` alongside `nad`.** Every diagnosis so far printed `nad` only, and `nad` 0.00 with `nadh` unprinted cannot distinguish a walled carrier from a stopped cell. The nicotinamide total is fixed at 30, so the two numbers together say which.
+2. If the shuttle is running and the cell is still walled, the wall is ATP rather than NAD+: check `atp` against `prep`'s Hill K of 4 before assuming a carrier problem. Three of the five failures so far were ATP starvation wearing a different mask.
+3. Re-derive `ACT3_UNLOCK_ATP_THRESHOLDS` from the harness once the cell runs, by the V5 loop: pick the target time, instrument, read cumulative gross ATP at that moment. Every threshold in the file today was written before the cell worked and none of them is derived.
+4. Re-tune `ACT3_MITOCHONDRIA_MAINTENANCE` so every rung is strictly an improvement. Rung 1 currently loses 0.045 gross ATP per game-second against rung 0.
+5. Repair the three stale test references, which are mechanical: the reaction count, `pi_transport` in two configuration lists, and the proton assertion's reaction list.
+6. Re-run the settle sweep. **30315 ticks against a budget of 1200 is not a tuning problem**, it is a cell that never reaches steady state, and it will resolve or not resolve with the pacing stall rather than separately.
+7. Regenerate the act 3 divergence rows for the 87 scalars the file now holds and restate the per-file count. The generator is committed at `scripts/economyRowsAct3.py`, it reads the tuning file directly, and it writes `scratch_rows.md` for pasting into the table, so it does not need rewriting.
+
+### What is not yet started in this stage
+
+Gene transfer has a ladder and constants and **no player-facing text**, which step 2 asks for specifically and calls the most conceptually interesting unlock in the game. Act 3 is still not registered in the act registry. Neither has been attempted.
+
+**Stage 4's green numbers are unaffected.** The ledger still computes 31 and 29 against a sourced range of 29 to 32, conservation still holds across ten quantities, and act 1 is untouched.
 
 ---
 

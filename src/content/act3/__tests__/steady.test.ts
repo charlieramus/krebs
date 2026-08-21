@@ -39,7 +39,7 @@ const SEQUENCE: readonly (readonly Act3ReactionId[])[] = (() => {
     'pyruvate_transport',
     'pdh',
     'tca',
-    'pi_transport',
+    
     'complex_1',
     'complex_2',
     'complex_3',

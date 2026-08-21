@@ -94,6 +94,7 @@ export const ACT3_VMAX = {
   uptake: 8,
   prep: 12,
   payoff: 26,
+  ferment: 26,
   pyruvate_transport: 24,
   pdh: 24,
   tca: 24,
@@ -102,8 +103,8 @@ export const ACT3_VMAX = {
   complex_3: 130,
   complex_4: 130,
   atp_synthase: 280,
+  proton_leak: 60,
   ant: 320,
-  pi_transport: 320,
   shuttle_malate_aspartate: 30,
   shuttle_glycerol_phosphate: 30,
   maintain: 300,
@@ -114,6 +115,7 @@ export const ACT3_KM = {
   uptake: 500,
   prep: 4,
   payoff: 2,
+  ferment: 2,
   pyruvate_transport: 2,
   pdh: 2,
   tca: 2,
@@ -122,8 +124,8 @@ export const ACT3_KM = {
   complex_3: 2,
   complex_4: 2,
   atp_synthase: 60,
+  proton_leak: 120,
   ant: 2,
-  pi_transport: 2,
   shuttle_malate_aspartate: 2,
   shuttle_glycerol_phosphate: 2,
   maintain: 12,
@@ -237,3 +239,69 @@ export const ACT3_PI_MATRIX_INITIAL = 100;
 
 /** The environment, as act 1's C13 sizes it and for the same pacing reason. */
 export const ACT3_GLUCOSE_ENV_INITIAL = 80000;
+
+/* ===========================================================================
+   THE UNLOCK LADDERS
+   UPDATELOGV14.md stage 5. Every scalar below has a docs/ECONOMY.md row.
+   =========================================================================== */
+
+/**
+ * Cumulative gross ATP before each of the twelve enabling purchases is buyable.
+ *
+ * DERIVED FROM A CLOCK RATHER THAN CHOSEN, which is the loop V5 stage 4 and V10
+ * stage 5 established: pick when the purchase should land, instrument a run,
+ * read cumulative gross ATP off it at that moment, and the reading rounded is
+ * the threshold. `pacing.test.ts` is the instrument.
+ *
+ * INDEX ORDER IS `ACT3_ENABLES` ORDER AND NOT THE ORDER docs/PROGRESSION.md
+ * LISTS. The first entry is a shuttle, at zero, because act 3 has no
+ * fermentation and the cell is walled on cytosolic NAD+ from its first seconds.
+ * That is act 1's NAD+ wall arriving again with a different answer, and it is
+ * deliberately the act's opening beat rather than something to be paced past.
+ */
+export const ACT3_UNLOCK_ATP_THRESHOLDS: readonly number[] = [16000, 60000, 130000, 260000];
+
+/** Cristae, a capacity ladder on the chain. Index 0 is the state the act starts in. */
+export const ACT3_CRISTAE_FACTORS: readonly number[] = [1, 1.3, 1.6, 1.9, 2.2];
+
+/** Cumulative gross ATP for each purchasable cristae rung. */
+export const ACT3_CRISTAE_ATP_THRESHOLDS: readonly number[] = [
+  340000, 430000, 530000, 640000,
+];
+
+/**
+ * Endosymbiotic gene transfer, as a multiplier on the matrix reactions the
+ * player does not control at the transition.
+ *
+ * Index 0 is the state act 3 begins in and is not purchasable. **The last rung
+ * is exactly 1.0**, so the ladder restores what the transition took and no more.
+ * A ladder ending above 1.0 would be an upgrade wearing a loss as a costume.
+ */
+export const ACT3_GENOME_FACTORS: readonly number[] = [0.55, 0.7, 0.85, 1.0];
+
+/** Cumulative gross ATP for each purchasable gene transfer rung. */
+export const ACT3_GENOME_ATP_THRESHOLDS: readonly number[] = [190000, 230000, 285000];
+
+/**
+ * Mitochondrial replication, as a multiplier on everything inside the
+ * compartment. Index 0 is one mitochondrion and is not purchasable.
+ */
+export const ACT3_MITOCHONDRIA_FACTORS: readonly number[] = [1, 1.35, 1.7, 2.05, 2.4];
+
+/**
+ * What each rung costs, as a multiplier on `maintain`.
+ *
+ * **Paired index for index with `ACT3_MITOCHONDRIA_FACTORS`, and the capacity
+ * factor outruns this one at every rung**, which is V5's rule that a purchasable
+ * configuration must never make the cell worse. `pacing.test.ts` measures every
+ * rung rather than trusting the arithmetic here.
+ *
+ * A mitochondrion is a structure a cell has to keep. A game in which building
+ * more of them is free is a game about a number rather than about a cell.
+ */
+export const ACT3_MITOCHONDRIA_MAINTENANCE: readonly number[] = [1, 1.12, 1.24, 1.36, 1.48];
+
+/** Cumulative gross ATP for each purchasable mitochondrial rung. */
+export const ACT3_MITOCHONDRIA_ATP_THRESHOLDS: readonly number[] = [
+  760000, 900000, 1050000, 1220000,
+];

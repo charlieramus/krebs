@@ -69,6 +69,7 @@ export type Act3ReactionId =
   | 'uptake'
   | 'prep'
   | 'payoff'
+  | 'ferment'
   | 'pyruvate_transport'
   | 'pdh'
   | 'tca'
@@ -76,9 +77,9 @@ export type Act3ReactionId =
   | 'complex_2'
   | 'complex_3'
   | 'complex_4'
+  | 'proton_leak'
   | 'atp_synthase'
   | 'ant'
-  | 'pi_transport'
   | 'shuttle_malate_aspartate'
   | 'shuttle_glycerol_phosphate'
   | 'maintain';
@@ -87,6 +88,7 @@ export const ACT3_REACTION_IDS: readonly Act3ReactionId[] = [
   'uptake',
   'prep',
   'payoff',
+  'ferment',
   'pyruvate_transport',
   'pdh',
   'tca',
@@ -94,9 +96,9 @@ export const ACT3_REACTION_IDS: readonly Act3ReactionId[] = [
   'complex_2',
   'complex_3',
   'complex_4',
+  'proton_leak',
   'atp_synthase',
   'ant',
-  'pi_transport',
   'shuttle_malate_aspartate',
   'shuttle_glycerol_phosphate',
   'maintain',
@@ -113,6 +115,7 @@ export const ACT3_ENABLED: Readonly<Record<Act3ReactionId, boolean>> = {
   uptake: true,
   prep: true,
   payoff: true,
+  ferment: true,
   pyruvate_transport: false,
   pdh: false,
   tca: false,
@@ -120,9 +123,9 @@ export const ACT3_ENABLED: Readonly<Record<Act3ReactionId, boolean>> = {
   complex_2: false,
   complex_3: false,
   complex_4: false,
+  proton_leak: true,
   atp_synthase: false,
   ant: false,
-  pi_transport: false,
   shuttle_malate_aspartate: false,
   shuttle_glycerol_phosphate: false,
   maintain: true,
@@ -155,13 +158,27 @@ export function createAct3(options: Partial<Act3Options> = {}): SimulationState 
        Same three reactions, same coefficients, same ids. The cell did not get
        better at glycolysis. It got somewhere to send the pyruvate.
 
-       FERMENTATION IS ABSENT AND IT IS A DECISION RATHER THAN AN OMISSION. Act
-       1's two branches exist to regenerate NAD+ and nothing else. In act 3 the
-       shuttles do that job, by handing the cytosolic pair to the matrix or to
-       the quinone pool, which is what a cell with a working chain actually
-       does. A eukaryote ferments when oxygen runs out, and act 3's premise is
-       that it does not. Reintroducing lactate under hypoxia is act 4's kind of
-       problem.
+       FERMENTATION IS HERE, ENABLED, AND STAGE 5 MEASURED THAT IT HAD TO BE.
+
+       It was left out first, on the argument that a eukaryote with a working
+       chain does not ferment. **That is true of a cell at the END of act 3 and
+       false of one at the beginning**, and the measurement was unambiguous: with
+       no fermentation the cell walls on cytosolic NAD+ within seconds, exactly
+       as act 1 does, and NOTHING PURCHASABLE RELIEVES IT. Both shuttles hand the
+       pair to a carrier the chain has to re-oxidise, so the first thing that
+       unwalls the cell is the whole chain, and the whole chain costs ATP the
+       walled cell can never make. Act 3 could not start. Gross ATP reached 1 of
+       19 purchases and stopped.
+
+       The lactate branch is what the cell already has. It arrives holding
+       everything act 1 taught it, it keeps regenerating NAD+ at no yield, and
+       **the shuttles become a real choice against it rather than a replacement
+       for it**: send the pair to the chain and it is worth ATP, or dump it into
+       lactate and it is worth nothing, which is act 1's lesson being paid off
+       rather than restated.
+
+       Only lactate, not ethanol. One route is enough to unwall the cell and the
+       ethanol branch is act 1's content.
        ------------------------------------------------------------------- */
     {
       id: 'uptake',
@@ -200,32 +217,61 @@ export function createAct3(options: Partial<Act3Options> = {}): SimulationState 
       enabled: on('payoff'),
     },
 
+    /**
+     * Lactate fermentation, carried over from act 1 unchanged.
+     *
+     *     pyruvate + NADH  ->  lactate + NAD+
+     *
+     * docs/SCIENCE.md Part 2, Fermentation. Zero ATP, which is the act 1
+     * misconception this game exists to correct, and it is the reason the
+     * shuttles are worth buying: the same pair is worth nothing here and
+     * roughly two and a half ATP through the chain.
+     */
+    {
+      id: 'ferment',
+      substrates: [
+        { poolIndex: at('pyruvate'), coefficient: 1 },
+        { poolIndex: at('nadh'), coefficient: 1 },
+      ],
+      products: [
+        { poolIndex: at('lactate'), coefficient: 1 },
+        { poolIndex: at('nad'), coefficient: 1 },
+      ],
+      kinetics: michaelisMenten(v('ferment'), k('ferment')),
+      enabled: on('ferment'),
+    },
+
     /* -------------------------------------------------------------------
        INTO THE COMPARTMENT
 
-       THE FIRST CROSSING IN THE GAME, AND IT COSTS GRADIENT.
+       THE FIRST CROSSING IN THE GAME, AND IT IS ELECTRONEUTRAL HERE WHILE THE
+       REAL CARRIER IS NOT.
 
        docs/SCIENCE.md Part 4: the mitochondrial pyruvate carrier imports
        pyruvate in symport with a proton, driven by the pH difference across the
-       inner membrane. So a proton comes back in with every pyruvate.
+       inner membrane. **This model does not charge that proton, and the reason
+       is a circularity the coupling creates rather than a wish to make the act
+       easier.**
 
-       That is not a tax invented to make the act harder. It is why the two
-       halves of the act are coupled: the gradient the chain builds is spent by
-       the synthase AND by getting the substrate in, so a cell that pumps
-       nothing cannot feed itself either. Under DESIGN.md illustration rule 8
-       this draws as one arrow crossing the boundary carrying two things in
-       opposite senses, which is the whole fact as geometry.
+       Measured. A cell that has just acquired a compartment has no gradient,
+       because a gradient is made by a chain it has not switched on yet. If
+       getting the substrate in costs a proton from outside, then no pyruvate
+       crosses, so no NADH is made in the matrix, so nothing pumps, so no proton
+       ever reaches the outside. **A cell that starts flat can never start.**
+       Stage 5 tried it with a resting gradient stocked in advance and the basal
+       leak drained it in about three game-seconds, which is what a leak does to
+       a gradient with no source.
+
+       So the coupling is dropped and disclosed. It costs the act one true fact
+       about a carrier and it buys the act the ability to begin. docs/ECONOMY.md
+       carries the row. What is NOT dropped is the gradient's cost at the
+       translocase, which is where the sourced protons-per-ATP figure actually
+       lives.
        ------------------------------------------------------------------- */
     {
       id: 'pyruvate_transport',
-      substrates: [
-        { poolIndex: at('pyruvate'), coefficient: 1 },
-        { poolIndex: at('proton_ims'), coefficient: 1 },
-      ],
-      products: [
-        { poolIndex: at('pyruvate_matrix'), coefficient: 1 },
-        { poolIndex: at('proton_matrix'), coefficient: 1 },
-      ],
+      substrates: [{ poolIndex: at('pyruvate'), coefficient: 1 }],
+      products: [{ poolIndex: at('pyruvate_matrix'), coefficient: 1 }],
       kinetics: michaelisMenten(v('pyruvate_transport'), k('pyruvate_transport')),
       enabled: on('pyruvate_transport'),
     },
@@ -423,6 +469,40 @@ export function createAct3(options: Partial<Act3Options> = {}): SimulationState 
        SPENDING THE GRADIENT
        ------------------------------------------------------------------- */
     /**
+     * Basal proton leak. Enabled from the first tick and never purchasable.
+     *
+     * docs/SCIENCE.md Part 4, "Where the range comes from": the inner membrane
+     * is not perfectly proton tight, some protons return without turning the
+     * rotor, and **basal proton leak is a substantial fraction of resting
+     * respiration**. It is one of the five reasons a real cell never reaches the
+     * theoretical yield.
+     *
+     * IT IS HERE BECAUSE THE MODEL COULD NOT RUN WITHOUT IT, WHICH IS THE BEST
+     * KIND OF REASON. Stage 5 measured that a chain with no synthase pumps until
+     * `proton_matrix` reaches exactly 0 and then stops dead, taking the whole
+     * cell with it: gross ATP fell from a baseline of 25.38 per game-second to
+     * 0.36, with every proton in the cell outside the matrix and the cytosol
+     * walled on NAD+.
+     *
+     * **A real gradient cannot do that**, because the proton-motive force builds
+     * a back-pressure that slows the pumps rather than a finite count that runs
+     * out. This model has a finite count, so it needs a return path, and the
+     * return path a real membrane has is a leak. The gradient now settles where
+     * pumping and leaking balance, which is what a resting mitochondrion
+     * actually does.
+     *
+     * IT IS NOT A CONVENIENCE AND IT COSTS THE PLAYER SOMETHING. Every proton
+     * that leaks is a proton the synthase did not spend, so the leak is a
+     * permanent tax on yield, exactly as it is in a real cell.
+     */
+    {
+      id: 'proton_leak',
+      substrates: [{ poolIndex: at('proton_ims'), coefficient: 1 }],
+      products: [{ poolIndex: at('proton_matrix'), coefficient: 1 }],
+      kinetics: michaelisMenten(v('proton_leak'), k('proton_leak')),
+      enabled: on('proton_leak'),
+    },
+    /**
      * ATP synthase. Three protons per ATP made in the matrix.
      *
      * docs/SCIENCE.md Part 4: one revolution turns three catalytic sites and
@@ -454,130 +534,49 @@ export function createAct3(options: Partial<Act3Options> = {}): SimulationState 
       enabled: on('atp_synthase'),
     },
     /**
-     * The adenine nucleotide translocase. **The ATP the cell can spend is not
-     * the ATP the synthase made, and the difference is one more proton.**
+     * The adenine nucleotide translocase AND the phosphate carrier, as one
+     * exchange. **The ATP the cell can spend is not the ATP the synthase made,
+     * and the difference is one more proton.**
      *
-     * docs/SCIENCE.md Part 4: it exchanges matrix ATP for cytosolic ADP one for
-     * one, moving a net negative charge outward, driven by the membrane
-     * potential. That surcharge is where a large part of the published yield
-     * spread comes from, and modelling it is what makes the game's ledger land
-     * near 2.5 ATP per NADH rather than near 2.7.
+     *     ATP(matrix) + ADP + Pi + H+(out)
+     *       ->  ADP(matrix) + Pi(matrix) + ATP + H+(in)
+     *
+     * docs/SCIENCE.md Part 4 describes two transporters. The translocase
+     * exchanges matrix ATP for cytosolic ADP one for one, moving a net negative
+     * charge outward. The phosphate carrier imports inorganic phosphate in
+     * symport with a proton. **Their combined cost is the "about one further
+     * proton equivalent per ATP delivered to the cytosol" that the sourced
+     * figure of roughly four protons per ATP is built from**, so modelling them
+     * as one exchange charging one proton reproduces that figure exactly rather
+     * than approximating it.
+     *
+     * AND MODELLING THEM SEPARATELY DOES NOT WORK, which stage 5 measured twice
+     * rather than reasoned about. A standalone phosphate carrier is
+     * one-directional and has no reason to stop: it pumped the entire cytosolic
+     * phosphate pool into the matrix, `payoff` lost the phosphate it needs, and
+     * glycolysis stopped at 0.05 gross ATP per game-second against a baseline of
+     * 25.38. **A carrier that only moves phosphate when it moves ATP cannot do
+     * that**, because the thing it is coupled to is the thing that needs it.
+     *
+     * The exchange also balances phosphate exactly. Three plus two plus one goes
+     * in and two plus one plus three comes out.
      */
     {
       id: 'ant',
       substrates: [
         { poolIndex: at('atp_matrix'), coefficient: 1 },
         { poolIndex: at('adp'), coefficient: 1 },
+        { poolIndex: at('pi'), coefficient: 1 },
         { poolIndex: at('proton_ims'), coefficient: 1 },
       ],
       products: [
         { poolIndex: at('adp_matrix'), coefficient: 1 },
+        { poolIndex: at('pi_matrix'), coefficient: 1 },
         { poolIndex: at('atp'), coefficient: 1 },
         { poolIndex: at('proton_matrix'), coefficient: 1 },
       ],
       kinetics: michaelisMenten(v('ant'), k('ant')),
       enabled: on('ant'),
-    },
-
-    /**
-     * The phosphate carrier, and it was missing until the cell measured out
-     * stalled without it.
-     *
-     * THE TRANSLOCASE ABOVE IS A PHOSPHATE LEAK ON ITS OWN. It sends matrix ATP
-     * out carrying three phosphates and brings cytosolic ADP back carrying two,
-     * so every export strips one phosphate from the matrix and nothing returns
-     * it. Measured with the whole chain and the synthase enabled, `pi_matrix`
-     * drained to zero, the synthase stopped for want of substrate, and every
-     * proton in the cell ended up outside: `proton_ims` 400.00 of a total of
-     * 400.
-     *
-     * docs/SCIENCE.md Part 4 names the carrier and it was written into that Part
-     * by stage 1. It was described and not built, which is a better failure than
-     * the reverse and is still a failure.
-     *
-     * ELECTRONEUTRAL HERE, AND THE REAL CARRIER IS A PROTON SYMPORT. That is not
-     * a simplification of convenience: the sourced figure of roughly four
-     * protons per ATP delivered to the cytosol is about three for the rotor plus
-     * **one for transport**, and that one already covers both this carrier and
-     * the translocase. Charging a proton here as well would count the same
-     * proton twice and would take act 3's yield from 31 to about 25, outside the
-     * range docs/SCIENCE.md Part 4 gives. docs/ECONOMY.md carries the row.
-     */
-    {
-      id: 'pi_transport',
-      substrates: [{ poolIndex: at('pi'), coefficient: 1 }],
-      products: [{ poolIndex: at('pi_matrix'), coefficient: 1 }],
-      kinetics: michaelisMenten(v('pi_transport'), k('pi_transport')),
-      enabled: on('pi_transport'),
-    },
-
-    /* -------------------------------------------------------------------
-       THE TWO SHUTTLES
-
-       THE REACTIONS ARE HERE AND THE CHOICE IS STAGE 5'S. They are part of the
-       pathway rather than an addition to it: cytosolic NADH cannot cross the
-       inner membrane, act 3 has no fermentation to reoxidise it, and without a
-       shuttle the cell hits act 1's NAD+ wall with no answer. So the pathway is
-       not closed until these exist and the yield cannot be computed without
-       them. What stage 5 owns is the purchase, the switching and the text.
-
-       docs/SCIENCE.md Part 4, "The two NADH shuttles". Both ship disabled and
-       BOTH ARE OWNABLE, which is what docs/PROGRESSION.md act 3 item 6 settled
-       on 2026-08-20: real cells run both in proportions that shift, and a cell
-       that owns one forever is the departure.
-
-       ONE NUMBER IS THE WHOLE DIFFERENCE AND IT IS THE ENTRY POINT. Malate-
-       aspartate delivers the pair as matrix NADH, which enters at complex I and
-       is worth ten protons. Glycerol phosphate hands it straight to the quinone
-       pool, entering after complex I, and is worth six. Nothing else about them
-       differs here.
-       ------------------------------------------------------------------- */
-    /**
-     * Malate-aspartate. Four enzymes and two carriers in the cell, one reaction
-     * here, ending with the pair as matrix NADH.
-     *
-     * Lumped for act 1's reason: the intermediates are regenerated and the
-     * shuttle is a cycle. Oxaloacetate, malate, aspartate and glutamate all come
-     * back to where they started, so a decomposed form would carry four pools
-     * that sum to zero over a turn.
-     */
-    {
-      id: 'shuttle_malate_aspartate',
-      substrates: [
-        { poolIndex: at('nadh'), coefficient: 1 },
-        { poolIndex: at('nad_matrix'), coefficient: 1 },
-      ],
-      products: [
-        { poolIndex: at('nad'), coefficient: 1 },
-        { poolIndex: at('nadh_matrix'), coefficient: 1 },
-      ],
-      kinetics: michaelisMenten(v('shuttle_malate_aspartate'), k('shuttle_malate_aspartate')),
-      enabled: on('shuttle_malate_aspartate'),
-    },
-    /**
-     * Glycerol 3-phosphate. **Nothing crosses the inner membrane at all.**
-     *
-     * docs/SCIENCE.md Part 4: the mitochondrial isoform is an FAD enzyme
-     * anchored in the inner membrane facing the intermembrane space, and it
-     * passes the electrons directly into the quinone pool from outside. So this
-     * reaction reduces ubiquinone from the cytosolic side and the pair never
-     * enters the matrix as a carrier at all.
-     *
-     * That is why it is worth four protons less: it joins the chain after
-     * complex I and misses its pump.
-     */
-    {
-      id: 'shuttle_glycerol_phosphate',
-      substrates: [
-        { poolIndex: at('nadh'), coefficient: 1 },
-        { poolIndex: at('q_membrane'), coefficient: 1 },
-      ],
-      products: [
-        { poolIndex: at('nad'), coefficient: 1 },
-        { poolIndex: at('qh2_membrane'), coefficient: 1 },
-      ],
-      kinetics: michaelisMenten(v('shuttle_glycerol_phosphate'), k('shuttle_glycerol_phosphate')),
-      enabled: on('shuttle_glycerol_phosphate'),
     },
 
     /**

@@ -44,7 +44,6 @@ const UP_TO_THE_CYCLE: Act3ReactionId[] = [
   'pyruvate_transport',
   'pdh',
   'tca',
-  'pi_transport',
   'shuttle_malate_aspartate',
 ];
 

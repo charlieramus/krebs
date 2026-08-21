@@ -125,6 +125,7 @@ export type Act3PoolId =
   | 'glucose'
   | 'g3p'
   | 'pyruvate'
+  | 'lactate'
   | 'co2'
   | 'nad'
   | 'nadh'
@@ -163,6 +164,7 @@ export const ACT3_POOL_IDS: readonly Act3PoolId[] = [
   'glucose',
   'g3p',
   'pyruvate',
+  'lactate',
   'co2',
   'water',
   'nad',
@@ -219,6 +221,7 @@ const LABELS: Readonly<Record<Act3PoolId, string>> = {
   glucose: 'Glucose',
   g3p: 'Glyceraldehyde-3-phosphate',
   pyruvate: 'Pyruvate',
+  lactate: 'Lactate',
   co2: 'Carbon dioxide',
   water: 'Water',
   nad: 'NAD+',
@@ -258,6 +261,14 @@ const CONSERVED: Readonly<Record<Act3PoolId, Readonly<Record<string, number>>>> 
   glucose: { carbon: 6, redox: 12 },
   g3p: { carbon: 3, phosphate: 1, redox: 6 },
   pyruvate: { carbon: 3, redox: 5 },
+  /*
+   * ACT 1'S LACTATE, AT ACT 1'S WEIGHTS, AND ACT 3 KEEPS IT.
+   *
+   * Stage 5 measured that act 3 could not start without it. A eukaryote that has
+   * just acquired a mitochondrion does not stop being able to ferment, and the
+   * cell arrives at this act holding everything act 1 taught it.
+   */
+  lactate: { carbon: 3, redox: 6 },
   co2: { carbon: 1 },
   /*
    * One redox pair, and NO PROTON WEIGHT, which was measured rather than
@@ -323,6 +334,7 @@ export const ACT3_INITIAL: Readonly<Record<Act3PoolId, number>> = {
   glucose: 0,
   g3p: 0,
   pyruvate: 0,
+  lactate: 0,
   co2: 0,
   water: 0,
   nad: ACT3_NICOTINAMIDE_TOTAL,
