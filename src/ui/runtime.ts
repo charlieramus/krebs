@@ -44,6 +44,7 @@ import {
 } from './tuning';
 import { knowsAct, KNOWN_ACT_NUMBERS } from '../content/acts';
 import { actStartState } from '../content/actStart';
+import { JUMPED_TO_ACT, type ActJump } from '../content/actJump';
 import type {
   ActCarriedCounters,
   ActCreateOptions,
@@ -277,6 +278,7 @@ export interface ActSession {
   readonly kind:
     | 'loaded'
     | 'new-game'
+    | 'jumped'
     | 'recoverable'
     | 'future'
     | 'future-act'
@@ -370,6 +372,25 @@ export interface ActRuntimeOptions {
   /** Frame canceller. Defaults to cancelAnimationFrame. */
   readonly cancel?: (handle: number) => void;
   readonly persistence?: ActPersistenceOptions;
+  /**
+   * Begin in an act rather than in whatever is on disk. UPDATELOGV13.md stage 2.
+   *
+   * A development and teacher door. When present the save is NOT read, because a
+   * jump that loaded an act 1 save and then ran act 1 from it would not be a
+   * jump, and the session is marked in `settings` so a save that skipped play
+   * says so.
+   *
+   * THE DESCRIPTOR MUST BE THE JUMP'S OWN and the constructor throws if it is
+   * not. Two sources for "which act is this" is the same defect this log exists
+   * to prevent, and the failure it prevents is quiet: a runtime running act 1's
+   * chemistry against act 3's starting pools would construct without complaint.
+   *
+   * IT DOES NOT SUPPRESS WRITES. A jumped session autosaves like any other, so
+   * the mark and the state both survive a reload, which is what stage 2 step 3
+   * requires. The cost is that a jump overwrites the save in the active slot;
+   * see the stage 2 report, which measures what survives in the backup slot.
+   */
+  readonly jump?: ActJump;
 }
 
 export interface ActRuntime {
@@ -508,6 +529,22 @@ export interface ActRuntime {
    */
   boundarySeen(): boolean;
   markBoundarySeen(): void;
+
+  /* ===== The act jump, UPDATELOGV13.md stage 2 ===== */
+
+  /**
+   * The act this session was jumped to, or null if it was played.
+   *
+   * READ IT, REPORT IT, DO NOT BRANCH ON IT. `jumpedToAct.test.ts` fails the
+   * build if anything compares, matches or switches on this value, which is the
+   * guard `meta.buildId` has carried since V9 and for the same reason: a field
+   * that becomes meaningful is a field somebody will be tempted to read.
+   *
+   * There is no `markJumped` beside it, unlike the two settings above. A jump is
+   * a fact about how a session BEGAN, so it is set at construction and there is
+   * no moment later at which it could become true.
+   */
+  jumpedToAct(): number | null;
 }
 
 export function createActRuntime(
@@ -530,7 +567,38 @@ export function createActRuntime(
     ? (persistence.store ?? createSaveStore())
     : null;
 
-  const loaded = store === null ? null : store.load();
+  /**
+   * THE JUMP, CHECKED BEFORE ANYTHING READS IT. UPDATELOGV13.md stage 2.
+   *
+   * Throws, and it is the only thing in this constructor that does. A jump
+   * carries its own descriptor and the caller passes the same one positionally,
+   * so the two can disagree, and a runtime built on a disagreement would run one
+   * act's chemistry against another act's starting pools without complaining.
+   * That is a build mistake rather than a player-reachable state, and the
+   * project's posture on those is `boundaryFor`, which throws on an act with no
+   * end condition for the same reason: silently doing the wrong thing is the
+   * most confusing possible way to report it.
+   */
+  const jump = options.jump ?? null;
+  if (jump !== null && jump.act.act !== descriptor.act) {
+    throw new Error(
+      `createActRuntime: jump targets act ${jump.act.act} and the descriptor is ` +
+        `act ${descriptor.act}. Pass the jump's own descriptor.`,
+    );
+  }
+
+  /**
+   * A JUMP DOES NOT READ THE SAVE, which is the whole of what makes it a jump.
+   *
+   * Loading and then discarding would be the same outcome and a worse statement:
+   * a reader would have to work out that the restore is thrown away. Not reading
+   * says it once.
+   *
+   * The save on disk is not touched HERE, and it is not protected either. This
+   * session autosaves like any other, so the active slot is overwritten at the
+   * first write. See the stage 2 report for what survives and where.
+   */
+  const loaded = store === null || jump !== null ? null : store.load();
 
   /**
    * The save this session restored from, or null for a new game.
@@ -610,7 +678,7 @@ export function createActRuntime(
    *
    * `??` short-circuits, so a restored session never runs the act's constructor.
    */
-  const start = restoredOk ?? actStartState(descriptor, options.create);
+  const start = restoredOk ?? jump?.start ?? actStartState(descriptor, options.create);
 
   const state = start.state;
   const probes: ActMeterProbes = descriptor.createMeterProbes(state);
@@ -632,8 +700,20 @@ export function createActRuntime(
    * `SaveSettingsV1` is `Readonly<Record<...>>` and the readonly half of that is
    * the useful half: nothing downstream of `capture` can edit a settings object
    * it was handed.
+   *
+   * THE JUMP MARK IS APPLIED HERE, ONCE, AND NEVER AGAIN. UPDATELOGV13.md
+   * stage 2. It is set at construction rather than on the first write, because a
+   * jumped session that is closed before its first autosave should still be
+   * jumped if it ever writes, and because a mark applied later would need a flag
+   * to remember to apply it, which is a second copy of the same fact.
+   *
+   * A RELOAD OF A JUMPED SAVE DOES NOT RE-MARK, and does not need to: the key
+   * comes back off the save through `start.settings` like every other key, and
+   * the reloaded session carries it without knowing what it means. That is the
+   * whole point of it being diagnostic.
    */
-  let settings: SaveSettingsV1 = start.settings;
+  let settings: SaveSettingsV1 =
+    jump === null ? start.settings : { ...start.settings, [JUMPED_TO_ACT]: jump.act.act };
   /**
    * `let` rather than `const` since UPDATELOGV8.md stage 5, and replaced rather
    * than mutated for the same reason `settings` is: the fields are readonly and
@@ -975,12 +1055,21 @@ export function createActRuntime(
   }
 
   const session: ActSession = {
+    /*
+     * `jumped` OUTRANKS `disabled`, and that ordering is deliberate. A jump with
+     * persistence off is still a jump, and reporting it as `disabled` would say
+     * the less interesting of the two true things. Nothing in the interface
+     * branches on this: it exists so a session can be described honestly, which
+     * is the same job every other kind on this union does.
+     */
     kind:
-      store === null
-        ? 'disabled'
-        : actRefused
-          ? 'future-act'
-          : (loaded?.kind ?? 'new-game'),
+      jump !== null
+        ? 'jumped'
+        : store === null
+          ? 'disabled'
+          : actRefused
+            ? 'future-act'
+            : (loaded?.kind ?? 'new-game'),
     awayMs: offline.awayMs,
     offlineCapped: offline.capped,
     clockWentBackwards: offline.clockWentBackwards,
@@ -1227,6 +1316,19 @@ export function createActRuntime(
     return settings[BOUNDARY_SEEN] === true;
   }
 
+  /**
+   * Reads the settings bag rather than the `jump` option, on purpose.
+   *
+   * A session that RELOADED a jumped save has no `jump` option and is still a
+   * jumped session, because the mark travelled with the save. Reading the option
+   * would answer a different and less useful question, which is whether this
+   * particular runtime performed the jump.
+   */
+  function jumpedToAct(): number | null {
+    const marked = settings[JUMPED_TO_ACT];
+    return typeof marked === 'number' ? marked : null;
+  }
+
   function markBoundarySeen(): void {
     if (boundarySeen()) return;
     settings = { ...settings, [BOUNDARY_SEEN]: true };
@@ -1255,6 +1357,7 @@ export function createActRuntime(
     markFirstRunSeen,
     boundarySeen,
     markBoundarySeen,
+    jumpedToAct,
 
     start(): void {
       if (running) return;
