@@ -41,6 +41,18 @@ const ALLOWED = [
   'ui/runtime.ts',
   // A recorded fixture, which is a save on disk.
   'save/fixture.ts',
+  /*
+   * Carries it ACROSS the act boundary rather than reading it. UPDATELOGV14.md
+   * stage 3.
+   *
+   * The transition builds act 3's opening save out of act 3's start state, and
+   * `createdAt` and `buildId` have to come from the run that was already in
+   * progress, because this is the same run and not a new one. The field is
+   * copied and never inspected, which is exactly what Part 3 allows: the rule
+   * is that nothing branches on it, and the assertion below still holds over
+   * this file.
+   */
+  'content/transition.ts',
   // This file.
   'save/__tests__/buildId.test.ts',
 ];

@@ -1,8 +1,9 @@
 /**
- * The version 1 fixture generator. `npm run save:fixture`.
+ * The fixture generator. `npm run save:fixture`.
  *
  * An entry point rather than a library: importing it runs it. It writes
- * `src/save/__tests__/fixtures/v1.json`.
+ * `src/save/__tests__/fixtures/v<SCHEMA_VERSION>.json`, and it refuses to
+ * overwrite one that already exists.
  *
  * ---------------------------------------------------------------------------
  * READ THIS BEFORE RUNNING IT AGAIN
@@ -38,7 +39,7 @@
  */
 
 import process from 'node:process';
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { TICK_MS } from '../sim/constants';
 import { createLoop } from '../sim/loop';
 import { michaelisMenten } from '../sim/reactions';
@@ -57,7 +58,7 @@ import {
   captureAct1,
 } from '../content/act1/save';
 import { serializeReadable } from './codec';
-import type { SaveV1 } from './schema';
+import { SCHEMA_VERSION, type SaveV2 } from './schema';
 
 /**
  * Fixed timestamps, so the artifact is a function of the procedure alone.
@@ -102,7 +103,7 @@ function reaction(state: SimulationState, id: string) {
  * costs 55 cumulative ATP and the first capacity step costs 1500, so ferment
  * comes first, and `progression.unlocked` is insertion ordered.
  */
-export function buildV1Fixture(): SaveV1 {
+export function buildV1Fixture(): SaveV2 {
   const state = createAct1();
   const meter = createAct1Meter();
 
@@ -139,12 +140,26 @@ export function buildV1Fixture(): SaveV1 {
   );
 }
 
-const OUTPUT = 'src/save/__tests__/fixtures/v1.json';
+/**
+ * Named from SCHEMA_VERSION rather than written down, so that the generator
+ * cannot write a version 2 save into the version 1 fixture.
+ *
+ * That is not a hypothetical. This file wrote `v1.json` as a literal from V4 to
+ * V14, and the first bump would otherwise have overwritten the one artifact the
+ * header spends twenty lines saying is never regenerated. It refuses to write
+ * over an existing file now for the same reason.
+ */
+const OUTPUT = `src/save/__tests__/fixtures/v${SCHEMA_VERSION}.json`;
 
 const save = buildV1Fixture();
 const text = `${serializeReadable(save)}\n`;
 
 if (process.argv.includes('--write')) {
+  if (existsSync(OUTPUT) && !process.argv.includes('--force')) {
+    console.error(`${OUTPUT} already exists and fixtures are never regenerated.`);
+    console.error('Read the header of this file. If you are certain, pass --force.');
+    process.exit(1);
+  }
   writeFileSync(OUTPUT, text, 'utf8');
   console.log(`wrote ${OUTPUT}, ${text.length} bytes`);
 } else {

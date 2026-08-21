@@ -54,7 +54,7 @@ import {
   type Act1CaptureContext,
 } from '../../content/act1/save';
 import { deserialize, serialize } from '../codec';
-import type { SaveV1 } from '../schema';
+import type { SaveV2 } from '../schema';
 
 beforeAll(() => {
   setShortfallLogging(false);
@@ -282,7 +282,7 @@ describe('reload determinism, saving mid-tick', () => {
    =========================================================================== */
 
 describe('reload determinism, proving the test can fail', () => {
-  function referenceAndSplit(mutilate: (save: SaveV1) => SaveV1): {
+  function referenceAndSplit(mutilate: (save: SaveV2) => SaveV2): {
     expected: string;
     actual: string;
   } {

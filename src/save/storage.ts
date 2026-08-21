@@ -24,7 +24,7 @@
 
 import { deserialize, serialize } from './codec';
 import { parseAndMigrate } from './migrations';
-import type { SaveV1 } from './schema';
+import type { SaveV2 } from './schema';
 
 /* ===========================================================================
    THE KEYS
@@ -93,7 +93,7 @@ export type WriteOutcome =
 
 export type LoadOutcome =
   /** The active slot parsed. The ordinary case. */
-  | { readonly kind: 'loaded'; readonly save: SaveV1 }
+  | { readonly kind: 'loaded'; readonly save: SaveV2 }
   /**
    * The active slot did not parse and the backup did.
    *
@@ -104,7 +104,7 @@ export type LoadOutcome =
    */
   | {
       readonly kind: 'recoverable';
-      readonly save: SaveV1;
+      readonly save: SaveV2;
       readonly reason: string;
     }
   /**
@@ -128,7 +128,7 @@ export interface SaveStore {
   /** Why, when `durable` is false. Null when it is true. */
   readonly nonDurableReason: NonDurableReason | null;
 
-  write(save: SaveV1): WriteOutcome;
+  write(save: SaveV2): WriteOutcome;
   load(): LoadOutcome;
 
   /** The raw active text, unparsed. Export, and evidence for a bug report. */
@@ -265,7 +265,7 @@ export function createSaveStore(options: SaveStoreOptions = {}): SaveStore {
    * failure therefore lands on step 1, where the only thing that can be lost is
    * a write that had not happened yet.
    */
-  function write(save: SaveV1): WriteOutcome {
+  function write(save: SaveV2): WriteOutcome {
     const text = serialize(save);
 
     // 1. Temporary key first. This is the write that fails when the quota is full.

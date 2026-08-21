@@ -38,7 +38,7 @@ import {
   type Act1CaptureContext,
 } from '../../content/act1/save';
 import { deserialize, serialize, serializeReadable } from '../codec';
-import { SCHEMA_VERSION, type SaveV1 } from '../schema';
+import { SCHEMA_VERSION, type SaveV2 } from '../schema';
 
 /** A fixed meta, so nothing in this file reads a clock and nothing is flaky. */
 const META: Act1CaptureContext['meta'] = {
@@ -63,7 +63,7 @@ function run(state: SimulationState, meter: Act1Meter, ticks: number): void {
 }
 
 /** A state that has been somewhere: past the NAD+ wall, fermenting, one rung up the ladder. */
-function playedSave(): SaveV1 {
+function playedSave(): SaveV2 {
   const state = createAct1({ enabled: { ferment: true }, vmax: { uptake: 10 } });
   const meter = createAct1Meter();
   run(state, meter, 600);
@@ -142,7 +142,7 @@ describe('save codec, round trip', () => {
     const save = playedSave();
     expect(save.enzymes).toEqual({});
     expect(save.environment.oxygenLevel).toBe(0);
-    expect(save.progression.transitionTaken).toBe(false);
+    expect(save.progression.endosymbiont).toBeNull();
     expect(save.progression.shuttleChoice).toBeNull();
     expect(save.progression.act).toBe(1);
   });
@@ -181,7 +181,7 @@ describe('save codec, the unlock list is the source of truth', () => {
 
   it('preserves unlock ids it does not recognise rather than dropping them', () => {
     const save = playedSave();
-    const withStranger: SaveV1 = {
+    const withStranger: SaveV2 = {
       ...save,
       progression: { ...save.progression, unlocked: [...save.progression.unlocked, 'hexokinase'] },
     };
@@ -209,7 +209,7 @@ describe('save codec, the unlock list is the source of truth', () => {
 describe('save codec, pools', () => {
   it('treats an unknown pool id as corruption rather than shrugging', () => {
     const save = playedSave();
-    const stranger: SaveV1 = { ...save, pools: { ...save.pools, citrate: 4 } };
+    const stranger: SaveV2 = { ...save, pools: { ...save.pools, citrate: 4 } };
 
     const result = restoreAct1(stranger);
     expect(result.kind).toBe('corrupt');
@@ -221,7 +221,7 @@ describe('save codec, pools', () => {
     const save = playedSave();
     const pools = { ...save.pools };
     delete (pools as Record<string, number>)['lactate'];
-    const thin: SaveV1 = { ...save, pools };
+    const thin: SaveV2 = { ...save, pools };
 
     const restored = restoreAct1OrThrow(thin);
     expect(restored.missingPools).toEqual(['lactate']);
@@ -243,7 +243,7 @@ describe('save codec, tick reconstruction', () => {
     // What a save written at TICK_MS 50 looks like to a build running at 40:
     // an elapsed time that is not a whole multiple of the current tick.
     const save = playedSave();
-    const skewed: SaveV1 = {
+    const skewed: SaveV2 = {
       ...save,
       time: { ...save.time, elapsedGameMs: save.time.elapsedGameMs + TICK_MS / 2 },
     };
@@ -261,7 +261,7 @@ describe('save codec, tick reconstruction', () => {
 describe('save codec, diagnostics counters', () => {
   it('carries the shortfall projection forward rather than resetting it', () => {
     const save = playedSave();
-    const seeded: SaveV1 = {
+    const seeded: SaveV2 = {
       ...save,
       diagnostics: { ...save.diagnostics, negativePoolScalingEvents: 17, scalingCapHits: 3 },
     };

@@ -51,9 +51,9 @@ import { elapsedMs } from '../../sim/loop';
 import type { SimulationState } from '../../sim/state';
 import {
   SCHEMA_VERSION,
-  type SaveMetaV1,
-  type SaveSettingsV1,
-  type SaveV1,
+  type SaveMetaV2,
+  type SaveSettingsV2,
+  type SaveV2,
 } from '../../save/schema';
 import { createAct1Meter, type Act1Meter } from './meter';
 import { ACT1_INITIAL, ACT1_POOL_IDS, type Act1PoolId } from './pools';
@@ -331,7 +331,7 @@ export const ACT1_NO_CARRIED_COUNTERS: Act1CarriedCounters = {
  * inside content.
  */
 export interface Act1CaptureContext {
-  readonly meta: SaveMetaV1;
+  readonly meta: SaveMetaV2;
   readonly carried: Act1CarriedCounters;
 }
 
@@ -346,9 +346,9 @@ export function captureAct1(
   state: SimulationState,
   meter: Act1Meter,
   unlocked: readonly string[],
-  settings: SaveSettingsV1,
+  settings: SaveSettingsV2,
   context: Act1CaptureContext,
-): SaveV1 {
+): SaveV2 {
   const pools: Record<string, number> = {};
   for (let i = 0; i < state.pools.ids.length; i += 1) {
     const id = state.pools.ids[i] as string;
@@ -377,7 +377,12 @@ export function captureAct1(
       unlocked: unlocked.slice(),
       // Endosymbiosis is act 3 and there is no shuttle to choose in act 1.
       // Written because both are honestly true of this state, not as placeholders.
-      transitionTaken: false,
+      //
+      // `null` here is the third state and not a default: the choice has not
+      // been offered. Schema version 2 replaced version 1's boolean precisely so
+      // that "not offered", "kept" and "digested" are three answers rather than
+      // two. See src/save/schema.ts, EndosymbiontState.
+      endosymbiont: null,
       shuttleChoice: null,
     },
     pools,
@@ -385,7 +390,14 @@ export function captureAct1(
     // ten steps. An empty object is the true statement; an invented level is not.
     enzymes: {},
     environment: {
-      // Act 1 really is anaerobic. This zero is a fact about the world, not a default.
+      // ACT 1 REALLY IS ANAEROBIC. This zero is a fact about the world, not a
+      // default, and UPDATELOGV14.md stage 1 left that sentence standing.
+      //
+      // What changed on 2026-08-20 is that act 3 introduces a SECOND, nonzero
+      // oxygen level which IS a placeholder, standing in for a schedule act 2
+      // has not built and carrying docs/ECONOMY.md row C25. So this comment now
+      // says act 1's zero is a fact rather than implying no oxygen level
+      // anywhere is a placeholder.
       oxygenLevel: 0,
       scheduleIndex: 0,
     },
@@ -407,6 +419,20 @@ export function captureAct1(
       scalingCapHits: state.diagnostics.scalingCapHits,
     },
     settings: { ...settings },
+    /*
+     * NO SNAPSHOT, and an act 1 capture is the wrong place for one.
+     *
+     * Schema version 2 added the slot for the endosymbiosis undo, which is
+     * taken by `src/content/transition.ts` at the one decision that gets one.
+     * Every ordinary capture writes null, and a capture that wrote a snapshot
+     * would be the second writer of a field docs/SAVE_SCHEMA.md says has
+     * exactly one.
+     *
+     * The transition attaches its snapshot to the save it produces rather than
+     * asking the act to carry one, which is why this stays null even in the
+     * capture that immediately precedes the choice.
+     */
+    snapshot: null,
   };
 }
 
@@ -419,7 +445,7 @@ export interface Act1Restored {
   readonly meter: Act1Meter;
   /** Exactly what the save carried, order preserved, unknown ids included. */
   readonly unlocked: readonly string[];
-  readonly settings: SaveSettingsV1;
+  readonly settings: SaveSettingsV2;
   readonly unlocks: Act1Unlocks;
   readonly carried: Act1CarriedCounters;
 
@@ -455,7 +481,7 @@ export type Act1RestoreResult =
  * from somewhere, and the honest options are to say so or to guess. This says
  * so.
  */
-export function restoreAct1(save: SaveV1): Act1RestoreResult {
+export function restoreAct1(save: SaveV2): Act1RestoreResult {
   const known = new Set<string>(ACT1_POOL_IDS);
   for (const id of Object.keys(save.pools)) {
     if (!known.has(id)) {
@@ -540,7 +566,7 @@ export function restoreAct1(save: SaveV1): Act1RestoreResult {
  * harness, which have already established the save is valid and would otherwise
  * spend three lines unwrapping a result they know the shape of.
  */
-export function restoreAct1OrThrow(save: SaveV1): Act1Restored {
+export function restoreAct1OrThrow(save: SaveV2): Act1Restored {
   const result = restoreAct1(save);
   if (result.kind !== 'ok') throw new Error(`restoreAct1: ${result.reason}`);
   return result.restored;

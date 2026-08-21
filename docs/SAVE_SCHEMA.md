@@ -1,7 +1,7 @@
 # Save Schema
 
 Last updated: 2026-08-20
-Current schema version: 1
+Current schema version: 2
 
 The data contract. Treated as frozen in the same sense as the MyLifeInARepo contract: additive changes are cheap, breaking changes require a migration and a test, and nothing ships that can silently corrupt a save.
 
@@ -37,15 +37,35 @@ If schemaVersion exceeds the current version, the save came from a newer build. 
 
 **The same rule applies to `progression.act`, added by V11.** A save naming an act this build does not have is a well-formed file from a newer build, exactly as a higher schemaVersion is, and it gets the same treatment: refused, not loaded, not changed, with a message that says so. It is specifically not clamped to the highest known act, because that loads successfully and silently rewrites somebody's progress, which is worse than refusing. An act value that is not a whole number of 1 or more is a different thing and is malformed, rejected by the codec alongside every other malformed field.
 
-## The version 1 window, and when it is expected to close
+## The version 1 window closed on 2026-08-20, and it did not close where this section predicted
 
-**No bump has been needed yet and V11 is the third log to decide that rather than to assume it.** V5 added two unlock id families, V6 added `settings.firstRunSeen` and V11 added `settings.boundarySeen`, and all three are additive changes new code can default, so all three shipped at version 1. The version 1 shape was written for four acts: `progression.act` is documented as 1 to 4, `transitionTaken` and `shuttleChoice` are labelled act 3, `enzymes[].damage` and `environment.scheduleIndex` are labelled act 2, and `settings` is an open bag of scalars.
+**The first bump in the project's history is version 1 to version 2, taken by UPDATELOGV14.md stage 3, and the section below called for it in the act 2 log instead.** The prediction is kept rather than corrected, because what it got right and what it got wrong are both useful.
+
+**What it got right is the mechanism.** Both halves of CLAUDE.md hard rule 7 were already in place and had been since V4: a committed version 1 fixture that could only ever have been captured while version 1 was current, and a migration runner proven against fabricated migrations that never shipped. The first real migration ran on a tested runner rather than on one written the same afternoon, which is exactly what that work was for.
+
+**What it got wrong is which change would force it, and the reason is the act ordering decision.** This section expected per-reaction Vmax to force the bump, in act 2, because ROS damage makes a reaction's current rate part of hashed simulation state. That is still true and still not a field new code can default. It simply is not first, because act 3 was built before act 2.
+
+**Two changes, one bump, and neither is the one that was predicted.**
+
+    progression.transitionTaken   boolean   ->  removed
+    progression.endosymbiont      "kept" | "digested" | null   added
+    snapshot                      string | null                added
+
+**The boolean was the wrong shape and no build had ever written it as `true`.** docs/PROGRESSION.md gives the player a keep-or-digest choice at the transition, so there are three states, and a boolean can record that something happened without recording which of two things did. A save written after digesting would have been indistinguishable from one written after keeping. There is deliberately no second field beside `endosymbiont` saying whether the transition happened, because `endosymbiont !== null` already says so.
+
+**The snapshot needed a slot and there was none.** See Part 3, "The snapshot".
+
+**What the act 2 bump still owes.** Per-reaction Vmax as hashed state is unchanged by this and is still act 2's, and it will be version 2 to version 3 with its own migration and a committed version 2 fixture, which now exists.
+
+## The version 1 window, as it was written before it closed
+
+**No bump had been needed and V11 was the third log to decide that rather than to assume it.** V5 added two unlock id families, V6 added `settings.firstRunSeen` and V11 added `settings.boundarySeen`, and all three are additive changes new code can default, so all three shipped at version 1. The version 1 shape was written for four acts: `progression.act` is documented as 1 to 4, `transitionTaken` and `shuttleChoice` are labelled act 3, `enzymes[].damage` and `environment.scheduleIndex` are labelled act 2, and `settings` is an open bag of scalars.
 
 **A decision that never names its own expiry is a silence, so this one names it.** The next bump is expected in **the act 2 log**, and the thing that forces it is per-reaction Vmax varying dynamically as hashed simulation state. `docs/designs/game-spine-and-four-acts.md` lists it as a kernel concept that does not yet exist: ROS damage means each reaction carries a current Vmax that is part of the simulation's state rather than a constant read from a tuning file, so a save has to carry it or a reload silently repairs the cell. That is not a field new code can default, because there is no correct default for "how damaged is this enzyme"; the honest answers are the saved value or a different game.
 
 Two things that will NOT force a bump, recorded so they are not mistaken for it. The oxygen schedule index is already reserved under `environment`. And a new act's unlock ids are additive by the V5 argument: a save from an older build carries no id with the new prefix and derives the base state, while `Act1Unlocks.unknown` carries ids this build does not recognise through capture untouched.
 
-`schemaVersionGate.test.ts` is the mechanism behind CLAUDE.md hard rule 7 and it asserts a committed fixture for every version from 1 to `SCHEMA_VERSION`, a migration for every step, and every fixture loading through the chain. Until the act 2 log it exercises one version, which is the correct answer and not a dormant one.
+`schemaVersionGate.test.ts` is the mechanism behind CLAUDE.md hard rule 7 and it asserts a committed fixture for every version from 1 to `SCHEMA_VERSION`, a migration for every step, and every fixture loading through the chain. It exercised one version until 2026-08-20 and exercises two now. **It fired on the bump before the version 2 fixture existed**, naming the missing file and saying that a fixture at version N can only be captured while version N is current, which is the message it was written for.
 
 ## Corruption handling
 
@@ -62,7 +82,7 @@ Illustrative rather than exhaustive. Field names are the contract, the structure
 Fields marked `// V4` were added by UPDATELOGV4.md when version 1 was implemented. They are additive, so under Part 1's policy they required no version bump, and the version stayed 1. They are recorded here because Part 2 is the contract's description of itself and a description that lags the code by a release is how the two stop agreeing.
 
     {
-      schemaVersion: 1,
+      schemaVersion: 2,
 
       meta: {
         createdAt:        number,   // epoch ms, save creation
@@ -85,7 +105,7 @@ Fields marked `// V4` were added by UPDATELOGV4.md when version 1 was implemente
       progression: {
         act:              number,   // 1 to 4
         unlocked:         string[], // unlock ids, insertion ordered
-        transitionTaken:  boolean,  // endosymbiosis, one way
+        endosymbiont:     "kept" | "digested" | null,  // V2. was transitionTaken
         shuttleChoice:    string | null  // "malate-aspartate" | "glycerol-phosphate"
       },
 
@@ -130,7 +150,11 @@ Fields marked `// V4` were added by UPDATELOGV4.md when version 1 was implemente
       settings: {
         // UI only. Never affects simulation.
         // Empty at version 1. Values are scalars: boolean, number or string.
-      }
+      },
+
+      snapshot:           string | null  // V2. the pre-transition save,
+                                         // serialised. The only snapshot this
+                                         // game ever takes. See Part 3
     }
 
 `tickCount` is absent and that is deliberate. See Part 3, "Time is stored in milliseconds, never in ticks". It is reconstructed at load as `elapsedGameMs / TICK_MS`.
@@ -160,6 +184,20 @@ A negative delta means the system clock moved backwards. Credit zero, do not err
 ## RNG state is part of the save
 
 Determinism requires that a reloaded save continue the same random sequence. Persisting the seed alone is insufficient. The current internal state must persist too.
+
+## The snapshot
+
+Added 2026-08-20 with schema version 2, by UPDATELOGV14.md stage 3.
+
+`snapshot` holds a serialised save, or null. **It is the only snapshot this game ever takes**, and docs/PROGRESSION.md act 3 is why: the keep-or-digest decision at the endosymbiosis transition is the single irreversible structural change in the game, and that document asks for an undo on that one decision and on no other.
+
+What it is not, written here because a field like this attracts uses. **Not a save-scumming mechanic**: one decision, one snapshot, no API that offers a second. **Not generalisable**: not an undo stack, not a rewind, and no other code may write it. **Not a second save slot**: Part 4's backup slot protects a failed write, and this is content.
+
+**A string rather than a nested object**, for two reasons. A nested save is a recursive type, and a serialised one goes back through `parseAndMigrate` on the way out, so a snapshot taken under one build migrates on restore exactly as a save from disk does. That matters: a player can take the decision under one build and undo it under a later one, and this is the one place a save would otherwise skip the migration chain.
+
+**Bounded at one level, and the codec enforces it.** The snapshot is taken before the choice, when the field is null, so its payload's own `snapshot` is always null. A save carrying a snapshot that carries a snapshot grows without limit and is refused as corrupt rather than loaded.
+
+**Restoring clears it.** The restored save carries `snapshot: null`, so the undo is not itself undoable and no stack can accumulate.
 
 ## Ids are permanent
 

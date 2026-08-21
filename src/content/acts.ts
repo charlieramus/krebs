@@ -53,7 +53,7 @@
 
 import type { SimulationState } from '../sim/state';
 import type { OfflineObserver } from '../sim/jump';
-import type { SaveSettingsV1, SaveV1 } from '../save/schema';
+import type { SaveSettingsV2, SaveV2 } from '../save/schema';
 
 import type { PoolDefinition } from '../sim/pools';
 import { createAct1, ACT1_REACTION_IDS } from './act1/reactions';
@@ -259,10 +259,10 @@ export interface ActDescriptor {
     state: SimulationState,
     meter: ActMeter,
     unlocked: readonly string[],
-    settings: SaveSettingsV1,
+    settings: SaveSettingsV2,
     context: ActCaptureContext,
-  ): SaveV1;
-  restore(save: SaveV1): ActRestoreResult;
+  ): SaveV2;
+  restore(save: SaveV2): ActRestoreResult;
   readonly noCarriedCounters: ActCarriedCounters;
 }
 

@@ -84,7 +84,7 @@
  */
 
 import type { SimulationState } from '../sim/state';
-import type { SaveSettingsV1 } from '../save/schema';
+import type { SaveSettingsV2 } from '../save/schema';
 import type {
   ActCarriedCounters,
   ActCreateOptions,
@@ -126,7 +126,7 @@ export interface ActStartState {
    * same thing in more bytes and would make a build that does not know a key
    * indistinguishable from one that does.
    */
-  readonly settings: SaveSettingsV1;
+  readonly settings: SaveSettingsV2;
   /** The four counters at zero. The act's own, not this file's. */
   readonly carried: ActCarriedCounters;
 }

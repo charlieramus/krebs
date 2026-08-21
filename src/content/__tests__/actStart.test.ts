@@ -20,9 +20,9 @@ import { ACT1, ACTS } from '../acts';
 import { actStartState } from '../actStart';
 import { ACT1_INITIAL } from '../act1/pools';
 import { hashState } from '../../sim/hash';
-import type { SaveMetaV1 } from '../../save/schema';
+import type { SaveMetaV2 } from '../../save/schema';
 
-const META: SaveMetaV1 = { createdAt: 0, lastSavedAt: 0, buildId: 'test' };
+const META: SaveMetaV2 = { createdAt: 0, lastSavedAt: 0, buildId: 'test' };
 
 describe('an act at its beginning', () => {
   it('is at tick zero with nothing bought, nothing metered and nothing set', () => {
@@ -117,9 +117,12 @@ describe('what a starting state deliberately does not carry', () => {
 
     expect(save.progression.act).toBe(start.act);
     expect(save.progression.unlocked).toEqual([]);
-    expect(save.progression.transitionTaken).toBe(false);
+    expect(save.progression.endosymbiont).toBeNull();
     expect(save.progression.shuttleChoice).toBeNull();
     expect(save.enzymes).toEqual({});
+    // Act 1's zero is a fact and stays one. UPDATELOGV14.md stage 1 introduced
+    // act 3's nonzero placeholder without touching this assertion, which is the
+    // point: the two are different statements about different acts.
     expect(save.environment).toEqual({ oxygenLevel: 0, scheduleIndex: 0 });
   });
 

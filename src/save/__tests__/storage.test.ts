@@ -27,7 +27,7 @@ import {
   type Act1CaptureContext,
 } from '../../content/act1/save';
 import { serialize } from '../codec';
-import { SCHEMA_VERSION, type SaveV1 } from '../schema';
+import { SCHEMA_VERSION, type SaveV2 } from '../schema';
 import {
   createMemoryStore,
   createSaveStore,
@@ -42,7 +42,7 @@ const CONTEXT: Act1CaptureContext = {
 };
 
 /** A save with something in it, so "no progress was destroyed" means something. */
-function saveAfter(ticks: number, unlocked: readonly string[] = []): SaveV1 {
+function saveAfter(ticks: number, unlocked: readonly string[] = []): SaveV2 {
   const state = createAct1({ enabled: { ferment: unlocked.includes(ACT1_UNLOCK_FERMENT) } });
   const meter = createAct1Meter();
   const probes = createAct1MeterProbes(state);
@@ -142,7 +142,7 @@ type Mutation = { readonly op: 'set'; readonly key: string; readonly value: stri
 /** Record the ordered mutations one write performs against a given starting state. */
 function recordWrite(
   initial: Readonly<Record<string, string>>,
-  save: SaveV1,
+  save: SaveV2,
 ): { readonly log: readonly Mutation[] } {
   const data = new Map<string, string>(Object.entries(initial));
   const log: Mutation[] = [];
@@ -493,7 +493,7 @@ describe('save storage, tick alignment', () => {
     // docs/SAVE_SCHEMA.md decouples the duration from the tick rate and does not
     // decouple the alignment. That is the cost of the rule, not a fault, and the
     // loader must not classify it as corruption.
-    const skewed: SaveV1 = {
+    const skewed: SaveV2 = {
       ...EARLY,
       time: { ...EARLY.time, elapsedGameMs: EARLY.time.elapsedGameMs + 17 },
     };

@@ -13,6 +13,7 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
+import { SCHEMA_VERSION } from '../schema';
 import { ACT1 } from '../../content/acts';
 
 import { TICK_MS } from '../../sim/constants';
@@ -639,7 +640,9 @@ describe('export and import', () => {
     first.stop();
 
     // Readable, per docs/SAVE_SCHEMA.md Part 4. There is nothing to protect.
-    expect(exported).toContain('\n  "schemaVersion": 1');
+    // Against SCHEMA_VERSION rather than a literal: this said 1 until 2026-08-20
+    // and a version bump should not break a test about readability.
+    expect(exported).toContain(`\n  "schemaVersion": ${SCHEMA_VERSION}`);
 
     const target = harness();
     const fresh = makeRuntime(target);

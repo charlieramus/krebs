@@ -47,3 +47,4 @@ export * from './save';
 export * from './timeline';
 export * from './beast';
 export * from './provenance';
+export * from './transition';

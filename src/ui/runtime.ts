@@ -74,7 +74,7 @@ import {
 } from '../sim/jump';
 import { boundaryFor, type ActBoundary } from './boundary';
 import { createSteadyDetector } from '../sim/steady';
-import type { SaveSettingsV1, SaveV1 } from '../save/schema';
+import type { SaveSettingsV2, SaveV2 } from '../save/schema';
 import {
   createSaveStore,
   type NonDurableReason,
@@ -481,7 +481,7 @@ export interface ActRuntime {
   /** Unlock ids in purchase order. The source of truth the save carries. */
   readonly unlocked: readonly string[];
   /** Build the save this instant. Pure with respect to the simulation. */
-  capture(): SaveV1;
+  capture(): SaveV2;
   /** Write now. The interface never has to call this; autosave does. */
   save(reason?: SaveReason): WriteOutcome;
   /** The most recent write, for a "last saved" readout. */
@@ -610,7 +610,7 @@ export function createActRuntime(
    * all. And an unreadable pair is exactly the case where the corrupt bytes have
    * to stay on disk untouched while the player decides what to do.
    */
-  const rawSave: SaveV1 | null = loaded?.kind === 'loaded' ? loaded.save : null;
+  const rawSave: SaveV2 | null = loaded?.kind === 'loaded' ? loaded.save : null;
 
   /**
    * THE ACT REFUSAL. UPDATELOGV11.md stage 5.
@@ -639,7 +639,7 @@ export function createActRuntime(
     );
   }
 
-  const restoredSave: SaveV1 | null = actRefused ? null : rawSave;
+  const restoredSave: SaveV2 | null = actRefused ? null : rawSave;
   const restored = restoredSave === null ? null : descriptor.restore(restoredSave);
 
   if (restored !== null && restored.kind !== 'ok') {
@@ -697,7 +697,7 @@ export function createActRuntime(
    * other's work.
    *
    * `let` rather than `const`, and replaced rather than mutated, because
-   * `SaveSettingsV1` is `Readonly<Record<...>>` and the readonly half of that is
+   * `SaveSettingsV2` is `Readonly<Record<...>>` and the readonly half of that is
    * the useful half: nothing downstream of `capture` can edit a settings object
    * it was handed.
    *
@@ -712,7 +712,7 @@ export function createActRuntime(
    * the reloaded session carries it without knowing what it means. That is the
    * whole point of it being diagnostic.
    */
-  let settings: SaveSettingsV1 =
+  let settings: SaveSettingsV2 =
     jump === null ? start.settings : { ...start.settings, [JUMPED_TO_ACT]: jump.act.act };
   /**
    * `let` rather than `const` since UPDATELOGV8.md stage 5, and replaced rather
@@ -1201,7 +1201,7 @@ export function createActRuntime(
    * and the boundary is the runtime. The store stays a pure function of what it
    * is given and what is already on disk.
    */
-  function capture(): SaveV1 {
+  function capture(): SaveV2 {
     return descriptor.capture(state, meter, unlocked, settings, {
       meta: { createdAt, lastSavedAt: epochClock(), buildId: currentBuildId() },
       carried,

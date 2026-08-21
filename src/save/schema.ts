@@ -20,19 +20,32 @@
  */
 
 /**
- * The literal 1, not `number`.
+ * The literal 2, not `number`.
  *
  * Same spirit as src/sim/constants.ts: a later edit that widens this is visible
  * at every call site rather than silently absorbed. It is also what makes the
- * `schemaVersion: 1` field below a discriminant rather than a comment.
+ * `schemaVersion: 2` field below a discriminant rather than a comment.
  *
  * CLAUDE.md hard rule 7 forbids bumping this without a migration and a fixture
- * test from the previous version. Stage 3 makes that mechanism rather than
+ * test from the previous version. V4 stage 3 made that mechanism rather than
  * discipline: a bump without both fails the suite.
+ *
+ * BUMPED TO 2 ON 2026-08-20 by UPDATELOGV14.md stage 3, which is the first bump
+ * in the project. Both halves of hard rule 7 were already waiting for it: the
+ * version 1 fixture has been committed since V4 and could only ever have been
+ * captured while version 1 was what the code produced, and `migrations.ts` has
+ * carried a proven runner with an empty chain since the same log.
+ *
+ * ONE BUMP CARRIES TWO CHANGES, deliberately, because a schema version is a
+ * step in a chain rather than a label on a change:
+ *
+ *   progression.transitionTaken  boolean         ->  removed
+ *   progression.endosymbiont     'kept' | 'digested' | null   new
+ *   snapshot                     string | null                new
  */
-export const SCHEMA_VERSION = 1 as const;
+export const SCHEMA_VERSION = 2 as const;
 
-export interface SaveMetaV1 {
+export interface SaveMetaV2 {
   /** Epoch ms at new game. Written once and never rewritten. */
   readonly createdAt: number;
   /** Epoch ms at every write. The only wall-clock input, docs/SAVE_SCHEMA.md Part 3. */
@@ -41,7 +54,7 @@ export interface SaveMetaV1 {
   readonly buildId: string;
 }
 
-export interface SaveTimeV1 {
+export interface SaveTimeV2 {
   /** Total game time simulated, integer ms. Never a tick count, docs/SAVE_SCHEMA.md Part 3. */
   readonly elapsedGameMs: number;
   /** Cumulative offline time actually credited. Zero until V5 credits any. */
@@ -58,7 +71,7 @@ export interface SaveTimeV1 {
   readonly pendingOfflineMs: number;
 }
 
-export interface SaveRngV1 {
+export interface SaveRngV2 {
   /** "mulberry32". Matches src/sim/prng.ts. */
   readonly algorithm: string;
   readonly seed: number;
@@ -70,7 +83,24 @@ export interface SaveRngV1 {
   readonly state: number;
 }
 
-export interface SaveProgressionV1 {
+/**
+ * What became of the endosymbiont. Act 3, and the reason schema version 2
+ * exists.
+ *
+ * THREE STATES, AND VERSION 1 HAD A BOOLEAN. `transitionTaken` could say that
+ * something happened and could not say which of two things happened, so a save
+ * written after digesting the endosymbiont was indistinguishable from one
+ * written after keeping it. docs/PROGRESSION.md act 3 gives the player a real
+ * choice between the two and calls the digest path a teaching moment rather
+ * than a dead end, which makes the difference between them the single most
+ * load-bearing bit in the file.
+ *
+ * `null` is not "false". It is "the choice has not been offered or has not been
+ * made", which is a third real state and the one every save before act 3 is in.
+ */
+export type EndosymbiontState = 'kept' | 'digested' | null;
+
+export interface SaveProgressionV2 {
   /** 1 to 4. Act 1 is the only one that exists. */
   readonly act: number;
   /**
@@ -80,32 +110,39 @@ export interface SaveProgressionV1 {
    * save formats rot.
    */
   readonly unlocked: readonly string[];
-  /** Endosymbiosis, one way. Act 3. */
-  readonly transitionTaken: boolean;
+  /**
+   * Endosymbiosis, one way. Act 3.
+   *
+   * Replaces version 1's `transitionTaken: boolean`. There is deliberately no
+   * second field beside it saying whether the transition happened, because
+   * `endosymbiont !== null` already says so and two copies of one fact is the
+   * defect the whole document warns about.
+   */
+  readonly endosymbiont: EndosymbiontState;
   /** "malate-aspartate" | "glycerol-phosphate". Act 3. */
   readonly shuttleChoice: string | null;
 }
 
 /** Pool id to current amount. Ids are permanent, docs/SAVE_SCHEMA.md Part 3. */
-export type SavePoolsV1 = Readonly<Record<string, number>>;
+export type SavePoolsV2 = Readonly<Record<string, number>>;
 
-export interface SaveEnzymeV1 {
+export interface SaveEnzymeV2 {
   readonly level: number;
   /** Act 2 ROS degradation, 0 to 1. */
   readonly damage: number;
 }
 
 /** Empty at version 1. The ten-enzyme decomposition does not exist yet. */
-export type SaveEnzymesV1 = Readonly<Record<string, SaveEnzymeV1>>;
+export type SaveEnzymesV2 = Readonly<Record<string, SaveEnzymeV2>>;
 
-export interface SaveEnvironmentV1 {
+export interface SaveEnvironmentV2 {
   /** Zero, and act 1 really is anaerobic. Not a placeholder. */
   readonly oxygenLevel: number;
   /** Position in the act 2 oxygen schedule. */
   readonly scheduleIndex: number;
 }
 
-export interface SaveStatsV1 {
+export interface SaveStatsV2 {
   /**
    * The meter's `atpProduced` under the schema's permanent name. THE ONE NAME
    * MISMATCH in the whole mapping, and it is mapped explicitly rather than
@@ -126,7 +163,7 @@ export interface SaveStatsV1 {
   readonly nadhProduced: number;
 }
 
-export interface SaveDiagnosticsV1 {
+export interface SaveDiagnosticsV2 {
   /** Steady state not reached, docs/SIMULATION.md Part 3. V5. */
   readonly offlineFallbackCount: number;
   /**
@@ -158,7 +195,7 @@ export interface SaveDiagnosticsV1 {
  * read from the OS media query rather than stored. The type is a bag of scalars
  * rather than an empty interface so that adding one later is additive.
  */
-export type SaveSettingsV1 = Readonly<Record<string, boolean | number | string>>;
+export type SaveSettingsV2 = Readonly<Record<string, boolean | number | string>>;
 
 /**
  * The whole version 1 save.
@@ -169,16 +206,44 @@ export type SaveSettingsV1 = Readonly<Record<string, boolean | number | string>>
  * being true. It is reconstructed at load from `time.elapsedGameMs`. See the
  * tick alignment note in src/content/act1/save.ts for what that costs.
  */
-export interface SaveV1 {
-  readonly schemaVersion: 1;
-  readonly meta: SaveMetaV1;
-  readonly time: SaveTimeV1;
-  readonly rng: SaveRngV1;
-  readonly progression: SaveProgressionV1;
-  readonly pools: SavePoolsV1;
-  readonly enzymes: SaveEnzymesV1;
-  readonly environment: SaveEnvironmentV1;
-  readonly stats: SaveStatsV1;
-  readonly diagnostics: SaveDiagnosticsV1;
-  readonly settings: SaveSettingsV1;
+export interface SaveV2 {
+  readonly schemaVersion: 2;
+  readonly meta: SaveMetaV2;
+  readonly time: SaveTimeV2;
+  readonly rng: SaveRngV2;
+  readonly progression: SaveProgressionV2;
+  readonly pools: SavePoolsV2;
+  readonly enzymes: SaveEnzymesV2;
+  readonly environment: SaveEnvironmentV2;
+  readonly stats: SaveStatsV2;
+  readonly diagnostics: SaveDiagnosticsV2;
+  readonly settings: SaveSettingsV2;
+  /**
+   * The pre-transition snapshot, as a serialised save, or null.
+   *
+   * THE ONLY SNAPSHOT THIS GAME EVER TAKES. docs/PROGRESSION.md act 3 asks for
+   * an undo on the keep-or-digest decision and on no other decision anywhere,
+   * because that one is the single irreversible structural change in the game
+   * and a player who took it by accident has lost the rest of their run.
+   *
+   * WHAT IT IS NOT, written here because a field like this attracts uses:
+   *
+   *   not a save-scumming mechanic. One decision, one snapshot. There is no
+   *     way to take a second one and no code that takes one anywhere else
+   *   not generalisable. It is not a rewind buffer, not an undo stack, and
+   *     nothing else in the game may write to it
+   *   not a second save slot. `storage.ts` already has a backup slot and this
+   *     is not it. That one protects against a failed write; this one is
+   *     content
+   *
+   * A STRING RATHER THAN A NESTED OBJECT, for two reasons. A nested save is a
+   * recursive type, and a serialised one goes back through `parseAndMigrate` on
+   * the way out, so a snapshot taken at an older schema version migrates on
+   * restore exactly as a save from disk does.
+   *
+   * BOUNDED AT ONE LEVEL and asserted. The snapshot is taken before the choice,
+   * when this field is null, so the payload's own `snapshot` is always null. A
+   * save containing a snapshot containing a snapshot is a bug.
+   */
+  readonly snapshot: string | null;
 }

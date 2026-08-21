@@ -105,15 +105,37 @@ describe('migration runner', () => {
     expect(outcome.version).toBe(9);
   });
 
-  it('is empty at version 1, which is what hard rule 7 expects', () => {
-    expect(MIGRATIONS).toEqual([]);
-    expect(SCHEMA_VERSION).toBe(1);
+  it('holds exactly one step per version, with no gaps and nothing past the current version', () => {
+    /*
+     * This test asserted `MIGRATIONS` was EMPTY from V4 to V14, which was the
+     * right assertion while version 1 was current and became a wrong one the
+     * moment version 2 shipped. Rewritten on 2026-08-20 into the property that
+     * was always the point: the chain covers every step from 1 to
+     * SCHEMA_VERSION exactly once, in order, and runs past neither end.
+     *
+     * Stated that way it never needs editing again, which is the difference
+     * between a test about the current version and a test about the chain.
+     */
+    expect(MIGRATIONS.length).toBe(SCHEMA_VERSION - 1);
+    for (let from = 1; from < SCHEMA_VERSION; from += 1) {
+      const steps = MIGRATIONS.filter((m) => m.from === from);
+      expect(steps.length, `exactly one migration from version ${from}`).toBe(1);
+      expect(steps[0]?.to).toBe(from + 1);
+    }
   });
 });
 
 describe('parseAndMigrate, the load-side pipeline', () => {
   it('validates a current-version save exactly as deserialize does', () => {
-    const text = serialize(deserializeOk(JSON.stringify(v1Fixture)));
+    /*
+     * `v1Fixture` is no longer at the current version, so it is migrated first
+     * and the CURRENT-version save is what comes out. Before 2026-08-20 the two
+     * were the same object and this test could not tell the difference.
+     */
+    const migrated = parseAndMigrate(JSON.stringify(v1Fixture));
+    expect(migrated.kind).toBe('ok');
+    if (migrated.kind !== 'ok') return;
+    const text = serialize(migrated.save);
     expect(parseAndMigrate(text)).toEqual(deserialize(text));
   });
 
@@ -123,16 +145,24 @@ describe('parseAndMigrate, the load-side pipeline', () => {
     expect(outcome.kind).toBe('future');
   });
 
-  it('reports a gap as a corruption with a reason that names the version', () => {
-    // A save two versions old against a chain that has nothing for it. Only
-    // reachable with an injected chain today, which is the whole point of the
-    // parameter: the branch is testable before it is reachable.
+  it('reports a gap as a corruption rather than skipping the step', () => {
+    /*
+     * A save one version old against a chain that has nothing for it.
+     *
+     * REACHABLE THROUGH THE REAL ENTRY POINT SINCE 2026-08-20, which it was not
+     * before. At version 1 this branch could only be forced by calling the
+     * runner directly, because a version 1 save was already at target and the
+     * comment here said so. Version 2 is the first time a save can genuinely be
+     * behind, so the injected empty chain now exercises the gap the way a
+     * missing migration actually would.
+     */
     const old = { ...(v1Fixture as Record<string, unknown>), schemaVersion: 1 };
     const outcome = parseAndMigrate(JSON.stringify(old), []);
-    // At SCHEMA_VERSION 1 this is already at target, so it validates.
-    expect(outcome.kind).toBe('ok');
+    expect(outcome.kind).toBe('corrupt');
+    if (outcome.kind === 'corrupt') expect(outcome.reason).toContain('1');
 
-    // Force the gap branch directly, since the version cannot be below 1.
+    // And directly, so the runner's own branch is covered independently of what
+    // the current version happens to be.
     const gapped = runMigrations({ schemaVersion: 1 }, 1, 2, []);
     expect(gapped.kind).toBe('gap');
   });
@@ -143,8 +173,8 @@ describe('parseAndMigrate, the load-side pipeline', () => {
   });
 });
 
-function deserializeOk(text: string) {
-  const result = deserialize(text);
-  if (result.kind !== 'ok') throw new Error(`fixture did not deserialize: ${JSON.stringify(result)}`);
-  return result.save;
-}
+/*
+ * `deserializeOk` stood here and had one caller, in the current-version test
+ * above, which now goes through `parseAndMigrate` because the version 1 fixture
+ * is no longer at the current version. Removed rather than kept unused.
+ */

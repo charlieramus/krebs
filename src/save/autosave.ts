@@ -25,7 +25,7 @@
  * and without a browser.
  */
 
-import type { SaveV1 } from './schema';
+import type { SaveV2 } from './schema';
 import type { SaveStore, WriteOutcome } from './storage';
 import { AUTOSAVE_INTERVAL_MS } from './tuning';
 
@@ -48,7 +48,7 @@ export interface AutosaveRecord {
 export interface AutosaveOptions {
   readonly store: SaveStore;
   /** Builds the save. Called on every write, so it must be cheap and must not allocate a simulation. */
-  readonly capture: () => SaveV1;
+  readonly capture: () => SaveV2;
   readonly intervalMs?: number;
   /** Monotonic milliseconds, for measuring the write. Defaults to performance.now. */
   readonly monotonic?: () => number;

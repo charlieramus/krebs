@@ -24,21 +24,21 @@
 
 import {
   SCHEMA_VERSION,
-  type SaveDiagnosticsV1,
-  type SaveEnzymesV1,
-  type SaveEnvironmentV1,
-  type SaveMetaV1,
-  type SavePoolsV1,
-  type SaveProgressionV1,
-  type SaveRngV1,
-  type SaveSettingsV1,
-  type SaveStatsV1,
-  type SaveTimeV1,
-  type SaveV1,
+  type SaveDiagnosticsV2,
+  type SaveEnzymesV2,
+  type SaveEnvironmentV2,
+  type SaveMetaV2,
+  type SavePoolsV2,
+  type SaveProgressionV2,
+  type SaveRngV2,
+  type SaveSettingsV2,
+  type SaveStatsV2,
+  type SaveTimeV2,
+  type SaveV2,
 } from './schema';
 
 export type DeserializeResult =
-  | { readonly kind: 'ok'; readonly save: SaveV1 }
+  | { readonly kind: 'ok'; readonly save: SaveV2 }
   | { readonly kind: 'corrupt'; readonly reason: string }
   | { readonly kind: 'future'; readonly version: number };
 
@@ -65,16 +65,16 @@ export type DeserializeResult =
  * forward and makes a committed fixture readable, and `JSON.parse` preserves
  * that order for every key act 1 uses.
  */
-export function serialize(save: SaveV1): string {
+export function serialize(save: SaveV2): string {
   return JSON.stringify(canonical(save));
 }
 
 /** Same bytes, indented. docs/SAVE_SCHEMA.md Part 4: exported saves are plain readable JSON. */
-export function serializeReadable(save: SaveV1): string {
+export function serializeReadable(save: SaveV2): string {
   return JSON.stringify(canonical(save), null, 2);
 }
 
-function canonical(save: SaveV1): SaveV1 {
+function canonical(save: SaveV2): SaveV2 {
   return {
     schemaVersion: SCHEMA_VERSION,
     meta: {
@@ -95,7 +95,7 @@ function canonical(save: SaveV1): SaveV1 {
     progression: {
       act: save.progression.act,
       unlocked: save.progression.unlocked.slice(),
-      transitionTaken: save.progression.transitionTaken,
+      endosymbiont: save.progression.endosymbiont,
       shuttleChoice: save.progression.shuttleChoice,
     },
     pools: { ...save.pools },
@@ -120,10 +120,11 @@ function canonical(save: SaveV1): SaveV1 {
       scalingCapHits: save.diagnostics.scalingCapHits,
     },
     settings: { ...save.settings },
+    snapshot: save.snapshot,
   };
 }
 
-function copyEnzymes(enzymes: SaveEnzymesV1): SaveEnzymesV1 {
+function copyEnzymes(enzymes: SaveEnzymesV2): SaveEnzymesV2 {
   const out: Record<string, { level: number; damage: number }> = {};
   for (const id of Object.keys(enzymes)) {
     const enzyme = enzymes[id];
@@ -229,6 +230,17 @@ export function deserialize(input: unknown): DeserializeResult {
   return validate(value);
 }
 
+/**
+ * A serialised save whose own `snapshot` field is not null.
+ *
+ * Matched textually rather than by parsing, because the check is a refusal and
+ * not a read: parsing an untrusted nested payload to decide whether to refuse it
+ * is more work than refusing it. `canonical` writes the field in one fixed form,
+ * so a string this matches was either written by a build that nested snapshots
+ * or was edited by hand, and neither is loadable.
+ */
+const NESTED_SNAPSHOT = /"snapshot"\s*:\s*"/;
+
 function validate(root: Record<string, unknown>): DeserializeResult {
   const meta = section(root, 'meta');
   if (typeof meta === 'string') return corrupt(meta);
@@ -271,7 +283,20 @@ function validate(root: Record<string, unknown>): DeserializeResult {
      */
     positiveInteger(progression, 'progression.act', 'act') ??
     stringArray(progression, 'progression.unlocked', 'unlocked') ??
-    boolean(progression, 'progression.transitionTaken', 'transitionTaken') ??
+    /*
+     * A CLOSED SET RATHER THAN A NULLABLE STRING. Schema version 2.
+     *
+     * Version 1 had `transitionTaken: boolean` here, which could say that
+     * something happened and not which of two things happened. The replacement
+     * has three states and every one of them is meaningful, so an unrecognised
+     * fourth value is malformed rather than merely unusual and is rejected
+     * alongside every other malformed field.
+     *
+     * `shuttleChoice` beside it stays a nullable string on purpose. Its values
+     * are unlock ids and act 3 has not minted them yet, so a closed set here
+     * would be this build asserting a list it does not have.
+     */
+    oneOf(progression, 'progression.endosymbiont', 'endosymbiont', ['kept', 'digested']) ??
     nullableText(progression, 'progression.shuttleChoice', 'shuttleChoice');
   if (progressionProblem !== null) return corrupt(progressionProblem);
 
@@ -331,9 +356,30 @@ function validate(root: Record<string, unknown>): DeserializeResult {
     }
   }
 
+  /*
+   * THE SNAPSHOT, and the one structural rule it carries. Schema version 2.
+   *
+   * It is a serialised save rather than a nested object, so this layer checks
+   * only that it is a string or null. What is inside it is checked when it is
+   * used, by `parseAndMigrate`, exactly as a save from disk is, which is what
+   * lets a snapshot taken at an older schema version migrate on the way out.
+   *
+   * BOUNDED AT ONE LEVEL, and that IS checked here, cheaply and without parsing.
+   * A snapshot is taken before the transition, when this field is null, so its
+   * payload's own snapshot is always null. A save carrying a snapshot that
+   * carries a snapshot is a bug in whatever wrote it, and it grows without
+   * limit, so it is refused rather than loaded.
+   */
+  const snapshotProblem = nullableText(root, 'snapshot', 'snapshot');
+  if (snapshotProblem !== null) return corrupt(snapshotProblem);
+  const snapshotText = root['snapshot'];
+  if (typeof snapshotText === 'string' && NESTED_SNAPSHOT.test(snapshotText)) {
+    return corrupt('snapshot contains a snapshot, which is never written and cannot be loaded');
+  }
+
   /**
    * Rebuilt rather than cast. The validated value is a `Record<string, unknown>`
-   * that happens to have passed every check, and handing it back as a `SaveV1`
+   * that happens to have passed every check, and handing it back as a `SaveV2`
    * would hand the caller a reference to the parse result with every extra key a
    * hostile file put in it still attached. `canonical` drops those and freezes
    * nothing the caller did not ask for.
@@ -342,16 +388,17 @@ function validate(root: Record<string, unknown>): DeserializeResult {
     kind: 'ok',
     save: canonical({
       schemaVersion: SCHEMA_VERSION,
-      meta: meta as unknown as SaveMetaV1,
-      time: time as unknown as SaveTimeV1,
-      rng: rng as unknown as SaveRngV1,
-      progression: progression as unknown as SaveProgressionV1,
-      pools: pools as unknown as SavePoolsV1,
-      enzymes: enzymes as unknown as SaveEnzymesV1,
-      environment: environment as unknown as SaveEnvironmentV1,
-      stats: stats as unknown as SaveStatsV1,
-      diagnostics: diagnostics as unknown as SaveDiagnosticsV1,
-      settings: settings as unknown as SaveSettingsV1,
+      meta: meta as unknown as SaveMetaV2,
+      time: time as unknown as SaveTimeV2,
+      rng: rng as unknown as SaveRngV2,
+      progression: progression as unknown as SaveProgressionV2,
+      pools: pools as unknown as SavePoolsV2,
+      enzymes: enzymes as unknown as SaveEnzymesV2,
+      environment: environment as unknown as SaveEnvironmentV2,
+      stats: stats as unknown as SaveStatsV2,
+      diagnostics: diagnostics as unknown as SaveDiagnosticsV2,
+      settings: settings as unknown as SaveSettingsV2,
+      snapshot: root['snapshot'] as string | null,
     }),
   };
 }
@@ -431,12 +478,39 @@ function nullableText(host: Record<string, unknown>, path: string, key: string):
   return null;
 }
 
-function boolean(host: Record<string, unknown>, path: string, key: string): string | null {
+/**
+ * A field that is null or one of a named set of strings.
+ *
+ * The set is passed in rather than inferred, so adding a state to a union in
+ * schema.ts without adding it here fails a save that is legal by the type, which
+ * is the direction this should fail in.
+ */
+function oneOf(
+  host: Record<string, unknown>,
+  path: string,
+  key: string,
+  allowed: readonly string[],
+): string | null {
   const value = host[key];
   if (value === undefined) return `${path} is missing`;
-  if (typeof value !== 'boolean') return `${path} must be a boolean, got ${describe(value)}`;
+  if (value === null) return null;
+  if (typeof value !== 'string') {
+    return `${path} must be a string or null, got ${describe(value)}`;
+  }
+  if (!allowed.includes(value)) {
+    return `${path} must be null or one of ${allowed.join(', ')}, got ${JSON.stringify(value)}`;
+  }
   return null;
 }
+
+/*
+ * A `boolean` check stood here until 2026-08-20 and is gone rather than
+ * silenced. Schema version 2 replaced `progression.transitionTaken`, which was
+ * the only boolean field in the shape, so the check had no caller. Settings are
+ * an open bag validated inline and do not use it. It comes back when a field
+ * needs it, and a disabled-lint stub in the meantime would be a claim that one
+ * does.
+ */
 
 function stringArray(host: Record<string, unknown>, path: string, key: string): string | null {
   const value = host[key];

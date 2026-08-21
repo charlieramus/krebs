@@ -32,7 +32,7 @@ import { ACT1, KNOWN_ACT_NUMBERS } from '../../content/acts';
 import { createActRuntime, type ActRuntime } from '../../ui/runtime';
 import { deserialize, serialize } from '../codec';
 import { createMemoryStore, createSaveStore, STORAGE_KEYS } from '../storage';
-import type { SaveV1 } from '../schema';
+import type { SaveV2 } from '../schema';
 
 beforeAll(() => {
   setShortfallLogging(false);
@@ -91,13 +91,13 @@ function build(h: ReturnType<typeof harness>): ActRuntime {
 }
 
 /** A real save, written by a real runtime, with its act number moved. */
-function saveAtAct(act: number): { text: string; save: SaveV1 } {
+function saveAtAct(act: number): { text: string; save: SaveV2 } {
   const scratch = harness();
   const runtime = build(scratch);
   runtime.frame(0);
   runtime.frame(50);
   const save = runtime.capture();
-  const moved: SaveV1 = { ...save, progression: { ...save.progression, act } };
+  const moved: SaveV2 = { ...save, progression: { ...save.progression, act } };
   return { text: serialize(moved), save: moved };
 }
 
@@ -222,7 +222,7 @@ describe('what did NOT need touching', () => {
     // does not silently discard the purchase. Still true, asserted here so the
     // next person does not rebuild it.
     const { save } = saveAtAct(1);
-    const withUnknown: SaveV1 = {
+    const withUnknown: SaveV2 = {
       ...save,
       progression: { ...save.progression, unlocked: ['ferment', 'oxygen-tolerance-1'] },
     };

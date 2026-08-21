@@ -59,14 +59,89 @@ export interface Migration {
 }
 
 /**
+ * Version 1 to version 2. THE FIRST MIGRATION THIS PROJECT HAS EVER RUN.
+ *
+ * Added 2026-08-20 by UPDATELOGV14.md stage 3. Two field changes, one step.
+ *
+ *   progression.transitionTaken  boolean  ->  removed
+ *   progression.endosymbiont     'kept' | 'digested' | null   added
+ *   snapshot                     string | null                added
+ *
+ * ---------------------------------------------------------------------------
+ * THE MAPPING, AND WHY THE `true` BRANCH EXISTS AT ALL
+ * ---------------------------------------------------------------------------
+ *
+ *   transitionTaken false  ->  endosymbiont null
+ *   transitionTaken true   ->  endosymbiont 'kept'
+ *   transitionTaken absent ->  endosymbiont null
+ *
+ * NO BUILD EVER WROTE `true`. The field has been in the shape since V4, labelled
+ * act 3, and act 3 did not exist until this log, so every version 1 save in the
+ * world carries `false`. The `true` branch is still written, for the reason the
+ * header above gives about totality: a migration that throws or produces a
+ * malformed save on an input it was not expecting permanently strands whoever
+ * has that file, and there is no backend and no way to ship them a fix.
+ *
+ * `'kept'` rather than `'digested'` for the true case, because keeping is the
+ * only path forward in docs/PROGRESSION.md and a save that reached a later act
+ * with the transition taken must have kept it. A digested cell is soft locked
+ * and cannot have got anywhere a version 1 save could record.
+ *
+ * ABSENT MAPS TO NULL rather than throwing. The codec would reject a version 1
+ * save missing the field before it ever reached here, so this branch is
+ * unreachable through the normal path. It is written because "total" means
+ * total, and because a migration is the wrong place to discover that an
+ * assumption about an earlier validator was wrong.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT IT DOES NOT DO
+ * ---------------------------------------------------------------------------
+ *
+ * It does not touch pools, meter figures, elapsed time or the PRNG state. A
+ * version 1 save loaded through this migration continues the same run, and
+ * `schemaVersionGate.test.ts` asserts the version 1 fixture still produces a
+ * state that passes the same validation a fresh save does.
+ *
+ * It does not invent a snapshot. Every migrated save gets `snapshot: null`,
+ * which is true: no version 1 save was ever offered the decision.
+ */
+const V1_TO_V2: Migration = {
+  from: 1,
+  to: 2,
+  migrate(save: UnversionedSave): UnversionedSave {
+    const progression = isRecord(save['progression']) ? save['progression'] : {};
+    const taken = progression['transitionTaken'];
+
+    const migratedProgression: Record<string, unknown> = { ...progression };
+    delete migratedProgression['transitionTaken'];
+    migratedProgression['endosymbiont'] = taken === true ? 'kept' : null;
+
+    return {
+      ...save,
+      schemaVersion: 2,
+      progression: migratedProgression,
+      snapshot: null,
+    };
+  },
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
  * The chain, in order, one entry per version step.
  *
- * EMPTY AT VERSION 1 and that is not an oversight. Adding an entry here is half
- * of what CLAUDE.md hard rule 7 requires; the other half is a committed fixture
- * at the input version, and `schemaVersionGate.test.ts` fails the suite if
- * either is missing.
+ * Adding an entry here is half of what CLAUDE.md hard rule 7 requires; the other
+ * half is a committed fixture at the input version, and
+ * `schemaVersionGate.test.ts` fails the suite if either is missing.
+ *
+ * It was empty from V4 to V14 and that was not an oversight either. The runner
+ * was built and proven against fabricated migrations that never shipped, so that
+ * the first real one ran on a mechanism that had already been tested rather than
+ * on one written the same afternoon.
  */
-export const MIGRATIONS: readonly Migration[] = [];
+export const MIGRATIONS: readonly Migration[] = [V1_TO_V2];
 
 export type MigrationOutcome =
   | { readonly kind: 'ok'; readonly save: UnversionedSave; readonly applied: number }
