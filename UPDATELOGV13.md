@@ -379,7 +379,103 @@ surface exposes it.
 
 ## Stage 3 Report
 
-_Pending._
+**`?jump=N`, in `src/ui/scenario.ts`, which is the file the stage named and the mechanism it already uses.**
+
+```
+  /                    the real act. Ferment locked, environment full
+  /?glucose=500        starved. Every flux low together, nothing piling up
+  /?ferment=on         skip the wall, for looking at the solved state
+  /?jump=1             begin in act 1, ignoring the save.  NEW
+```
+
+One new export, `jumpFromLocation(search, create)`, and one new caller, `App.tsx`. **Null for absent, malformed and unknown alike, and they are deliberately not distinguished.** `?jump=banana`, `?jump=1.5` and `?jump=3` against a build that knows one act all mean "no jump", and the player gets the real act off their save. There is nowhere to show a message on a door with no interface, and a development affordance that can break the game for a typo is worse than one that quietly does nothing. That is the behaviour every other parameter in the file already has.
+
+**`?jump=1&glucose=500` composes**, because `create` is threaded into the jump rather than one parameter silently winning. Asserted: the jumped state's `glucose_env` is 500.
+
+### Verified in a real browser rather than in the test that would have been enough
+
+`npm run dev`, Chromium, four navigations. **No console errors on any of them.**
+
+```
+  /?jump=1        fresh cell.  Elapsed 0.0 min, glucose_env 79992.45, no unlocks
+                  bought, the full act screen rendering: deep time, the rail,
+                  the pathway, the shelf
+  after 33 s      autosave fired at the 30 s interval and wrote, into real
+                  localStorage:
+                     settings     {"jumpedToAct":1}
+                     progression  {"act":1,"unlocked":[],
+                                   "transitionTaken":false,"shuttleChoice":null}
+  /               NO query string. Loaded the jumped save and continued it at
+                  Elapsed 1.0 min, with {"jumpedToAct":1} still in settings
+  /?jump=3        did NOT start a fresh cell. Loaded the existing save and
+  /?jump=banana   continued at 1.1 min, which is the refusal working
+```
+
+**The third line is the one that matters.** A reload with no query string and no jump option picked up the jumped save and carried the mark, which is the property the mark reads out of `settings` rather than out of the option in order to have.
+
+### The flaw it had to avoid, and it does
+
+`?ferment=on` does not survive a reload, because it enables a reaction without minting an unlock id, so a restored save has no `ferment` in `progression.unlocked`. NOW.md records that so the next person is not confused by it.
+
+**A jump cannot have that bug, because it produces a real state rather than a runtime override.** Asserted end to end: jump, run 2400 ticks, buy lactate dehydrogenase, save, then construct a fresh runtime with **no query string and no jump option**. Hash identical, `unlocked` identical, `fermentUnlocked` true, `jumpedToAct()` still 1.
+
+### No player path, asserted five ways
+
+The rule is docs/PROGRESSION.md's and it is not negotiable: acts are strictly sequential. So the guard is structural rather than a promise.
+
+```
+  jumpFromLocation is called by exactly    ['App.tsx']
+  resolveActJump  is called by exactly     ['ui/scenario.ts']
+  files under src/ui/components/ naming
+    the jump, the mark or the resolver     []
+  App gets its jump from window.location
+    .search, one call, not in a callback   asserted, plus no onClick and
+                                           no setJump
+  plus stage 2's guard: no component or
+    App may mention jumpedToAct at all     []
+```
+
+**A player cannot find by exploring a thing that no rendered file knows exists.** There is no button, no shelf slot, no menu item and no label, and the tests fail the build if one appears.
+
+**Low discoverability is the decision rather than the side effect.** It is not hidden because it is embarrassing. It is not surfaced because a skip in the interface is a product decision nobody has taken, and docs/PILLARS.md does not obviously forbid one, which is exactly why it should not arrive through a log about a debugging tool.
+
+### Step 3, answered honestly: a query string does not serve a teacher, and the reason is not the query string
+
+**The obvious answer is that a teacher will not type a query parameter. That is true and it is the less important half.**
+
+The real problem is a mismatch between what a jump lands on and what a lesson needs. **A jump lands at an act's BEGINNING. A lesson wants a BEAT.** Those coincide exactly once, in act 1, where the NAD+ wall arrives about three seconds in. Everywhere else they do not:
+
+```
+  act 1   45 to 90 min     NAD+ wall at ~3 s from the start.  REACHABLE
+  act 2   90 to 150 min    oxygen as poison before fuel, inside the act
+  act 3   120 to 180 min   chemiosmosis, and the 2 to 30 payoff at the END
+  act 4   150 to 240 min   regulation, across the whole act
+
+  a school period          40 to 50 min including setup and packing up
+```
+
+**Jumping to act 3 to show a class chemiosmosis buys a cell at the start of a 120 to 180 minute act.** The period ends before the beat arrives. So the jump makes act 3 reachable for a **developer**, which is what this log needed and what its Context claims, and it does not make act 3's argument reachable for a **teacher**.
+
+**What V15 has to build, recorded so its stage 1 has an input rather than a question.** Not a nicer jump. A **named beat** a teacher selects, which resolves to an act plus a state within it plus whatever purchases that state implies. `resolveActJump` is the right substrate for it and is deliberately not that: it takes an act number, and a beat selector would take a beat id and return a jump. That is a content decision about which beats are worth a period, which is what V15 stage 1 is for, and it is exactly the question this log declined to answer on a teacher's behalf.
+
+**One thing the query string already gives a teacher that is worth keeping.** A URL is shareable, bookmarkable and survives being written on a whiteboard. Whatever surface V15 builds should produce one rather than replace it. docs/PILLARS.md rule 7 rules out a backend, so a URL is the only thing this game can hand somebody that is not a file.
+
+### The destructive cost, carried forward from stage 2 and not fixed here
+
+Stage 2 measured it: **a jump overwrites the player's most recent save on its first write and leaves no copy of it**, because `createSaveStore` starts `activeKnownGood` false and a jump is the first session in the project's history that deliberately does not load. The older generation survives in the backup slot; the latest one does not.
+
+**Left as measured, and the door is sized against it.** The mitigation this stage supplies is that the door is a query parameter nobody reaches by accident, with no interface, asserted by five tests. That is the same protection `?glucose=500` has, against a smaller risk, and it is the honest position rather than a fix: **the right fix is for the store to be told the active slot is worth preserving, and that is a `src/save/` change in a stage about routing.** Recorded in the stage 4 NOW.md pass as work, not as a note.
+
+### Verify
+
+```
+  tsc --noEmit     clean
+  eslint .         clean
+  suite            1011 passed across 61 files, up from stage 2's 1001 across 60
+  browser          4 navigations, 0 console errors, mark written and reloaded
+  git diff         src/App.tsx and src/ui/scenario.ts. No simulation file,
+                   no tuning file, no component
+```
 
 ---
 
