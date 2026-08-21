@@ -521,7 +521,115 @@ blocking with both exits named.
 
 ## Stage 4 Report
 
-_Pending._
+**Everything green, no canonical hash moved, and the log added a door and a definition without touching the game.**
+
+### Full verify
+
+```
+  npm run typecheck        clean
+  npm run lint             clean
+  npm run build            clean, budget printed below
+  npm test                 1011 passed across 61 files
+  npm run sim              conservation drift, worst 3.259e-14 on carbon
+  npm run sim:act1         conservation drift, worst 2.001e-15 on redox
+  npm run offline:validate 48 cases, every case inside tolerance
+  npm run probe:determinism   four hashes, all four unmoved
+  headless playthrough     10 purchases, 0.0067 percent, identical tick
+```
+
+**The suite is 1011 across 61 files, up from V12's 960 across 55.** Six new files and 51 tests:
+
+```
+  content/__tests__/actStart.test.ts    the start state, on the content side
+  content/__tests__/actJump.test.ts     the registry, the refusals, the wrapper
+  ui/__tests__/actStart.test.ts         the runtime new-game path IS the function
+  ui/__tests__/actJump.test.ts          the mark, the three forms, the offline path
+  ui/__tests__/jumpRoute.test.ts        the route, the reload, no player path
+  save/__tests__/jumpedToAct.test.ts    the diagnostic guard
+```
+
+**Two of them are split by the import rule rather than by subject.** `actStart` and `actJump` each have a content half and an interface half, because nothing in `src/content/` may import `src/ui/`, and asserting that the runtime's new-game path IS the start-state function needs a runtime.
+
+### Bundle
+
+```
+  application (apportioned)      90.24 kB  budget 130.00     V12: 89.55
+  dependencies (apportioned)    219.18 kB  budget 230.00
+  fonts                          68.86 kB  budget  72.00
+  styles                         22.64 kB  budget  32.00
+  other                           3.85 kB
+  total                         404.78 kB  budget 460.00     V12: 404.02
+```
+
+**+0.76 kB total and +0.69 kB application**, for one content file, one route function, one runtime option and a settings key. The whole log is 0.19 percent of the ceiling V9 built.
+
+### No simulation change and no visual change, which is step 2's real question
+
+**All four determinism probe hashes reproduce V9's values character for character:**
+
+```
+                  toy canonical   act1 canonical   toy 200000    act1 200000
+  node            172f83fb        65b43d27         f9292a7e      35d7c4b8
+```
+
+**The headless playthrough reports V11's figures to the digit**: 10 purchases, 228226.225 ATP live against 228210.962 across the absence, 0.0067 percent disagreement against a 2 percent tolerance, landing on the identical tick.
+
+**`git diff` from V12's tip is empty across all three tuning files, docs/SCIENCE.md and docs/ECONOMY.md.** No tuned scalar was added, so the divergence table is owed nothing and its guard is silent because there is nothing to say.
+
+**And no component changed.** The interface diff for the whole log is `src/App.tsx`, which gained a lazy initialiser and two props, and `src/ui/scenario.ts`, which gained one exported function. `src/ui/runtime.ts` changed, and its change is behaviour-neutral for every session that is not a jump: five `restoredOk === null` ternaries became one `??`.
+
+### NOW.md
+
+Updated, and the diff is:
+
+```
+  Status            five new paragraphs at the top, headed by the ordering
+                    decision, because it is now the only thing on the page
+                    that no amount of building resolves
+  Build state       V13's row, with the rest of teacher mode in its "does not"
+  What the act      actStart.ts and actJump.ts added to the file list, with
+    layer does      the three deliberate absences and why
+  Offline path      three new determinism statements beside the offline
+                    path's three, plus the fourth claim and its qualifier
+  The guards        eleven to thirteen, and the note that V9's buildId guard
+                    caught V13 in a doc comment
+  The schema        no bump, fourth log to decide it rather than assume it
+    decision
+  What V13          six entries. No teacher mode, no save repair, no interface,
+    did not do      no handover, no act 3, no cold read
+  Settled           seven entries dated 2026-08-20
+  Blocking          item 7, the save a jump overwrites
+  Open              the jump reaches acts and a lesson needs beats
+  Next, in order    item 1 is now act 3, BLOCKED, with both exits priced
+```
+
+### The act ordering decision, stated as blocking
+
+**It has been open since the engineering review, it has cost nothing for five logs, and V13 is the last log that could be finished without it.**
+
+Everything scheduled before V14 was act-agnostic by construction: two spine logs and a jump. **V14 is not.** It has to write act 3's chemistry, act 3's payoff is yield going from 2 to roughly 30, that needs oxygen as the terminal electron acceptor, and act 2 is what supplies the oxygen.
+
+```
+  A.  act 3 next, as the design doc schedules it
+      Price: a placeholder oxygen constant, a DEPARTURE row in
+      docs/ECONOMY.md that says so, and an act 3 rebalance when act 2
+      lands. The 2 to 30 figure ships against a number act 2 will move.
+
+  B.  flip the order, V14 becomes act 2
+      Price: withdraw the value-ordering argument that put act 3 first,
+      which was that act 3 carries the game's headline claim and should
+      exist earliest. Act 2 is also the higher-risk act, because damage
+      is the first mechanic that takes something away from a player and
+      nobody outside this project has read anything yet.
+```
+
+**Two inputs have been removed from it and neither picks an order.** V9 wrote act 2's oxygen schedule constraint into docs/SIMULATION.md Part 3, so whichever act introduces a rising environment inherits a shape rather than inventing one. And docs/SAVE_SCHEMA.md Part 1 names the act 2 log as the next expected schema bump either way.
+
+**This is a decision for a person.** `UPDATELOGV14.md` opens with a BLOCKED UNTIL A DECISION IS TAKEN block naming NOW.md as where the answer goes.
+
+### One thing this log leaves that it did not create and did not fix
+
+**Blocking item 7**, the save a jump overwrites. Measured in stage 2, sized in stage 3, carried into NOW.md as work. The fix is a flag on `SaveStoreOptions` telling the store its active slot is worth preserving without having loaded from it. It is small, it is in `src/save/`, and it was out of scope for a stage about routing.
 
 ---
 
