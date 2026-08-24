@@ -11,10 +11,10 @@ This is the record required by docs/PILLARS.md rule 5: where the game departs fr
 Every tuned number in the project has a row below. A tuned number is a number nobody sourced, that the game needs anyway, and that a balance pass may move. They live in exactly three files and nowhere else:
 
     src/content/act1/tuning.ts    24
-    src/ui/tuning.ts              23
+    src/ui/tuning.ts              24
     src/save/tuning.ts             1
                                   --
-                                  48
+                                  49
 
 ## What this document is not
 
@@ -33,7 +33,7 @@ It is not a design document. It says what the numbers are and why they are what 
 
 The distinction matters and it is the reason the table has a column that is sometimes empty. Rule 5 says departures get recorded. It does not say invent a departure for a number that never departed from anything, and a plausible sentence in the real behaviour column of an UNSOURCED row would be the exact failure this table exists to prevent.
 
-Of the 48 rows, **33 are DEPARTURE and 15 are UNSOURCED**.
+Of the 49 rows, **33 are DEPARTURE and 16 are UNSOURCED**.
 
 ## How to read a row
 
@@ -91,7 +91,7 @@ C13 moved the act 1 canonical hash from `e9b720a8` to `657594cb`. Starting amoun
 
 ## src/ui/tuning.ts
 
-Twenty-three numbers. Nine are DEPARTURE and fourteen are UNSOURCED, and the split falls exactly where you would expect: the two capacity ladders hold Vmax values, which are the same kind of number as C1 to C5, and everything else in the file is a perception threshold or a purchase gate.
+Twenty-four numbers. Nine are DEPARTURE and fifteen are UNSOURCED, and the split falls exactly where you would expect: the two capacity ladders hold Vmax values, which are the same kind of number as C1 to C5, and everything else in the file is a perception threshold or a purchase gate.
 
 | Id | Value | Where | The real behaviour | What the game does instead | Why | Introduced |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -118,6 +118,7 @@ Twenty-three numbers. Nine are DEPARTURE and fourteen are UNSOURCED, and the spl
 | U17 | 108000, was 93000 | `GLYCOLYSIS_ATP_THRESHOLDS[1]` | | Second rung | Target 41m06s, reading 107975, lands at 41m07s | V5 stage 3, re-derived in V10 stage 5 |
 | U18 | 131000, was 139000 | `GLYCOLYSIS_ATP_THRESHOLDS[2]` | | Third rung | Target 47m30s, reading 131209, lands at 47m27s | V5 stage 3, re-derived in V10 stage 5 |
 | U19 | 158000, was 195000 | `GLYCOLYSIS_ATP_THRESHOLDS[3]` | | Fourth and last rung | Target 54 minutes, reading 157749, lands at 54m03s. **The four together, with U20, U21 and U23 between them, hold every gap in the act to between 6m19s and 6m43s**, against 13m02s to 13m51s under V5's values. The longest wait is what NOW.md blocking item 2 is about, and the worst gap in the act is now U9's, which this log did not move | V5 stage 3, re-derived in V10 stage 5 |
+| U24 | 10000 | `DIGEST_GLUCOSE_YIELD` | Digesting a cell yields its body as substrate. Nothing in docs/SCIENCE.md says how much carbon an alphaproteobacterium is worth | 10000 glucose delivered into `glucose_env` in one event, which is 40000 gross ATP at act 1's own sourced yield of 4 | **docs/PROGRESSION.md asks for "a large one-off ATP payout" and an ATP payout is impossible here twice over, so this is substrate instead.** It cannot go into the `atp` pool, because the adenylate total is fixed, closed and conserved at 40 and adding to it breaks conservation on the tick it happens, which is the same constraint the structural departures section gives as the reason unlocks are thresholds rather than purchases. **And it cannot go into the meter**, because `atpPerCompletedGlucose` divides `meter.atpProduced` by the glucose that finished, so a credit there makes the game report more than 4 gross per glucose. That is the one claim act 1 exists to make, asserted to nine decimal places since V2 and across all nine configurations since V5. Delivered as substrate the ATP arrives through the player's own glycolysis at the yield they have had all act, the ledger is untouched, and **the 40000 is derived from a sourced 4 rather than picked**. Sized against two measured figures: act 1's whole environment is 80000 glucose and 320000 gross, so this is an eighth of the act's larder arriving at once, and act 3 at roughly fifteen times is about 4.8 million, so it is under 1 percent of what refusing the compartment costs. Large against what you have and negligible against what you gave up, which is the shape of the mistake | V14 stage 3 |
 
 ## src/save/tuning.ts
 
@@ -174,6 +175,12 @@ Some departures are not attached to any number, so they cannot have a row. They 
 **The storage cost is charged at the wrong end, on purpose.** A real glycogen cycle costs 2 ATP equivalents going in, 1 at hexokinase and 1 at ADP-glucose pyrophosphorylase, and refunds 1 coming out, because glycogen phosphorylase hands back an already phosphorylated sugar that re-enters glycolysis past the hexokinase step. The net is 1 ATP equivalent per glucose cycled. **This model has no glucose-6-phosphate pool, so the refund has nowhere to be realised**: a mobilised unit lands in `glucose` and pays `prep`'s full entry cost like any other. So `store` charges 1 and `mobilise` charges nothing, which reproduces the real NET cost exactly and moves only where it is charged. It has no row because no tuned number carries it: the coefficient is in `reactions.ts` and is stoichiometry rather than balance. The one observable consequence, disclosed rather than hidden, is that a unit stored and never retrieved cost 1 where a real cell paid 2.
 
 **Act 1 ships a futile cycle and cannot regulate it away.** A real cell controls glycogen synthesis and degradation reciprocally so the two do not run hard at once. `computeFlux` takes the minimum of per-substrate saturation terms and `Kinetics` has no inhibition term, so a reaction can be slowed by a scarce substrate and never by an abundant regulator. With storage bought, both directions run and the same carbon is cycled at the rate of the slower one, at 1 ATP a turn. **This is a real failure mode of a real cell rather than a modeling artifact**, and docs/SCIENCE.md Part 5 names the same thing for glycolysis against gluconeogenesis. What suppresses it is allosteric control, which is act 4's theme. C22 and C24 bound it as far as substrate saturation can.
+
+**Carbon enters the system once, at a moment that is not t=0, and it is the only time that ever happens.** Added 2026-08-24 by V14 stage 3. Every other amount in this game is present at construction and is moved around thereafter, which is what makes the conservation property test the cheapest guard in the project. Digesting the endosymbiont puts 10000 glucose into `glucose_env` at the transition. See U24.
+
+**It is an input rather than a leak and the difference is that it is accounted.** The carbon is the endosymbiont's body and the endosymbiont arrived from outside the cell, which is the same status the environment's own 80000 has: matter the system did not make. What differs is only the timing, and the timing is what makes it worth a paragraph. `transition.test.ts` asserts the carbon total rises by exactly 10000 times the glucose carbon weight of 6 and that no other pool moves by anything, so the input is exact rather than approximately right.
+
+**The one thing this costs is that a conservation assertion spanning the transition has to know about it.** No existing test does, because no existing test digests. A later log that runs a conservation sweep across a whole game rather than across an act will have to subtract this, and it is written here so that whoever writes it finds the reason rather than a mystery of 60000 carbon.
 
 **The environment is a finite unreplenished pool.** See C13. It is called out here as well because it shapes every rate in the content file: uptake stays near saturation only while the environment is far above C6, and every measurement in this document assumes that.
 

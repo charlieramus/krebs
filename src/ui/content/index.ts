@@ -20,6 +20,7 @@
  *     about.ts          the first run, the about panel, the disclosure
  *     offline.ts        the offline return
  *     endOfContent.ts   the act boundary, and what it says
+ *     transition.ts     the one irreversible decision, and both outcomes
  *     save.ts           the save panel
  *     timeline.ts       the seven stops, the marker and the axis disclosure
  *     beast.ts          what each of the cell's four readings is called
@@ -32,7 +33,7 @@
  */
 
 export type { Entry } from './common';
-export { PART1, PART2, PART6, ABOUT_THE_BUILD } from './common';
+export { PART1, PART2, PART4, PART6, ABOUT_THE_BUILD } from './common';
 export * from './molecules';
 export * from './pathway';
 export * from './topBar';
@@ -43,6 +44,7 @@ export * from './teaching';
 export * from './about';
 export * from './offline';
 export * from './endOfContent';
+export * from './transition';
 export * from './save';
 export * from './timeline';
 export * from './beast';

@@ -71,6 +71,30 @@ export const STORAGE_KEYS = {
   backup: `${STORAGE_PREFIX}backup`,
   /** Written first, read back, verified, then swapped in. Never loaded from. */
   temp: `${STORAGE_PREFIX}temp`,
+  /**
+   * THE TRANSITION SNAPSHOT. UPDATELOGV14.md stage 3.
+   *
+   * The state of the cell immediately before the one irreversible decision in
+   * the game. docs/PROGRESSION.md asks for an undo on that decision and on no
+   * other, so there is one of these and it is written once.
+   *
+   * IT IS NOT A THIRD BACKUP AND IT IS NEVER PART OF THE WRITE PATH. `write`
+   * does not touch it, `load` does not read it, and a corrupt active slot never
+   * recovers from it. It sits outside the rotation entirely: the active and
+   * backup slots are a save and its predecessor, and this is one authored moment
+   * the player is allowed to return to.
+   *
+   * WHY IT NEEDS NO SCHEMA BUMP, WHICH THE STAGE TOLD THIS LOG TO CHECK.
+   * docs/SAVE_SCHEMA.md Part 1 lists what forces a version: renaming a field,
+   * changing a type, changing units, changing a meaning, or removing a field.
+   * A new KEY holding an unmodified `SaveV1` does none of those. The shape on
+   * disk is the shape every other slot holds, it round-trips through the same
+   * codec, and a build that has never heard of this key reads the active slot
+   * exactly as it did before. What changed is Part 4, which described the
+   * storage layout as one active slot plus one backup, and Part 4 is a
+   * description rather than a version.
+   */
+  snapshot: `${STORAGE_PREFIX}snapshot`,
 } as const;
 
 /* ===========================================================================
@@ -144,6 +168,36 @@ export interface SaveStore {
    * away the one artifact that would let anyone work out what went wrong.
    */
   acceptRecovery(): WriteOutcome;
+
+  /* ===== The transition snapshot. UPDATELOGV14.md stage 3. ===== */
+
+  /**
+   * Store the state to return to if the player undoes the transition.
+   *
+   * Verified the same way a save is, because a snapshot that does not read back
+   * is an undo button that does nothing, and the player finds that out at the
+   * one moment in the game where it cannot be retried.
+   */
+  writeSnapshot(save: SaveV1): WriteOutcome;
+
+  /** The stored snapshot, or null if there is not one that parses. */
+  readSnapshot(): SaveV1 | null;
+
+  /** Whether a snapshot is present. Does not parse it. */
+  hasSnapshot(): boolean;
+
+  /**
+   * Make the snapshot the save.
+   *
+   * The current active slot is promoted to backup on the way past, so undoing
+   * does not throw away the post-decision state. The snapshot slot is cleared,
+   * because the undo is one decision deep and a second press of the same button
+   * would otherwise return to the same moment forever.
+   */
+  restoreSnapshot(): WriteOutcome;
+
+  /** Drop the snapshot. Called once the decision is settled. */
+  clearSnapshot(): void;
 
   /** Remove every key this store owns. Development and tests. */
   clear(): void;
@@ -236,7 +290,14 @@ export function createSaveStore(options: SaveStoreOptions = {}): SaveStore {
   function fallBackToMemory(reason: NonDurableReason): void {
     if (!durable) return;
     const carried: Record<string, string> = {};
-    for (const key of [STORAGE_KEYS.active, STORAGE_KEYS.backup, STORAGE_KEYS.temp]) {
+    for (const key of [
+      STORAGE_KEYS.active,
+      STORAGE_KEYS.backup,
+      STORAGE_KEYS.temp,
+      // Carried like the rest. A quota failure between taking the snapshot and
+      // making the decision must not silently remove the undo.
+      STORAGE_KEYS.snapshot,
+    ]) {
       try {
         const value = store.getItem(key);
         if (value !== null) carried[key] = value;
@@ -416,10 +477,74 @@ export function createSaveStore(options: SaveStoreOptions = {}): SaveStore {
       return { kind: 'written', durable };
     },
 
+    writeSnapshot(save: SaveV1): WriteOutcome {
+      const text = serialize(save);
+      try {
+        store.setItem(STORAGE_KEYS.snapshot, text);
+      } catch (error) {
+        fallBackToMemory(quotaLike(error) ? 'quota' : 'unavailable');
+        try {
+          store.setItem(STORAGE_KEYS.snapshot, text);
+        } catch (retryError) {
+          return { kind: 'failed', reason: describeError(retryError), durable };
+        }
+      }
+      // Read back and parse, exactly as `write` does. An undo that cannot be
+      // taken must be known about before the choice, not after it.
+      const readBack = store.getItem(STORAGE_KEYS.snapshot);
+      if (readBack !== text) {
+        return { kind: 'failed', reason: 'snapshot read did not match what was written', durable };
+      }
+      if (deserialize(readBack).kind !== 'ok') {
+        return { kind: 'failed', reason: 'snapshot read did not parse', durable };
+      }
+      return { kind: 'written', durable };
+    },
+
+    readSnapshot(): SaveV1 | null {
+      const text = store.getItem(STORAGE_KEYS.snapshot);
+      if (text === null) return null;
+      const parsed = parseAndMigrate(text);
+      return parsed.kind === 'ok' ? parsed.save : null;
+    },
+
+    hasSnapshot(): boolean {
+      return store.getItem(STORAGE_KEYS.snapshot) !== null;
+    },
+
+    restoreSnapshot(): WriteOutcome {
+      const text = store.getItem(STORAGE_KEYS.snapshot);
+      if (text === null) {
+        return { kind: 'failed', reason: 'there is no snapshot to return to', durable };
+      }
+      if (parseAndMigrate(text).kind !== 'ok') {
+        return { kind: 'failed', reason: 'the snapshot does not parse', durable };
+      }
+
+      const current = store.getItem(STORAGE_KEYS.active);
+      try {
+        // The state being undone goes to backup rather than to the bin. Undoing
+        // is a decision too, and this is the only copy of what it discarded.
+        if (current !== null) store.setItem(STORAGE_KEYS.backup, current);
+        store.setItem(STORAGE_KEYS.active, text);
+        store.removeItem(STORAGE_KEYS.snapshot);
+      } catch (error) {
+        return { kind: 'failed', reason: describeError(error), durable };
+      }
+
+      activeKnownGood = true;
+      return { kind: 'written', durable };
+    },
+
+    clearSnapshot(): void {
+      store.removeItem(STORAGE_KEYS.snapshot);
+    },
+
     clear(): void {
       store.removeItem(STORAGE_KEYS.active);
       store.removeItem(STORAGE_KEYS.backup);
       store.removeItem(STORAGE_KEYS.temp);
+      store.removeItem(STORAGE_KEYS.snapshot);
       activeKnownGood = false;
     },
   };

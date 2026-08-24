@@ -41,8 +41,10 @@
 import { useRef, useState } from 'react';
 import { useRuntime, useSnapshotEffect } from '../RuntimeContext';
 import type { ActSnapshot } from '../runtime';
+import type { TransitionDecision } from '../../content/transition';
 import {
   ACT_COMPLETE_ANNOUNCEMENT,
+  TRANSITION_ANNOUNCEMENTS,
   ANNOUNCEMENTS,
   LANDMARKS,
   UNLOCKS,
@@ -60,12 +62,25 @@ import {
 /**
  * Everything currently true that is worth saying, as a set of stable keys.
  *
+ * EXPORTED SINCE UPDATELOGV14.md STAGE 3, AND THE REASON IS A DEFECT THAT WAS
+ * ALREADY THERE. `surfaces.test.ts` counts the announcements a full act produces
+ * and its own comment says it replays "the Announcer's own event derivation".
+ * It did not: it reimplemented the fourteen lines below, so the count it
+ * reported was a count of a copy. Stage 3 added two keys here and the copy could
+ * not see either of them, which is the drift that makes two copies of one fact
+ * the defect this project keeps writing down. There is one derivation now and
+ * the test calls it.
+ *
  * Keys rather than sentences, because the announcement is a function of the key
  * and comparing keys is what makes "has this already been said" cheap. The
  * purchase keys carry their step, so buying the second rung is a different event
  * from buying the first.
  */
-function events(snapshot: ActSnapshot, canBuyGlycolysis: boolean): string[] {
+export function announcementKeys(
+  snapshot: ActSnapshot,
+  canBuyGlycolysis: boolean,
+  transition: { readonly available: boolean; readonly decision: TransitionDecision },
+): string[] {
   const keys: string[] = [];
 
   if (snapshot.walled) keys.push('walled');
@@ -96,6 +111,28 @@ function events(snapshot: ActSnapshot, canBuyGlycolysis: boolean): string[] {
    */
   if (snapshot.actComplete) keys.push('act-complete');
 
+  /*
+   * THE TRANSITION, AFTER THE ENDING AND IN THE ORDER IT HAPPENS.
+   * UPDATELOGV14.md stage 3.
+   *
+   * THREE KEYS AND AT MOST TWO EVER FIRE, because the arrival and a decision
+   * are the two states a session can pass through and the two outcomes are
+   * mutually exclusive. That is the count the accessibility rule cares about:
+   * DESIGN.md's second-channel table gives the gradient two announcements on
+   * the same argument, and V12 added zero to an act that had seventeen because
+   * two announcements about one fact is the same defect as two copies of one
+   * fact in a save.
+   *
+   * IT DOES NOT NARRATE THE CARD. What is on screen is text the player can
+   * read. What these say is the thing a screen reader user would otherwise only
+   * learn by discovering that an upgrade stopped working, which is exactly the
+   * silent loss docs/PROGRESSION.md says must not happen: "Losing control
+   * silently reads as a bug; losing it with a stated reason reads as biology."
+   */
+  if (transition.available) keys.push('transition:arrived');
+  if (transition.decision === 'kept') keys.push('transition:kept');
+  if (transition.decision === 'digested') keys.push('transition:digested');
+
   return keys;
 }
 
@@ -103,6 +140,9 @@ function sentence(key: string): string {
   if (key === 'walled') return ANNOUNCEMENTS.walled.text;
   if (key === 'recovered') return ANNOUNCEMENTS.recovered.text;
   if (key === 'act-complete') return ACT_COMPLETE_ANNOUNCEMENT.text;
+  if (key === 'transition:arrived') return TRANSITION_ANNOUNCEMENTS.arrived.text;
+  if (key === 'transition:kept') return TRANSITION_ANNOUNCEMENTS.kept.text;
+  if (key === 'transition:digested') return TRANSITION_ANNOUNCEMENTS.digested.text;
   const [kind, which] = key.split(':') as [string, string];
   const name =
     which === 'ferment'
@@ -130,7 +170,10 @@ export function Announcer() {
     const recovered = wasWalled.current && !snapshot.walled;
     wasWalled.current = snapshot.walled;
 
-    const keys = events(snapshot, runtime.canBuyGlycolysisStep());
+    const keys = announcementKeys(snapshot, runtime.canBuyGlycolysisStep(), {
+      available: runtime.transitionAvailable(),
+      decision: runtime.transitionDecision(),
+    });
     if (recovered) keys.push('recovered');
 
     const fresh = keys.find((key) => !said.current.has(key));
@@ -172,6 +215,20 @@ export function Announcer() {
  */
 export const ACT1_ANNOUNCEMENT_COUNT =
   3 + 2 * (1 + (UPTAKE_VMAX_STEPS.length - 1) + (GLYCOLYSIS_STEPS.length - 1));
+
+/**
+ * What the transition adds, on top of the act. UPDATELOGV14.md stage 3.
+ *
+ * TWO, NOT THREE. The arrival is one, and then exactly one of the two outcomes.
+ * A session cannot hear both `kept` and `digested`, because
+ * `transitionDecisionFrom` throws on a state that claims both, so the third key
+ * exists and is unreachable in the same session as the second.
+ *
+ * Kept separate from the act's own count rather than folded into it, because it
+ * is not part of act 1: a player who never finishes the act never hears either,
+ * and the seventeen V11 measured is still the number for a full act 1.
+ */
+export const TRANSITION_ANNOUNCEMENT_COUNT = 2;
 
 /** Used by the test that pins the count, so the ladders cannot drift apart. */
 export const ACT1_PURCHASE_COUNT =

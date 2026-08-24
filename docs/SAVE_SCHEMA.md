@@ -289,7 +289,11 @@ Anything under settings is presentation. If a setting would change simulation ou
 
 # Part 4: Storage
 
-localStorage, keyed with a stable prefix. Single active save slot plus one backup slot.
+localStorage, keyed with a stable prefix. Single active save slot, one backup slot, one write-verification slot, and one transition snapshot.
+
+**The snapshot slot was added 2026-08-24 by V14 stage 3 and it is not a third backup.** docs/PROGRESSION.md asks for an undo on the endosymbiosis decision and on no other, so there is one of these, it is written once, and it sits outside the active-to-backup rotation entirely: `write` never touches it, `load` never reads it, and a corrupt active slot never recovers from it. The active and backup slots are a save and its predecessor. This is one authored moment the player is allowed to return to.
+
+**It required no version bump and the reasoning is Part 1's own.** A bump is forced by renaming a field, changing a type, changing units, changing a meaning, or removing a field. A new key holding an unmodified `SaveV1` does none of those: the bytes are the shape every other slot holds, they round-trip through the same codec, and a build that has never heard of the key reads the active slot exactly as before. What changed is this section, which described the layout as one active slot plus one backup, and a description is not a version.
 
 Serialized as JSON. No compression at version 1. Revisit only if a real save approaches storage limits, which is unlikely for this shape.
 

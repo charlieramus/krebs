@@ -333,6 +333,20 @@ export const ACT1_NO_CARRIED_COUNTERS: Act1CarriedCounters = {
 export interface Act1CaptureContext {
   readonly meta: SaveMetaV1;
   readonly carried: Act1CarriedCounters;
+  /**
+   * Whether the endosymbiont was kept. UPDATELOGV14.md stage 3.
+   *
+   * OPTIONAL, AND DEFAULTS TO FALSE, which is the same posture as every other
+   * additive field in this schema. It arrives as an argument rather than being
+   * derived because it is not a fact about the simulation: no pool, no tick and
+   * no reaction records it, in the same way `meta` is not derivable and for the
+   * same reason. See `src/content/transition.ts`, which owns what it means.
+   *
+   * It was a hardcoded `false` here from V4 to V14, with a comment saying that
+   * was honestly true of act 1 rather than a placeholder. It was true, and it
+   * stops being true the moment a player keeps the stranger.
+   */
+  readonly transitionTaken?: boolean;
 }
 
 /**
@@ -375,9 +389,11 @@ export function captureAct1(
     progression: {
       act: 1,
       unlocked: unlocked.slice(),
-      // Endosymbiosis is act 3 and there is no shuttle to choose in act 1.
-      // Written because both are honestly true of this state, not as placeholders.
-      transitionTaken: false,
+      // Endosymbiosis is the transition at the end of this act and the shuttle
+      // is act 3's own. `transitionTaken` became real in V14 stage 3 and is
+      // passed in; the shuttle is still honestly null, because nothing can
+      // choose one until the compartment exists. Stage 5 changes the second.
+      transitionTaken: context.transitionTaken ?? false,
       shuttleChoice: null,
     },
     pools,
@@ -422,6 +438,15 @@ export interface Act1Restored {
   readonly settings: SaveSettingsV1;
   readonly unlocks: Act1Unlocks;
   readonly carried: Act1CarriedCounters;
+  /**
+   * Whether the save had kept the endosymbiont. UPDATELOGV14.md stage 3.
+   *
+   * Carried straight off `progression.transitionTaken` rather than derived from
+   * the unlock list, because it IS the field. The digest half of the decision is
+   * an unlock id and comes back through `unlocked` like every other one, which
+   * is why there is one field here and not two. See `src/content/transition.ts`.
+   */
+  readonly transitionTaken: boolean;
 
   /**
    * Game time discarded by flooring `elapsedGameMs` to a whole tick. Zero unless
@@ -523,6 +548,7 @@ export function restoreAct1(save: SaveV1): Act1RestoreResult {
       unlocked: save.progression.unlocked.slice(),
       settings: { ...save.settings },
       unlocks,
+      transitionTaken: save.progression.transitionTaken,
       carried: {
         negativePoolScalingEvents: save.diagnostics.negativePoolScalingEvents,
         offlineCreditedMs: save.time.offlineCreditedMs,

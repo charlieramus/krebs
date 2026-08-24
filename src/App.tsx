@@ -38,6 +38,7 @@ import { About } from './ui/components/About';
 import { Announcer } from './ui/components/Announcer';
 import { FirstRunCard } from './ui/components/FirstRunCard';
 import { EndOfContent } from './ui/components/EndOfContent';
+import { TransitionArrivalCard, TransitionOutcomeCard } from './ui/components/Transition';
 import { OfflineReturn } from './ui/components/OfflineReturn';
 import { OverlayOpenProvider } from './ui/components/Overlay';
 import { PathwayCard } from './ui/components/PathwayCard';
@@ -111,10 +112,40 @@ function ActScreen() {
    */
   const [provenance, setProvenance] = useState<Provenance | null>(null);
 
+  /**
+   * THE TRANSITION. UPDATELOGV14.md stage 3.
+   *
+   * Three surfaces from two pieces of state: the arrival while the decision is
+   * open, and the outcome once it is made. `outcome` is set by the two handlers
+   * rather than derived from the runtime, because the outcome card should appear
+   * exactly once, on the session that made the choice, and not on every reload
+   * afterwards. What the runtime knows is the decision; what this knows is
+   * whether the player is currently being told about it.
+   */
+  const [arrival, setArrival] = useState(false);
+  const [outcome, setOutcome] = useState<'kept' | 'digested' | null>(null);
+
   useSnapshotEffect((snapshot) => {
     if (boundaryFired.current) return;
     if (!snapshot.actComplete) return;
     boundaryFired.current = true;
+
+    /*
+     * THE DECISION COMES BEFORE THE ENDING SCREEN, AND REPLACES IT WHEN IT IS
+     * AVAILABLE. `EndOfContent` says where the game currently ends. That is
+     * still the right thing to say to a player who already decided, and it is
+     * the wrong thing to say to one who has a stranger inside their cell.
+     *
+     * `offerTransition` writes the undo snapshot and returns false if the write
+     * did not verify, so a player is never shown the irreversible choice on a
+     * machine where the undo would not work. The fallback is the ending screen,
+     * which is honest: the act is over either way.
+     */
+    if (runtime.transitionAvailable() && runtime.offerTransition()) {
+      setArrival(true);
+      return;
+    }
+
     // Seen on a previous session. The flag is persisted for exactly this: the
     // act stays complete forever, so without it this would open on every launch.
     if (runtime.boundarySeen()) return;
@@ -124,6 +155,39 @@ function ActScreen() {
   function dismissBoundary() {
     runtime.markBoundarySeen();
     setBoundary(false);
+  }
+
+  function keepEndosymbiont() {
+    if (!runtime.keepEndosymbiont()) return;
+    setArrival(false);
+    setOutcome('kept');
+  }
+
+  function digestEndosymbiont() {
+    if (!runtime.digestEndosymbiont()) return;
+    setArrival(false);
+    setOutcome('digested');
+  }
+
+  /**
+   * Undo, and reload.
+   *
+   * The runtime writes the snapshot into the active slot and seals itself, so
+   * nothing in this session can write over it, and then the page is reloaded so
+   * the state is entered through construction. There is one way into a saved
+   * state in this project and this is not a second one. See `undoTransition`.
+   */
+  function undoTransition() {
+    if (!runtime.undoTransition()) return;
+    globalThis.location.reload();
+  }
+
+  function dismissOutcome() {
+    // The act is over on both branches, so the ending screen is what is behind
+    // this. Marking it seen here would skip it; letting it open is the state the
+    // player is actually in.
+    setOutcome(null);
+    if (!runtime.boundarySeen()) setBoundary(true);
   }
 
   function dismissFirstRun() {
@@ -136,7 +200,9 @@ function ActScreen() {
     // three seconds in, so on a fresh run it would open underneath the first run
     // card and spend its one firing unseen. See Overlay.tsx.
     <OverlayOpenProvider
-      open={firstRun || about || panel || offlineReturn || boundary || provenance !== null}
+      open={
+        firstRun || about || panel || offlineReturn || boundary || arrival || outcome !== null || provenance !== null
+      }
     >
       <ProvenanceProvider onOpen={(badge, measured) => setProvenance(provenanceFor(badge, measured))}>
       <TeachingPanelProvider onOpen={() => setPanel(true)}>
@@ -249,8 +315,25 @@ function ActScreen() {
           />
         ) : null}
         {firstRun ? <FirstRunCard onDismiss={dismissFirstRun} /> : null}
+        {/*
+          THE TRANSITION SITS WHERE THE ENDING SCREEN SITS AND OUTRANKS IT.
+          Same four exclusions, because a decision that cannot be dismissed must
+          not open underneath something that can: the player would be trapped
+          behind an overlay whose dismiss button is doing nothing they can see.
+        */}
+        {arrival && !offlineReturn && !firstRun && !about && !panel ? (
+          <TransitionArrivalCard onKeep={keepEndosymbiont} onDigest={digestEndosymbiont} />
+        ) : null}
+        {outcome !== null && !offlineReturn && !firstRun && !about && !panel ? (
+          <TransitionOutcomeCard
+            decision={outcome}
+            canUndo={runtime.canUndoTransition()}
+            onUndo={undoTransition}
+            onDismiss={dismissOutcome}
+          />
+        ) : null}
         {/* Never underneath another overlay. See the four cases above. */}
-        {boundary && !offlineReturn && !firstRun && !about && !panel ? (
+        {boundary && !arrival && outcome === null && !offlineReturn && !firstRun && !about && !panel ? (
           <EndOfContent onDismiss={dismissBoundary} />
         ) : null}
         {about ? <About onDismiss={() => setAbout(false)} /> : null}

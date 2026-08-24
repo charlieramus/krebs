@@ -439,6 +439,75 @@ export const OFFLINE_REPORT_THRESHOLD_MS = 60000;
    =========================================================================== */
 
 /* ===========================================================================
+   THE TRANSITION. UPDATELOGV14.md stage 3.
+   =========================================================================== */
+
+/**
+ * What digesting the endosymbiont yields, as GLUCOSE. docs/ECONOMY.md row U24.
+ *
+ * ---------------------------------------------------------------------------
+ * IT IS NOT AN ATP NUMBER, AND TWO INDEPENDENT THINGS FORBID ONE
+ * ---------------------------------------------------------------------------
+ *
+ * docs/PROGRESSION.md says digesting gives "a large one-off ATP payout".
+ * Delivered literally, as ATP, that is impossible here twice over.
+ *
+ * IT CANNOT GO INTO THE POOL. The adenylate total is fixed, closed and
+ * conserved at 40, so adding ATP to `atp` breaks conservation on the tick it
+ * happens. docs/ECONOMY.md already records that constraint as the reason
+ * unlocks are thresholds against a lifetime counter rather than purchases.
+ *
+ * IT CANNOT GO INTO THE METER EITHER, and this is the one that had to be found
+ * rather than remembered. `atpPerCompletedGlucose` is `meter.atpProduced`
+ * divided by the glucose that finished the pathway. `atpProduced` is the
+ * numerator of act 1's ledger. **A credit there makes the game report more than
+ * 4 gross ATP per glucose**, which is the single claim act 1 exists to make,
+ * which has been asserted to nine decimal places since V2 and across all nine
+ * purchasable configurations since V5. A payout that quietly falsified it would
+ * be the worst possible trade for a moment of drama.
+ *
+ * ---------------------------------------------------------------------------
+ * SO IT IS SUBSTRATE, WHICH IS BOTH POSSIBLE AND TRUER
+ * ---------------------------------------------------------------------------
+ *
+ * Digesting a cell yields its body. The endosymbiont's biomass enters
+ * `glucose_env` and the player's own glycolysis turns it into ATP at the yield
+ * they have had all act. Nothing is credited, nothing is asserted, and the
+ * ledger is untouched because the ATP arrives the way every other ATP in the
+ * game has arrived.
+ *
+ * **The ATP figure is therefore derived rather than picked**, which is the
+ * whole reason this is the better shape:
+ *
+ *   10000 glucose  x  4 gross ATP per glucose  =  40000 gross ATP
+ *
+ * and the 4 is sourced, docs/SCIENCE.md Part 2. The size is set against the two
+ * measured figures that make the lesson legible:
+ *
+ *   act 1's environment            80000 glucose     320000 gross ATP
+ *   this payout                    10000 glucose      40000 gross ATP
+ *   act 3 at roughly fifteen times                   ~4.8M
+ *
+ * An eighth of the act's whole larder arriving at once, which is the largest
+ * single good thing that has ever happened to the cell, against under one
+ * percent of what refusing the compartment costs. docs/PROGRESSION.md calls the
+ * digest path a teaching moment about short-term versus structural gains and
+ * that is the arithmetic of it, rendered by stage 6's payoff surface.
+ *
+ * ---------------------------------------------------------------------------
+ * THE ONE SCRIPTED MATTER INPUT IN THE GAME, DISCLOSED
+ * ---------------------------------------------------------------------------
+ *
+ * Carbon appears in the system at a moment that is not t=0. That is a real
+ * departure and it has a structural entry in docs/ECONOMY.md rather than being
+ * hidden inside this row: the carbon is the endosymbiont's body, the
+ * endosymbiont swam in from outside, and the amount is exact and accounted.
+ * `transition.test.ts` asserts that the carbon total rises by exactly
+ * 10000 x 6 and that nothing else in the pool array moves.
+ */
+export const DIGEST_GLUCOSE_YIELD = 10000;
+
+/* ===========================================================================
    THE BADGE
 
    Everything in this file is a game decision, so everything in this file
@@ -480,5 +549,8 @@ export const TUNING_BADGES = {
   ),
   glycolysisThreshold: tuned(
     'Spaced across the back of the act, because every earlier unlock lands inside its first five minutes',
+  ),
+  digestYield: tuned(
+    'The endosymbiont as substrate. Large against the act you have played and small against the one you are refusing, and nothing in biology says what a digested cell is worth',
   ),
 } as const satisfies Readonly<Record<string, BadgeSpec>>;

@@ -31,6 +31,7 @@ import { createLoop, elapsedMs, type Loop } from '../sim/loop';
 import { hill, michaelisMenten, type Kinetics } from '../sim/reactions';
 import type { SimulationState } from '../sim/state';
 import {
+  DIGEST_GLUCOSE_YIELD,
   ETHANOL_ATP_THRESHOLD,
   FERMENT_ATP_THRESHOLD,
   GLYCOGEN_ATP_THRESHOLD,
@@ -45,6 +46,12 @@ import {
 import { knowsAct, KNOWN_ACT_NUMBERS } from '../content/acts';
 import { actStartState } from '../content/actStart';
 import { JUMPED_TO_ACT, type ActJump } from '../content/actJump';
+import {
+  ACT3_UNLOCK_DIGESTED,
+  pfk1PkActive,
+  transitionDecisionFrom,
+  type TransitionDecision,
+} from '../content/transition';
 import type {
   ActCarriedCounters,
   ActCreateOptions,
@@ -530,6 +537,68 @@ export interface ActRuntime {
   boundarySeen(): boolean;
   markBoundarySeen(): void;
 
+  /* ===== The transition, UPDATELOGV14.md stage 3 =====
+
+     The one irreversible decision in the game. `src/content/transition.ts` owns
+     what the decision means and this is the runtime's half of it: when it is
+     offered, how it is taken, and how it is undone.
+
+     THE UNDO IS BUILT FIRST AND THE ORDERING IS LOAD-BEARING. `offerTransition`
+     writes the snapshot and returns false if the write did not verify, and
+     nothing can reach `keepEndosymbiont` or `digestEndosymbiont` until it has
+     returned true. A player is never shown an irreversible choice whose undo has
+     not already been proved to work. */
+
+  /** Undecided, kept or digested. Read from the two fields, never stored twice. */
+  transitionDecision(): TransitionDecision;
+
+  /**
+   * Whether the choice should be put in front of the player right now.
+   *
+   * The act's content is exhausted and the decision has not been made. It is not
+   * "the boundary fired", because the boundary can fire on a session that
+   * already decided, which is every reload after the fact.
+   */
+  transitionAvailable(): boolean;
+
+  /**
+   * Take the snapshot and open the decision. Returns false if the snapshot did
+   * not verify, in which case the choice must not be offered.
+   *
+   * Idempotent: a snapshot already on disk is not overwritten, because a player
+   * who reloads between the offer and the choice must return to the state they
+   * would have returned to before, not to the reloaded one.
+   */
+  offerTransition(): boolean;
+
+  /** Keep it. Sets `progression.transitionTaken` and suspends what is lost. */
+  keepEndosymbiont(): boolean;
+
+  /**
+   * Digest it. Mints `endosymbiont-digested`, delivers the substrate, and closes
+   * the path to act 3.
+   */
+  digestEndosymbiont(): boolean;
+
+  /** Whether a snapshot is on disk and the decision can still be reversed. */
+  canUndoTransition(): boolean;
+
+  /**
+   * Return to the snapshot. ONE DECISION DEEP: the snapshot is cleared, so the
+   * choice is then made for real. Requires a reload, and reports whether the
+   * restore was written.
+   */
+  undoTransition(): boolean;
+
+  /**
+   * Whether the named-enzyme purchase is currently paying its factor.
+   *
+   * Bought and not suspended. Exposed so the shelf can say that a purchase the
+   * player made is not currently doing anything, which is the difference between
+   * losing an upgrade and losing an upgrade silently.
+   */
+  pfk1PkPaying(): boolean;
+
   /* ===== The act jump, UPDATELOGV13.md stage 2 ===== */
 
   /**
@@ -871,15 +940,62 @@ export function createActRuntime(
     snapshot.pfk1PkBought = true;
   }
 
+  /* =========================================================================
+     THE TRANSITION. UPDATELOGV14.md stage 3.
+
+     Two values, and neither is a second copy of anything. `transitionTaken` is
+     `progression.transitionTaken` and comes back off the save; the digest half
+     lives in `unlocked` and is read from there. `genesTransferred` is stage 5's
+     ladder and is zero for the whole of stage 3, held as a variable rather than
+     as a literal so that stage 5 changes one line rather than finding this
+     assumption spread across four call sites.
+     ========================================================================= */
+
+  let transitionTaken = restoredOk?.transitionTaken ?? false;
+  /**
+   * Rungs of endosymbiotic gene transfer bought. Stage 5's ladder.
+   *
+   * Zero for the whole of stage 3, and `const` because nothing moves it yet.
+   * Named rather than inlined as a literal so that stage 5 changes one
+   * declaration instead of finding this assumption spread across call sites,
+   * and so the suspension in `pfk1PkActive` reads as a state it is waiting on
+   * rather than as a permanent `false`.
+   */
+  const genesTransferred = 0;
+
+  function decision(): TransitionDecision {
+    return transitionDecisionFrom(transitionTaken, unlocked);
+  }
+
+  /**
+   * Whether the enzyme factor is currently applied.
+   *
+   * THE ONE PLACE THE SUSPENSION IS DECIDED. Every `applyGlycolysisStep` call
+   * takes this rather than `snapshot.pfk1PkBought`, so a rung bought after the
+   * transition cannot quietly restore a factor the transition removed. That was
+   * the failure mode worth designing against: the purchase and the suspension
+   * are stored in two different places, and the composition has to be resolved
+   * in one.
+   */
+  function pfk1PkPaying(): boolean {
+    return pfk1PkActive({
+      bought: snapshot.pfk1PkBought,
+      decision: decision(),
+      genesTransferred,
+    });
+  }
+
   if (restoredOk !== null && restoredOk.unlocks.glycolysisStep > 0) {
     const step = Math.min(restoredOk.unlocks.glycolysisStep, GLYCOLYSIS_STEPS.length - 1);
-    applyGlycolysisStep(descriptor, state, step, restoredOk.unlocks.pfk1PkBought);
+    applyGlycolysisStep(descriptor, state, step, pfk1PkPaying());
     snapshot.glycolysisStep = step;
   } else if (restoredOk !== null && restoredOk.unlocks.pfk1PkBought) {
     // Bought the enzymes and no rung yet. The factor still has to be applied,
     // and rung 0 is the configuration at the top of the uptake ladder, which is
-    // where this purchase lives.
-    applyGlycolysisStep(descriptor, state, 0, true);
+    // where this purchase lives. Suspended if the transition has been taken, so
+    // a reload lands on the same Vmax the live session had rather than silently
+    // handing the factor back.
+    applyGlycolysisStep(descriptor, state, 0, pfk1PkPaying());
   }
 
   /**
@@ -1205,6 +1321,7 @@ export function createActRuntime(
     return descriptor.capture(state, meter, unlocked, settings, {
       meta: { createdAt, lastSavedAt: epochClock(), buildId: currentBuildId() },
       carried,
+      transitionTaken,
     });
   }
 
@@ -1347,6 +1464,119 @@ export function createActRuntime(
     writeNow('setting');
   }
 
+  /* =========================================================================
+     THE TRANSITION, UPDATELOGV14.md stage 3.
+
+     Placed after `writeNow` because every path here writes, and a transition
+     that did not persist immediately would be the one event in the game where
+     losing thirty seconds loses an irreversible decision.
+     ========================================================================= */
+
+  function transitionAvailable(): boolean {
+    if (!snapshot.actComplete) return false;
+    return decision() === 'undecided';
+  }
+
+  /**
+   * Take the snapshot, and refuse the whole feature if it cannot be taken.
+   *
+   * THE UNDO IS PROVED BEFORE THE CHOICE IS OFFERED, which is why this returns a
+   * boolean rather than being a side effect of opening a screen.
+   * `writeSnapshot` reads back and parses exactly as `write` does, so a full
+   * quota or an unavailable store is discovered here and not after the player
+   * has committed. `App.tsx` does not open the decision when this is false.
+   *
+   * IDEMPOTENT ON PURPOSE. A player who is offered the choice, reloads and is
+   * offered it again must return to the state they would have returned to the
+   * first time. Overwriting would move the undo target forward by however long
+   * they left the cell running while they thought about it, which is a quiet
+   * way of making the undo return somewhere the player never was.
+   */
+  function offerTransition(): boolean {
+    if (store === null || sealed) return false;
+    if (!transitionAvailable()) return false;
+    if (store.hasSnapshot()) return true;
+    return store.writeSnapshot(capture()).kind === 'written';
+  }
+
+  function keepEndosymbiont(): boolean {
+    if (!transitionAvailable()) return false;
+    if (store !== null && !store.hasSnapshot()) return false;
+
+    transitionTaken = true;
+    /*
+     * THE LOSS, APPLIED THROUGH THE SAME FUNCTION EVERY OTHER CAPACITY CHANGE
+     * GOES THROUGH. `pfk1PkPaying` now returns false, so re-applying the current
+     * rung drops the 1.15 factor off `prep` and `payoff`. Nothing is subtracted
+     * by hand and no second code path knows how a rung and the enzymes compose,
+     * which is the property `buyPfk1Pk` already relies on.
+     *
+     * The unlock id stays in `unlocked`. The player did buy it, a save that
+     * forgot would refund it on the next load, and what changed is whether it
+     * pays rather than whether it happened. See src/content/transition.ts.
+     */
+    applyGlycolysisStep(descriptor, state, snapshot.glycolysisStep, pfk1PkPaying());
+    writeNow('unlock');
+    return true;
+  }
+
+  function digestEndosymbiont(): boolean {
+    if (!transitionAvailable()) return false;
+    if (store !== null && !store.hasSnapshot()) return false;
+
+    unlocked.push(ACT3_UNLOCK_DIGESTED);
+    /*
+     * THE PAYOUT IS SUBSTRATE AND IT IS ADDED TO THE ENVIRONMENT POOL.
+     *
+     * Not to `atp`, because the adenylate total is fixed and closed and adding
+     * to it breaks conservation on the tick it happens. Not to
+     * `meter.atpProduced`, because that is the numerator of act 1's ledger and a
+     * credit there makes the game report more than 4 gross ATP per glucose,
+     * which is the one claim the act exists to make. The endosymbiont's body
+     * becomes food and the player's own glycolysis turns it into ATP at the
+     * yield they have had all act. See DIGEST_GLUCOSE_YIELD and docs/ECONOMY.md
+     * row U24.
+     *
+     * This is the only moment in the game at which matter enters the system
+     * after t=0. docs/ECONOMY.md's structural departures section says so.
+     */
+    const envIndex = descriptor.poolIndex('glucose_env');
+    state.pools.amounts[envIndex] =
+      (state.pools.amounts[envIndex] as number) + DIGEST_GLUCOSE_YIELD;
+
+    writeNow('unlock');
+    return true;
+  }
+
+  function canUndoTransition(): boolean {
+    if (store === null || sealed) return false;
+    if (decision() === 'undecided') return false;
+    return store.hasSnapshot();
+  }
+
+  /**
+   * Put the snapshot back and clear it.
+   *
+   * WHAT THIS DOES NOT DO IS REWIND THE LIVE SESSION. It writes the snapshot
+   * into the active slot and seals this runtime, so nothing can overwrite it,
+   * and the caller reloads. Restoring in place would mean swapping a live
+   * `Float64Array`, a meter, an unlock list and a set of Vmax values underneath
+   * a running loop and a subscribed tree, which is a second load path competing
+   * with the one `createActRuntime` already has. There is one way to enter a
+   * saved state in this project and it is construction.
+   */
+  function undoTransition(): boolean {
+    if (!canUndoTransition() || store === null) return false;
+    const outcome = store.restoreSnapshot();
+    if (outcome.kind !== 'written') return false;
+    // Same posture as an accepted recovery: once the active slot holds a save
+    // this session did not produce, this session has no business persisting
+    // itself. Without it `beforeunload` autosaves the post-decision state over
+    // the undo on the way to the reload, which is the exact defect V4 found.
+    seal();
+    return true;
+  }
+
   return {
     act: descriptor,
     boundary,
@@ -1358,6 +1588,15 @@ export function createActRuntime(
     boundarySeen,
     markBoundarySeen,
     jumpedToAct,
+
+    transitionDecision: decision,
+    transitionAvailable,
+    offerTransition,
+    keepEndosymbiont,
+    digestEndosymbiont,
+    canUndoTransition,
+    undoTransition,
+    pfk1PkPaying,
 
     start(): void {
       if (running) return;
@@ -1482,7 +1721,7 @@ export function createActRuntime(
       // Re-applied through the same function the ladder uses, at the rung the
       // player is on, so there is exactly one place that knows how a rung and
       // the enzymes compose. A second code path here is how the two drift.
-      applyGlycolysisStep(descriptor, state, snapshot.glycolysisStep, true);
+      applyGlycolysisStep(descriptor, state, snapshot.glycolysisStep, pfk1PkPaying());
       unlocked.push(ACT1_UNLOCK_PFK1_PK);
       writeNow('unlock');
       return true;
@@ -1533,7 +1772,7 @@ export function createActRuntime(
       if (next >= GLYCOLYSIS_STEPS.length) return false;
       const threshold = GLYCOLYSIS_ATP_THRESHOLDS[snapshot.glycolysisStep];
       if (threshold === undefined || meter.atpProduced < threshold) return false;
-      applyGlycolysisStep(descriptor, state, next, snapshot.pfk1PkBought);
+      applyGlycolysisStep(descriptor, state, next, pfk1PkPaying());
       snapshot.glycolysisStep = next;
       unlocked.push(act1GlycolysisUnlockId(next));
       writeNow('unlock');

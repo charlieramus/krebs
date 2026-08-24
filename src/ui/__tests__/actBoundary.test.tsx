@@ -441,10 +441,24 @@ describe('the ending, as a screen', () => {
    */
   it('never renders underneath another overlay, and fires once rather than per frame', () => {
     const app = readFileSync(new URL('../../App.tsx', import.meta.url), 'utf8');
-    // Reached with an overlay already open: the render is gated on all four of
-    // the others being closed, and `actComplete` stays true, so it opens the
-    // moment the other one closes rather than stacking or being lost.
-    expect(app).toContain('boundary && !offlineReturn && !firstRun && !about && !panel');
+    /*
+     * Reached with an overlay already open: the render is gated on the others
+     * being closed, and `actComplete` stays true, so it opens the moment the
+     * other one closes rather than stacking or being lost.
+     *
+     * WIDENED BY UPDATELOGV14.md STAGE 3 AND ASSERTED AS PARTS RATHER THAN AS
+     * ONE STRING. The gate gained the two transition surfaces, because the
+     * decision replaces this screen while it is open and the ending is what the
+     * player sees after it. A single literal was the right assertion while the
+     * condition had four terms and it broke on the first legitimate change to
+     * it, which is a test that measures the source rather than the property. The
+     * property is that every overlay this one must not stack on is named here,
+     * so each one is asserted and the leading term is asserted separately.
+     */
+    expect(app).toContain('{boundary && !arrival && outcome === null');
+    for (const other of ['!offlineReturn', '!firstRun', '!about', '!panel']) {
+      expect(app, `the boundary gate excludes ${other}`).toContain(other);
+    }
     // Reached in the foreground and reached on the same tick as a purchase are
     // the same case, and the ref is what makes it one event: the subscription
     // runs at frame rate and an unguarded setState would re-render the tree

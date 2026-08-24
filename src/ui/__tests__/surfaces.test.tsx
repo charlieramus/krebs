@@ -16,13 +16,15 @@ import { ACT1, ACTS } from '../../content/acts';
 import { TICK_MS } from '../../sim/constants';
 import { setShortfallLogging } from '../../sim/tick';
 import { createActRuntime, type ActRuntime } from '../runtime';
-import { ACT1_ANNOUNCEMENT_COUNT } from '../components/Announcer';
+import {
+  ACT1_ANNOUNCEMENT_COUNT,
+  TRANSITION_ANNOUNCEMENT_COUNT,
+  announcementKeys,
+} from '../components/Announcer';
 import { carbonOf, phosphateOf, poolCardsFor, ACT1_POOL_CARDS } from '../poolCards';
 import {
-  FERMENT_ATP_THRESHOLD,
   GLYCOLYSIS_ATP_THRESHOLDS,
   GLYCOLYSIS_STEPS,
-  UPTAKE_ATP_THRESHOLDS,
   UPTAKE_VMAX_STEPS,
 } from '../tuning';
 
@@ -230,7 +232,7 @@ function buyOne(runtime: ActRuntime): boolean {
  * Counted rather than read off the constant, because the constant is an upper
  * bound and the question stage 5 asks is what a player actually hears.
  */
-function announcementsAcrossAnAct(): { spoken: number; bound: number } {
+function announcementsAcrossAnAct(): { spoken: number; bound: number; actBound: number } {
   const runtime = createActRuntime(ACT1, {
     schedule: () => 0,
     cancel: () => {},
@@ -244,27 +246,33 @@ function announcementsAcrossAnAct(): { spoken: number; bound: number } {
     runtime.frame(tick * TICK_MS);
     const snapshot = runtime.snapshot;
 
-    const keys: string[] = [];
-    if (snapshot.walled) keys.push('walled');
+    /*
+     * THE ANNOUNCER'S OWN DERIVATION, CALLED RATHER THAN REIMPLEMENTED.
+     *
+     * This block used to be a hand-copied version of `announcementKeys`, which
+     * is what the comment above always claimed it was not. UPDATELOGV14.md
+     * stage 3 added two keys to the real one and the copy could not see either,
+     * so the number this file reports would have stayed at seventeen while the
+     * game said nineteen. Recovery is still derived here, because it is the one
+     * event that is the ABSENCE of a condition and the component derives it
+     * from the same edge outside the function.
+     */
+    const keys = announcementKeys(snapshot, runtime.canBuyGlycolysisStep(), {
+      available: runtime.transitionAvailable(),
+      decision: runtime.transitionDecision(),
+    });
     if (wasWalled && !snapshot.walled) keys.push('recovered');
     wasWalled = snapshot.walled;
-
-    if (snapshot.fermentUnlocked) keys.push('bought:ferment');
-    else if (snapshot.meter.atpProduced >= FERMENT_ATP_THRESHOLD) keys.push('afford:ferment');
-    if (snapshot.uptakeStep > 0) keys.push(`bought:uptake:${snapshot.uptakeStep}`);
-    const uptakeNext = UPTAKE_ATP_THRESHOLDS[snapshot.uptakeStep];
-    if (uptakeNext !== undefined && snapshot.meter.atpProduced >= uptakeNext) {
-      keys.push(`afford:uptake:${snapshot.uptakeStep}`);
-    }
-    if (snapshot.glycolysisStep > 0) keys.push(`bought:glycolysis:${snapshot.glycolysisStep}`);
-    if (runtime.canBuyGlycolysisStep()) keys.push(`afford:glycolysis:${snapshot.glycolysisStep}`);
-    if (snapshot.actComplete) keys.push('act-complete');
 
     for (const key of keys) said.add(key);
     if (tick % 20 === 0) buyOne(runtime);
   }
 
-  return { spoken: said.size, bound: ACT1_ANNOUNCEMENT_COUNT };
+  return {
+    spoken: said.size,
+    bound: ACT1_ANNOUNCEMENT_COUNT + TRANSITION_ANNOUNCEMENT_COUNT,
+    actBound: ACT1_ANNOUNCEMENT_COUNT,
+  };
 }
 
 describe('the new surfaces announce nothing, which is the whole of the answer', () => {
@@ -276,11 +284,22 @@ describe('the new surfaces announce nothing, which is the whole of the answer', 
 
     announcements spoken   ${counted.spoken}
     upper bound            ${counted.bound}
+    act 1's own bound      ${counted.actBound}
     V8 measured            16
     added by V11           1   the act boundary
     added by V12           0
+    added by V14           2   the arrival, and one of the two outcomes
 `);
     expect(counted.spoken).toBeLessThanOrEqual(counted.bound);
+    /*
+     * THIS RUN NEVER DECIDES, SO ONLY THE ARRIVAL FIRES. The harness plays act 1
+     * to completion and buys everything; it does not keep or digest, because
+     * neither is reachable without a store and this runtime has persistence
+     * disabled. So the expected total is act 1's seventeen plus the arrival, and
+     * asserting the exact number rather than a bound is what makes this a
+     * measurement instead of a ceiling nobody is near.
+     */
+    expect(counted.spoken).toBe(counted.actBound + 1);
   });
 
   it('has not grown, and the one that arrived since V8 is not this log', () => {

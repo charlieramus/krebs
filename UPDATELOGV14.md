@@ -526,7 +526,114 @@ the offline behaviour across the transition, and the digest path's text.
 
 ## Stage 3 Report
 
-_Pending._
+**The undo was built first, and building it first is what found the two things that would have gone wrong.**
+
+### The snapshot, and the schema question answered by not needing one
+
+`STORAGE_KEYS.snapshot`, a fourth localStorage key holding an unmodified `SaveV1`. **No schema bump, and the reasoning is Part 1's own rather than a judgement call.** A bump is forced by renaming a field, changing a type, changing units, changing a meaning, or removing a field. A new key holding the same shape does none of those: the bytes round-trip through the same codec, and a build that has never heard of the key reads the active slot exactly as before. What changed is docs/SAVE_SCHEMA.md Part 4, which described the layout as one active slot plus one backup, and **a description is not a version.** So hard rule 7 is not engaged, and the bump docs/SAVE_SCHEMA.md Part 1 predicts for the act 2 log is still the next one.
+
+**What it is not, since the stage asks for that explicitly.** Not a save-scumming mechanic: it is written once, at one moment, and cleared the moment it is used. Not generalisable: nothing else in the project can take one and there is no API to. Not a rewind: it does not step the simulation backwards, it puts a file back and reloads. And **not a third backup**, because `write` never touches it, `load` never reads it, and a corrupt active slot never recovers from it. The active and backup slots are a save and its predecessor; this is one authored moment the player may return to.
+
+**It verifies like a save, and that is the point of it being a write path rather than a variable.** `writeSnapshot` writes, reads back, byte-compares and parses, exactly as `write` does. An undo that cannot be taken has to be discovered before the choice, not after it, which is why `offerTransition` returns a boolean and `App.tsx` does not open the decision when it is false. On a machine with no storage the player gets the ending screen instead, which is honest: the act is over either way.
+
+**It is idempotent and that was not obvious.** A player offered the choice who reloads and is offered it again must return to the state they would have returned to the first time. Overwriting would slide the undo target forward by however long they left the cell running while they thought about it, which is a quiet way of returning them somewhere they never were. Asserted directly: take it, run 200 more ticks, offer again, and the bytes are unchanged.
+
+**Undoing keeps what it discarded, in the backup slot.** Same posture as `acceptRecovery` keeping the corrupt primary: undoing is a decision too, and the backup is the only copy of the state it threw away.
+
+### transitionTaken, and one reserved id that was not minted
+
+`progression.transitionTaken` has been in `SaveV1` since V4, labelled act 3, written as a hardcoded `false` and read by nothing. It is real now: `Act1CaptureContext` gains it as an optional field, `captureAct1` writes what it is given, and `Act1Restored` carries it back.
+
+**Three states out of two fields, and no third copy of either.** Kept is `transitionTaken`. Digested is `endosymbiont-digested` in `progression.unlocked`. Neither is a summary of the other and a save claiming both throws rather than being read.
+
+**Stage 1 reserved `endosymbiont-kept` and stage 3 does not mint it.** `transitionTaken` already carries that fact, so minting both would put "the player kept it" in two places, which is the defect docs/SAVE_SCHEMA.md Part 3 and `actStart.ts` both exist to refuse. Dropped at no cost, because no build ever wrote it, which is exactly the V10 precedent: three enzyme ids named in stage 1 and never shipped. **The rule stage 1 wrote into Part 3 is what made this cheap**, and this is the first time it paid.
+
+Digesting is the refusal of the transition rather than a variety of it, so `transitionTaken` stays false on that branch. Asserted, because the tempting shortcut is one boolean plus a qualifier.
+
+### What is lost, and it is sourced rather than invented
+
+docs/PROGRESSION.md asks for "some direct-control upgrades" to go. **The obvious readings are all wrong**, and working out why is most of what this step was. Glycolysis does not move to the mitochondrion: it stays in the cytosol and stays the host's, so taking a capacity ladder would be a punishment dressed as biology. Taking a pool breaks conservation. Taking a fermentation branch removes act 1's teaching beat from a player still standing on it.
+
+**What is actually lost is regulatory authority, and docs/SCIENCE.md has said so since before this log existed.** Part 2, Regulation: phosphofructokinase-1 "is allosterically inhibited by ATP and citrate ... citrate signals that downstream capacity is already saturated." Citrate is the TCA cycle's first intermediate. **The moment there is a mitochondrion, the committed step of the host's own glycolysis is throttled by a molecule made in a compartment the host does not yet control.** That is not a metaphor for losing authority, it is the mechanism.
+
+So the loss is `enzyme-pfk1-pk`, the one purchase in act 1 the player made by name. Its 1.15 factor on both phases is suspended. **The unlock id stays in `unlocked`** because the player did buy it and a save that forgot would refund it on the next load; what changes is whether it pays.
+
+Four things make it the right choice and the fourth is the one that matters most. It is sourced, and sourced before the mechanic needed it. It is legible, because the game can name the two enzymes and name citrate and the player can go and check. **It is exactly what stage 5 gives back**, since docs/PROGRESSION.md item 7 is gene transfer "to regain control" and this is the control, so the loss and the repair are one fact from two sides. And it is bounded: one factor on two Vmax values, the cell is slower and not broken, and **nothing here can trigger C14's bootstrap trap**, because that failure comes from raising `prep` and this only lowers it.
+
+**One place the composition had to be resolved rather than duplicated.** The purchase lives in `snapshot.pfk1PkBought` and the suspension lives in two other fields, so every `applyGlycolysisStep` call takes `pfk1PkPaying()` rather than the raw flag. All three call sites, including the restore path. Without that a rung bought after the transition would quietly hand the factor back, and asserted directly: a reload after keeping lands on the suspended Vmax to ten decimal places.
+
+### The digest path, and the number that could not be an ATP number
+
+docs/PROGRESSION.md says digesting gives "a large one-off ATP payout". **Delivered literally that is impossible here twice over, and only the first reason was anticipated.**
+
+**It cannot go into the pool.** The adenylate total is fixed, closed and conserved at 40, so adding ATP breaks conservation on the tick it happens. docs/ECONOMY.md already records that as the reason unlocks are thresholds rather than purchases.
+
+**It cannot go into the meter either, and this one had to be found.** The obvious fallback is crediting `meter.atpProduced`, the lifetime counter unlocks already gate on. But `atpPerCompletedGlucose` is `meter.atpProduced` divided by the glucose that finished the pathway. **A credit there makes the game report more than 4 gross ATP per glucose**, which is the single claim act 1 exists to make, asserted to nine decimal places since V2 and across all nine purchasable configurations since V5. It would have been a silent falsification of the game's central number in exchange for a moment of drama, and it would have passed every test in the project, because no test divides the meter after a boundary event.
+
+**So the payout is substrate, which is both possible and truer.** Digesting a cell yields its body. 10000 glucose enters `glucose_env` and the player's own glycolysis turns it into ATP at the yield they have had all act. **The ATP figure is therefore derived rather than picked**: 10000 times a sourced gross of 4 is 40000. Nothing is credited, nothing is asserted, and the ledger is untouched because the ATP arrives the way every other ATP in the game has.
+
+Sized against two measured figures so the lesson is arithmetic rather than tone:
+
+```
+  act 1's whole environment    80000 glucose    320000 gross ATP
+  this payout                  10000 glucose     40000 gross ATP
+  act 3 at roughly fifteen times                  ~4.8M
+```
+
+An eighth of the act's entire larder arriving at once, against under one percent of what refusing the compartment costs. **Large against what you have and negligible against what you gave up**, which is the shape of the mistake docs/PROGRESSION.md wants taught. `docs/ECONOMY.md` row **U24**, and the counts move from 48 to 49 with `src/ui/tuning.ts` at 24.
+
+**It is the only moment in the game at which matter enters the system after t=0, and that has a structural departure of its own** rather than being buried in the row. Every other amount is present at construction. The carbon here is the endosymbiont's body and it arrived from outside, which is the same status the environment's own 80000 has; what differs is the timing. Asserted exactly: carbon rises by `10000 x 6` and **every other pool in the array is unchanged**, checked element by element. The entry also warns the next person that a conservation sweep spanning a whole game has to subtract it, so they find a reason rather than a mystery of 60000 carbon.
+
+### The set piece
+
+`src/ui/components/Transition.tsx`, two cards, plus `src/ui/content/transition.ts` for every string.
+
+**The arrival is the one overlay in the game that dims and cannot be dismissed.** DESIGN.md settled on 2026-08-04 that the first run and the act boundary float over a lit, still-ticking screen while the about and teaching panels dim. This is neither, and the reason is not drama: **there is no state in which the choice has not been made.** A dismissible arrival leaves the game in a fourth state nobody designed, act complete, stranger inside the cell, nothing recorded. The simulation still ticks underneath, which is the half of the rule that still applies.
+
+**Keep is first in the DOM and is not styled as the recommended one.** docs/PROGRESSION.md makes keeping the only path forward and makes digesting a real choice rather than a mistake to be steered away from, so they are ordinary buttons on different surfaces and DOM order is reading order.
+
+**The outcome cards dismiss normally and the undo sits on both of them identically.** Offering the undo only after digesting would be the game telling the player they got it wrong, which is precisely what the stage says the soft lock must not do.
+
+**The digest text states what the cell got and what it can no longer reach, and stops.** No "you should have", no enthusiasm about the meal to make the loss land harder. The kept text names the two enzymes and names citrate with a badge pointing at Part 2, because "losing control silently reads as a bug; losing it with a stated reason reads as biology" is the stage's own sentence and a reader can check this one.
+
+**The meal is a `Figure` and not a word in a sentence.** It is a tuned number, and a tuned number written into prose is a quantitative claim with its provenance stripped off. Through `Figure` it carries its badge and opens its own provenance panel like every other number in the game.
+
+### The offline path across this boundary
+
+Confirmed against this boundary specifically, which is what step 6 asks. **Two independent reasons an absence cannot make the decision, and both are asserted**, because either alone would be a single point of failure on the thing that must not fail.
+
+The first is Spine A's stop, re-measured here: a save one purchase short of the boundary, eight hours away, comes back with `stoppedAtBoundary` true and the act still incomplete. The second is that **nothing on the offline path writes either field**, so a save that was already complete comes back after eight hours still undecided, with `transitionAvailable()` true and the player watching it live. A player never returns to find the one irreversible decision in the game already taken.
+
+### Two things found that were not in the stage
+
+**A screen reader would not have heard any of this.** The stage does not mention announcements and the accessibility rule does: a decision that silently removes an upgrade is exactly the silent loss docs/PROGRESSION.md forbids. Three keys, at most two of which can fire in a session, since the arrival is one and the two outcomes are mutually exclusive by construction.
+
+**And wiring them exposed a defect that was already there.** `surfaces.test.tsx` counts what a screen reader hears across an act and its own comment says it replays "the Announcer's own event derivation". **It did not.** It reimplemented those fourteen lines, so the seventeen it has reported since V11 was a count of a copy. Stage 3 added two keys to the real derivation and the copy could not see either of them. `announcementKeys` is exported now and the test calls it, so there is one derivation. The measured figure is **18 spoken against a bound of 19**: act 1's seventeen plus the arrival, and no outcome, because that harness runs with persistence disabled and neither branch is reachable without a store. Asserted as an exact number rather than as a ceiling.
+
+### One test changed rather than added
+
+`actBoundary.test.tsx` asserted the boundary's render condition as a single source literal, and the transition widened that condition. **Rewritten as parts rather than relaxed**: the leading term is asserted, and each of the four overlays the ending must not stack on is asserted separately with its own message. A literal was the right assertion at four terms and it broke on the first legitimate change, which makes it a test of the source rather than of the property. The property is that every overlay is named.
+
+### Verify
+
+```
+  npm run typecheck    exit 0
+  npm run lint         exit 0, clean
+  npm run build        exit 0, every budget line green
+  npm test             62 files, 1057 tests, 0 failed, 25.66s
+```
+
+**1057 against stage 2's 1018, so this stage adds 39**, of which 24 are `transition.test.ts`. The choice works both ways, the undo restores the whole save object rather than a field of it, `transitionTaken` survives a reload, and an absence spanning the boundary stops at it.
+
+```
+  application (apportioned)      97.18 kB  budget 130.00     stage 2: 90.24
+  dependencies (apportioned)    221.00 kB  budget 230.00     stage 2: 219.19
+  total                         413.57 kB  budget 460.00     stage 2: 404.78
+```
+
+**+8.79 kB total and +6.94 kB application** for two overlay cards, a content file, a content-layer model, four store methods and the runtime's transition API. Every line is inside its budget and the total is 1.9 percent of the ceiling V9 built.
+
+Files changed: `src/save/storage.ts`, `src/content/transition.ts` (new), `src/content/act1/save.ts`, `src/ui/runtime.ts`, `src/ui/tuning.ts`, `src/ui/content/transition.ts` (new), `src/ui/content/common.ts`, `src/ui/content/index.ts`, `src/ui/components/Transition.tsx` (new), `src/ui/components/Announcer.tsx`, `src/App.tsx`, `src/ui/__tests__/transition.test.ts` (new), `src/ui/__tests__/actBoundary.test.tsx`, `src/ui/__tests__/surfaces.test.tsx`, `docs/ECONOMY.md`, `docs/SAVE_SCHEMA.md`. **`src/sim/` is untouched**, and so is docs/SCIENCE.md, which hard rule 2 requires of every stage after stage 1.
 
 ---
 
