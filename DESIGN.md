@@ -114,6 +114,49 @@ Rules, in priority order:
 4. **Enzymes are machines with a notch.** The notch is shaped like the enzyme's substrate. This is induced fit drawn as a cartoon, and it teaches specificity for free.
 5. **Damage is cracks.** Act 2 degradation draws as `loss` coloured cracks across the enzyme blob, not as a percentage buried in a table.
 6. **ROS have X eyes.** Hazards read as characters, not as icons.
+7. **A compartment is an enclosure, and membership is containment.** A pool that lives inside the matrix is drawn inside the matrix outline. Nothing labels it and nothing colours it differently. Added 2026-08-24 by V14. See below.
+8. **A membrane is a doubled outline, and a crossing is a gap in it.** Matter does not pass through an unbroken stroke. Every transport reaction opens the exact gap it uses, so the membrane's own outline is the list of what can cross it. Added 2026-08-24 by V14. See below.
+9. **A gradient is the step between two levels on the two faces of a membrane.** This is the first rule in the system that reads two pools at once, and that is worth saying out loud rather than leaving to be noticed. Added 2026-08-24 by V14. See below.
+
+### Rules 7, 8 and 9, the compartment set
+
+Added 2026-08-24 by V14 stage 2, before any component renders them, which is the ordering V12 stage 1 used and which every ordering claim of this shape in NOW.md has been right about.
+
+**Nothing in this language encoded a place before act 3.** Rules 1 to 3 map a scalar property of one pool to a visual property of one shape, and they are derived from the conserved-weight table, which has no column for where a pool is. Act 3 gives a pool a location for the first time, and a location is not a weight. So these three are new rules rather than extensions, and the section says which of the existing commitments each one is honouring.
+
+**All three are derived and none is drawn.** That is the load-bearing property, not an efficiency. Rule 7 reads the act descriptor's compartment grouping, rule 8 reads which reactions have substrates and products in different compartments, and rule 9 reads two pool amounts. **A compartment that gained a pool would redraw itself**, in the same way a stoichiometry change moves a blob's side count in the same commit. None of the three adds a hand-authored asset, so none of them is governed by the Hand-authored art rule above and none of them costs the bundle anything beyond its component.
+
+#### Rule 7: a compartment is an enclosure
+
+One closed irregular outline in the illustration language's own stroke band, with the member pool cards laid out inside it. **Containment is the whole encoding.** There is no tint, no label on the boundary and no legend, because a pool card sitting inside a drawn outline already says where it is, and a system that both encloses and labels is saying one thing twice.
+
+The outline is irregular and hand-drawn in the same sense every other shape here is, so a compartment reads as part of the illustration set rather than as a panel border. **It is deliberately not a Card.** Cards are the paper-cutout surface with the hard offset shadow, and a compartment is a place rather than a piece of paper. Giving it a shadow would put the matrix visually on top of the cytosol, which is the wrong relationship: it is inside it.
+
+**Rule 7 is what V12 already committed to on the beast.** The Powered state is "a closed sub-outline inside a closed outline, which is a compartment and is the only topological change in the illustration set". That was decided on 2026-08-09 for a 44px character and this is the same statement at full size. The two must not diverge, and the beast's Powered sub-outline is the miniature of this rule rather than a separate idea.
+
+#### Rule 8: a membrane is a doubled outline with a gap per crossing
+
+The mitochondrion has two membranes and only the inner one is a barrier. The compartment outline is therefore drawn as two concentric strokes with the intermembrane space between them, which is not decoration: **the intermembrane space is a real compartment holding a real pool**, and rule 7 requires a place a pool can be to be drawn as one.
+
+A transport reaction is drawn as the pathway arrow it already is, crossing the boundary, and **the inner stroke opens a gap exactly where it crosses.** Matter does not pass through an unbroken line. What that buys is that the membrane's outline becomes a readable list: a player who has bought the pyruvate carrier and nothing else sees one gap, and the impermeability of everything else is drawn rather than asserted.
+
+An unbought transport reaction leaves the stroke closed. So **a locked crossing is the absence of a gap and not a dashed arrow**, which keeps the dashed treatment meaning locked-affordance rather than locked-membrane.
+
+#### Rule 9: a gradient is a step, and it reads two pools
+
+The genuinely new one, and the reason it is new is worth stating precisely. Rules 1 to 3 are functions of one pool. A gradient is not a property of the protons in the intermembrane space and it is not a property of the protons in the matrix. **It is the difference, and a difference has no single pool to hang on.**
+
+The treatment: each face of the inner membrane carries a level, filled from the membrane outward, whose height is that compartment's proton amount against the compartment's own scale. The reading is **the step between them where they meet at the membrane**. A hard ink rule sits at each level, which is illustration rule 3's own device for exactly the reason rule 3 uses it: position is the channel and ink is the contrast, and neither depends on hue.
+
+Three properties fall out of that and all three are why this treatment was taken.
+
+**At zero gradient the two levels are flush and the membrane reads as one unbroken pair of lines.** The step is the quantity, so no gradient is no step, and nothing has to be drawn to say the gradient is absent. That is the state a player is in before they buy the electron transport chain.
+
+**Buying the chain opens the step and the player watches it open.** docs/PROGRESSION.md asks for the two-step structure of chemiosmosis to be felt rather than read, and this is the whole of how it is seen: the step grows while no ATP arrives. **Buying ATP synthase makes the step start coming down as it is spent.** The pile-up and the conversion are the same visual quantity moving in two directions, which is a stronger statement than two separate readouts would make.
+
+**A level gauge carries no signal at its own ends and the step does not have that problem**, which is the one respect in which this is easier than rule 3's redox level. Rule 3 needed the electron dots to tell a full pool from an empty one because the rule sits on the outline at both extremes. A step is a relationship, so it is at its most legible exactly when the two pools are most unequal, which is the state the act is about.
+
+**What was rejected.** A number alone, because this document's Direction puts the reading in the picture and a gradient stated only as a figure is the thing rule 9 exists to avoid. A colour temperature across the membrane, because it fails V7's rule on its own and would need a second channel anyway. Arrows showing protons in flight, because that is flux and the pathway arrows already carry flux; the gradient is a stock, and drawing a stock as motion would collide with the one thing this document has said since 2026-07-28 about what movement means. And a single bar whose length is the difference, which reads two pools correctly and **loses the fact that the two sides are two places**, which is the thing rules 7 and 8 just spent their entire cost establishing.
 
 ### Rule 1 below three carbons
 
@@ -258,6 +301,37 @@ Illustration rule 3 gains a clause. The carrier's silhouette is filled `oxidized
 The silhouette does not change. Both ends of the axis render exactly as they did before the channel existed, so a fully oxidized carrier is the flat `oxidized` blob and a fully reduced one is the flat `reduced` blob. What went is the interpolated mix in between, and **the level is the truer statement**: the pool holds real NAD+ and real NADH in a proportion, not one substance of intermediate colour.
 
 A level gauge carries no signal at its own ends, so at exactly 0 and exactly 1 the rule sits on the outline and is invisible. Those two are told apart by the electron dots, which rule 3 already gives to NADH and denies to NAD+. **The level is load-bearing across the range and the dot count is load-bearing at the ends.**
+
+### The second channels for a compartment, a membrane and a gradient
+
+Added 2026-08-24 by V14 stage 2, at the same time as illustration rules 7 to 9 rather than after them, which is what V7's rule asks for and what V12 did for the beast.
+
+**These three are a different case from redox and from the beast, and pretending otherwise would be the wrong kind of thoroughness.** V7's rule exists because colour was carrying meaning alone and colour can be lost. **None of rules 7, 8 or 9 uses colour to carry anything.** Containment is geometry, a gap in a stroke is geometry, and a step between two levels is geometry. All three survive greyscale, all three survive every deficiency in the Machado matrices, and all three survive `forced-colors` because an outline is the one channel forced colours guarantees.
+
+So the obligation is discharged against the loss that can actually happen here, which is not sight of colour but sight at all, plus the fill-removal case the Hand-authored art rule already requires.
+
+    meaning        first channel              second channel
+    ------------------------------------------------------------------------
+    compartment    containment. The card      a labelled group in the
+                   is inside the outline      accessibility tree, so the
+                                              containment is a fact about the
+                                              DOM and not only about the pixels
+
+    membrane       a gap in the inner         the crossing arrow's own numeric
+    crossing       stroke where a transport   rate, which the reduced-motion
+                   reaction passes            path already requires of every
+                                              arrow and which states the
+                                              crossing in text
+
+    gradient       the step between the       a hard ink rule at each level, so
+                   two levels at the          both heights survive every fill
+                   membrane                   being removed, plus an announced
+                                              event when the step first opens
+                                              and when it begins to fall
+
+**The gradient's announcement is two events and not a live region, and that is the existing rule rather than a new one.** "Announce events, expose rates on demand, never narrate the tick" is what this document has said since V7, and a proton gradient is a number changing twenty times a second. The step opening and the step first falling are the two discrete moments, they are the two beats docs/PROGRESSION.md asks to be felt, and they are worth exactly two announcements. **The count matters**: V12 added zero announcements to an act that had seventeen, on the argument that two announcements about one fact is the same defect as two copies of one fact in a save. Act 3 gets these two because they are two different facts.
+
+**One thing is deliberately not given a second channel.** Which compartment a pool card is in is stated once, by containment, and the card does not also carry a compartment name in its own text. A screen reader hears it from the group, and a sighted reader sees it from the outline, and putting it in the card as well is the "one thing said twice" that rule 7 already refuses.
 
 ### A semantic colour fills, ink writes
 
@@ -629,3 +703,8 @@ Illustration rules 4 to 6, because act 1 has no enzyme objects, no damage and no
 | 2026-08-09 | A measured value gets the 16px info affordance rather than a fourth pill | It is exempt from the badge contract so there is no pill to open a panel from, and asking where it came from is still a fair question with a real answer. A fourth pill would imply provenance is an open question about it, which is the exact thing the 2026-07-31 exemption exists to deny. The info affordance is this system's existing vocabulary for "there is more here if you want it". |
 | 2026-08-09 | Below `lg` the timeline is first and capped, and nothing is hidden at any width | Decided by what the player loses rather than by what fits. The timeline answers where am I, the pool cards answer what is happening, the pathway answers why, and the first of those is asked on arrival while the other two are watched. So the timeline takes the scroll cost, bounded at 20rem of its own scroll rather than seven card heights. No surface is hidden or collapsed at any breakpoint, and no `order` utility is used anywhere, because DOM order is reading order. |
 | 2026-08-09 | The wordmark gets a compact scale and the act screen uses it | Recorded as wrong since 2026-07-29 and unfixable by four logs because it is a design decision and none of them had a design stage. The largest type in the game should be the thing that changes rather than the thing that never does, which is Direction's own flux-is-the-headline applied to the chrome. The hero scale stays and is reserved for the first run card and the endgame summary, where the wordmark is a title. Roughly 80px of vertical band goes to the timeline, and the alternative was taking it from the pool rail or the pathway, which answer what is happening and why. Open question 1 is still open, and a word at 18px is a label rather than a commitment to a name. |
+| 2026-08-24 | A compartment is an enclosure and membership is containment, illustration rule 7 | Nothing in this language encoded a place before act 3, because rules 1 to 3 are derived from a conserved-weight table that has no column for where a pool is. Containment is the whole encoding: no tint, no boundary label, no legend, because a card inside an outline already says where it is and a system that encloses and labels is saying one thing twice. Deliberately not a Card, because a Card is the paper-cutout surface with the hard offset shadow and a shadow would put the matrix visually on top of the cytosol when it is inside it. **It is also the full-size statement of a commitment already made**: V12 decided on 2026-08-09 that the beast's Powered state is a closed sub-outline inside a closed outline, "which is a compartment and is the only topological change in the illustration set". The two must not diverge. |
+| 2026-08-24 | A membrane is a doubled outline and a crossing is a gap in it, illustration rule 8 | The mitochondrion has two membranes and only the inner is a barrier, so two concentric strokes are derived rather than decorative, and the space between them is a real compartment holding a real pool that rule 7 then requires be drawable. Matter does not pass through an unbroken stroke, so every transport reaction opens the exact gap it uses and the membrane's outline becomes a readable list of what can cross. A player with only the pyruvate carrier sees one gap, and the impermeability of everything else is drawn rather than asserted. An unbought crossing leaves the stroke closed rather than dashing the arrow, which keeps dashed meaning locked-affordance rather than locked-membrane. |
+| 2026-08-24 | A gradient is the step between two levels at a membrane, illustration rule 9, and it is the first rule that reads two pools | Every rule before it maps a scalar of one pool to a visual property of one shape. A gradient is not a property of the protons on either side, it is the difference, and a difference has no single pool to hang on. The step is the quantity, so **at zero gradient the two levels are flush and nothing has to be drawn to say the gradient is absent**, and buying the chain opens the step while buying ATP synthase brings it down. docs/PROGRESSION.md asks for chemiosmosis to be felt rather than read and this is the whole of how it is seen: the pile-up and the conversion are one visual quantity moving in two directions. It is also easier than rule 3's redox level, which needed the electron dots because a level carries no signal at its own ends; a step is most legible exactly when the two pools are most unequal, which is the state the act is about. Rejected: a bare number, which is the thing the rule exists to avoid; a colour temperature, which fails V7's rule alone; protons drawn in flight, which is flux where the gradient is a stock and would collide with what movement has meant in this document since 2026-07-28; and a single difference bar, which reads two pools correctly and **loses that the two sides are two places**, which is what rules 7 and 8 just paid for. |
+| 2026-08-24 | The compartment set's second channels are named against loss of sight rather than loss of colour | V7's rule exists because colour was carrying meaning alone. **Rules 7 to 9 use colour for nothing**: containment, a gap in a stroke and a step between levels are all geometry, and all three survive greyscale, every Machado deficiency and `forced-colors`. Manufacturing a second visual channel for something whose first channel is not colour would be the wrong kind of thoroughness, so the channels named are the ones for the loss that can happen: a labelled group in the accessibility tree for containment, the crossing arrow's existing numeric rate for a membrane crossing, and a hard ink rule at each level plus two announcements for the gradient. Two and not a live region, because a gradient is a number changing twenty times a second and this document has said since V7 that speech announces events and never narrates the tick. The step opening and the step first falling are two different facts, which is why they earn two. |
+| 2026-08-24 | A compartment is nothing to the kernel, and the two things that would force otherwise are named rather than built | `src/sim/pools.ts` stays a flat `Float64Array` with a frozen id-to-index map and `tick.ts` keeps iterating by index. **A transport reaction is a reaction**, and conservation across a boundary needs no kernel change at all, because `PoolRegistry.totalConserved` sums by weight over every pool and has no notion of where a pool is. Proved rather than argued: a two-compartment fixture drifts 3.022e-15 across 200 randomized configurations, better than the toy pathway's 1.964e-13, and three deliberately leaked transport shapes are caught at 2.508e-1, 7.945e-1 and 3.660e-1. **The alternative was priced and not built**, which is the honest description: what would force real compartments is an intensive quantity such as a membrane potential in millivolts, which needs a volume the kernel does not have, or a compartment count that changes at runtime, which needs a pool set that is not frozen at construction. Act 3 needs neither. Rule 9 draws a step between two amounts, and mitochondrial replication scales the rates of the reactions that cross into one matrix rather than making a second one. Both are simplifications docs/SCIENCE.md Part 1 already discloses. |

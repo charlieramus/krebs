@@ -328,7 +328,140 @@ channels, and the bundle impact.
 
 ## Stage 2 Report
 
-_Pending._
+**The flat model holds, a transport reaction is a reaction, and the kernel is unchanged. Not one line of `src/sim/` was edited in this stage.**
+
+### The decision, and the alternative priced rather than assumed
+
+Step 1 asked for the alternative to be tested before the flat model is accepted, and for the report to name what would force real compartments if anything does. **Two things would, and act 3 needs neither.** Naming them is the useful part, because "we considered it" is worth nothing without the condition attached.
+
+**An intensive quantity would force it.** Every pool in this kernel is an amount, which is extensive. A membrane potential in millivolts, a pH, or a concentration is intensive: it is an amount divided by a volume, and **the kernel has no volume and no place to put one.** `PoolDefinition` is an id, a label, an initial and a weight map. If act 3 had to model a real 150 to 180 mV potential, a compartment would need to be a real object with a volume and the flat model would be the wrong shape.
+
+It does not have to. Illustration rule 9 draws the gradient as **the step between two amounts**, and docs/SCIENCE.md Part 1 already discloses that concentrations are abstracted to pools rather than modelled in a defined volume. So the departure is not new and it does not need a new mechanism, and stage 1 recorded the honest half in the document: the potential is the larger component of the protonmotive force, so a picture of how many protons sit on each side is showing the smaller half of the real quantity. **That is a disclosed simplification rather than a hole.**
+
+**A compartment count that changes at runtime would force it.** `PoolRegistry` builds its id-to-index map once and freezes it, so the pool set cannot grow while the game runs. **Mitochondrial replication is act 3's eighth unlock and it is the one thing in the act that looked like it needed exactly that.** It does not. N identical matrices with N times the transport capacity and N times the chain capacity are, in a model with no concentrations and no diffusion, arithmetically one matrix whose crossing reactions run N times faster. So replication is a Vmax ladder on the transport and chain reactions rather than a second set of pools, and **the reason it is allowed to be is a simplification Part 1 already discloses** rather than a convenience invented here. Stage 5 builds it and can find otherwise; if it does, this is the decision that has to be reopened rather than worked around.
+
+**Two things that looked like problems and are not.** Selective permeability needs no property, because a species crosses only if a transport reaction exists, which is a stronger and more honest statement than a permeability flag. And diffusion needs nothing, because Part 1 says spatial structure is ignored and always has.
+
+**So what a compartment is: a convention in the pool id, a grouping the act descriptor knows, and transport reactions.** Stage 1 already set the id convention in docs/SAVE_SCHEMA.md Part 3 and this stage did not have to change it. The descriptor holds the grouping because `src/content/acts.ts` is where act-shaped knowledge lives and `src/sim/` may never learn any; the import direction is unchanged and `src/sim/` still imports nothing from `src/content/`.
+
+### Conservation across a boundary, and the leak seen
+
+**The kernel needed nothing.** `PoolRegistry.totalConserved` is one linear pass over a weight matrix and it has no notion of where a pool is, so two pools of the same species in two compartments carrying the same weight already conserve across a reaction that moves between them. **That is the whole technical content of the flat decision** and it is why this stage is a test rather than a change.
+
+The fixture is new rather than an edit, and that mattered. `src/sim/__tests__/fixtures/compartmentPathway.ts`, six pools and four reactions:
+
+```
+  pump      H_in            ->  H_out          builds the gradient
+  symport   S_out + H_out   ->  S_in + H_in    spends it to import S
+  convert   S_in            ->  M_in
+  sink      2 H_in          ->  W_in           locks two away in a product
+
+  stuff     S_out 1   S_in 1   M_in 1
+  charge    H_out 1   H_in 1   W_in 2
+```
+
+**Adding a compartment to `toyPathway.ts` would have moved the canonical hash `172f83fb`**, which is frozen since V1, asserted in `determinism.test.ts` and measured across four engines by V9 at two tick counts. Changing the thing the whole suite is calibrated against, in order to test something it does not have, is the wrong trade. A second fixture costs one file and moves nothing.
+
+**`W_in` is the finding stage 1 handed over and it is load-bearing.** Complex IV consumes matrix protons in making water and ATP synthase consumes one per ATP, so free protons genuinely leave the two compartment pools. Without a pool holding them the conserved total falls on the first tick. `W_in` carries `charge` at a weight of 2 and `sink` takes 2 to make one, which is V10's carbon dioxide move with a different atom.
+
+**The measurements.**
+
+```
+  correct, 5000 ticks, default configuration           passes
+  correct, 200 randomized configurations, 500 ticks    worst drift 3.022e-15
+  act 1 and the toy pathway, unchanged, for comparison worst drift 1.964e-13
+```
+
+**Transport conserves better than the toy pathway does**, by two orders. Not a claim about transport being safer, and worth saying so: a transport reaction is one substrate and one product at coefficient 1, so it performs fewer rounded additions per tick than `r1`'s five terms do. The tolerance argument at the top of `conservation.test.ts` is unchanged and still rests on the toy pathway's number, which is the larger one.
+
+**And the violation, seen rather than assumed.** Three leak shapes, because they are three different mistakes a person makes: a dropped coefficient, a missing product term, and a conserved weight that does not match what went into the pool.
+
+```
+  'pump'      1 H_in in, 0.9 H_out out          drift 2.508e-1
+  'symport'   H consumed, never put down        drift 7.945e-1
+  'sink'      1 H into a W_in that carries 2    drift 3.660e-1
+```
+
+All three are **eight orders above the 1e-9 tolerance and fourteen above the noise floor**, which is the six-order gap the tolerance argument describes, with the leaks well clear of the top of it. The quoted failure, captured by running the real assertion against the leaked fixture:
+
+```
+  AssertionError: expected 0.7945227660791777 to be less than 1e-9
+   ❯ conservation across a compartment boundary
+     holds through a pump, a symport and a sink over 500 ticks
+```
+
+**One extra test that is not in the stage and should be.** A guard-the-guard: if the pump never outran the symport, `H_out` would sit at zero, nothing would ever cross against a gradient, and the conservation test would pass while covering none of what it claims. It asserts `H_out` rises above zero, that matter reached the inside, that the sink ran, and that the outside pool fell. Same posture as the existing `sawShortfall` assertion three tests above it.
+
+**And one proving the leak is the cause.** The three leak cases would also fail if the fixture were broken some other way, so the same run at the same seed with `leak: 'none'` is asserted clean. The only difference between passing and failing is one coefficient.
+
+### The three illustration rules
+
+Written into DESIGN.md before any component renders them, which step 4 asks for and which is the ordering V12 stage 1 used.
+
+**Rules 7, 8 and 9, plus a subsection each and five decisions-log rows.** All three are derived and none is drawn: rule 7 reads the descriptor's compartment grouping, rule 8 reads which reactions have substrates and products in different compartments, and rule 9 reads two pool amounts. **A compartment that gained a pool redraws itself**, in the same way a stoichiometry change moves a blob's side count in the same commit.
+
+**Rule 7, a compartment is an enclosure.** One closed irregular outline in the existing stroke band with the member cards inside it. Containment is the whole encoding, with no tint, no boundary label and no legend, because a card inside an outline already says where it is. **Deliberately not a Card**: a Card carries the hard offset shadow, and a shadow would put the matrix visually on top of the cytosol when it is inside it.
+
+The best thing about rule 7 is that it was already decided. **V12 settled on 2026-08-09 that the beast's Powered state is "a closed sub-outline inside a closed outline, which is a compartment and is the only topological change in the illustration set."** That was a decision about a 44px character and it is the same statement at full size, so rule 7 is the miniature grown up rather than a new idea, and the two are now required not to diverge.
+
+**Rule 8, a membrane is a doubled outline and a crossing is a gap in it.** Two concentric strokes, derived rather than decorative because the mitochondrion has two membranes and only the inner is a barrier, and because the space between them is a real compartment holding a real pool that rule 7 then requires be drawable. **Matter does not pass through an unbroken stroke**, so a transport reaction opens the exact gap it uses and the outline becomes a readable list of what can cross. A player with only the pyruvate carrier sees one gap. An unbought crossing leaves the stroke closed rather than dashing the arrow, which keeps dashed meaning locked-affordance rather than locked-membrane.
+
+**Rule 9, a gradient is the step between two levels, and it is the first rule that reads two pools.** Each face of the inner membrane carries a level and the reading is the step where they meet, with a hard ink rule at each level, which is illustration rule 3's own device used for rule 3's own reason.
+
+Three properties fall out and all three are why it was taken. **At zero gradient the levels are flush and nothing has to be drawn to say the gradient is absent**, which is the state before the chain is bought. **Buying the chain opens the step and the player watches it open** while no ATP arrives, and **buying the synthase brings it down**, so the pile-up and the conversion are one visual quantity moving in two directions rather than two readouts. And unlike rule 3's redox level, which needed the electron dots because a level carries no signal at its own ends, **a step is most legible exactly when the two pools are most unequal**, which is the state the act is about.
+
+Four treatments were rejected and the last is the interesting one. A bare number, which is what the rule exists to avoid. A colour temperature across the membrane, which fails V7's rule alone. Protons drawn in flight, which is flux where a gradient is a stock, and would collide with what movement has meant in this document since 2026-07-28. And **a single bar whose length is the difference, which reads two pools correctly and loses the fact that the two sides are two places**, and that is exactly what rules 7 and 8 had just spent their whole cost establishing.
+
+### Accessibility, and a place the stage's framing needed adjusting
+
+Step 5 asks the channel table to name a second channel for each new meaning that is neither motion nor colour. **Both channels are, for all three, and saying only that would be hiding something.**
+
+V7's rule exists because colour was carrying meaning alone and colour can be lost. **Rules 7 to 9 use colour to carry nothing.** Containment is geometry, a gap in a stroke is geometry, a step between levels is geometry. All three survive greyscale, all three survive every deficiency in the Machado matrices V7 and V12 measured against, and all three survive `forced-colors`, because an outline is the one channel forced colours guarantees. **Manufacturing a second visual channel for something whose first channel is not colour would be the wrong kind of thoroughness**, so the channels named are the ones for the loss that can actually happen here:
+
+```
+  compartment      containment              a labelled group in the
+                                            accessibility tree
+  membrane         a gap in the inner       the crossing arrow's numeric
+  crossing         stroke                   rate, already required of every
+                                            arrow by the reduced-motion path
+  gradient         the step between the     a hard ink rule at each level, so
+                   two levels               both heights survive every fill
+                                            being removed, plus two announced
+                                            events
+```
+
+**Two announcements and not a live region.** A proton gradient is a number changing twenty times a second and this document has said since V7 that speech announces events and never narrates the tick. The step opening and the step first falling are the two discrete moments and they are the two beats docs/PROGRESSION.md asks to be felt. **The count is deliberate**: V12 added zero announcements to an act that had seventeen, on the argument that two announcements about one fact is the same defect as two copies of one fact in a save. These two are two different facts.
+
+**One thing is deliberately given no second channel.** Which compartment a card is in is stated once, by containment, and the card does not also carry a compartment name in its own text. That is the "one thing said twice" rule 7 refuses.
+
+**The deviation, and it is the same shape as stage 1's.** `accessibility.test.ts` holds the channel table as a manifest of seven rows, and each row names a marker string that must be present in `src/ui/components/`. **A row added now would fail**, because step 4 of this stage requires the rules be written before any component renders them, so there is no marker to find. The rules and their channels are in DESIGN.md in this stage and the guard rows land with the components in stage 4, where the manifest goes from seven rows to ten and its `TABLE.length` assertion moves with it. Reported rather than quietly deferred, because that assertion exists specifically so the table cannot shrink and it should not be able to lag either.
+
+### The bundle
+
+**Zero. Byte for byte.**
+
+```
+  application (apportioned)      90.24 kB  budget 130.00     V13: 90.24
+  dependencies (apportioned)    219.19 kB  budget 230.00     V13: 219.19
+  fonts                          68.86 kB  budget  72.00     V13: 68.86
+  styles                         22.64 kB  budget  32.00     V13: 22.64
+  total                         404.78 kB  budget 460.00     V13: 404.78
+```
+
+Step 6 asked whether the compartment and membrane treatments are derivable or drawn, because the Hand-authored art rule and the budget both apply to the second case. **All three are derivable, so no asset was drawn, so the art governance rule does not reach them and the budget does not move.** The new fixture and the new tests are test-only and never enter a production bundle. Stage 4 pays for the components.
+
+### Verify
+
+```
+  npm run typecheck    exit 0
+  npm run lint         exit 0, clean
+  npm run build        exit 0, budget green on every line
+  npm test             61 files, 1018 tests, 0 failed, 21.99s
+```
+
+**1018 against V13's 1011, so this stage adds 7.** Six in the new `conservation across a compartment boundary` block, of which three are the leak cases, plus the leak-is-the-cause control. `designSystem.test.ts` still passes, which is the DESIGN.md guard and the reason to check: the Colour section was not touched and the three new rules add no token.
+
+Files changed: `DESIGN.md`, `src/sim/__tests__/conservation.test.ts`, and one new file `src/sim/__tests__/fixtures/compartmentPathway.ts`. **`src/sim/` proper is untouched**, which is the stage's own claim stated as a diff rather than as an intention.
 
 ---
 

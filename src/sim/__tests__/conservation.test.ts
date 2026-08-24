@@ -10,6 +10,16 @@ import {
   type ToyPoolId,
   type ToyReactionId,
 } from './fixtures/toyPathway';
+import {
+  COMPARTMENT_KM,
+  COMPARTMENT_POOL_IDS,
+  COMPARTMENT_REACTION_IDS,
+  COMPARTMENT_VMAX,
+  createCompartmentPathway,
+  type CompartmentLeak,
+  type CompartmentPoolId,
+  type CompartmentReactionId,
+} from './fixtures/compartmentPathway';
 
 /**
  * docs/SIMULATION.md line 90: carbon, phosphate and redox equivalents are
@@ -204,5 +214,111 @@ describe('conservation of mass', () => {
     console.log(`  worst relative conservation drift observed: ${worst.toExponential(3)}`);
     // Three orders below the tolerance. This is the headroom claim, asserted.
     expect(worst).toBeLessThan(RELATIVE_TOLERANCE / 1000);
+  });
+});
+
+/**
+ * CONSERVATION ACROSS A COMPARTMENT BOUNDARY. UPDATELOGV14.md stage 2 step 2.
+ *
+ * The claim act 3 rests on is that a proton in the intermembrane space and a
+ * proton in the matrix are the same proton in a different place, so moving one
+ * changes no total. That is what makes the gradient a real quantity rather than
+ * a number the designer maintains by hand, and it is the property that decides
+ * whether the flat kernel can carry a compartment at all.
+ *
+ * The kernel needs nothing new for it. `PoolRegistry` totals a quantity by
+ * weight over every pool with no notion of where a pool is, so two pools of the
+ * same species in two compartments carrying the same weight already conserve
+ * across a reaction that moves between them. **A transport reaction is a
+ * reaction.** These tests are the proof of that rather than an extension to it.
+ *
+ * Same tolerance as everything above. No exemption, because a transport
+ * reaction that needed a looser tolerance would be a transport reaction that
+ * leaks.
+ */
+describe('conservation across a compartment boundary', () => {
+  it('holds through a pump, a symport and a sink over 5000 ticks', () => {
+    const { maxRelativeDrift } = runAndMeasure(createCompartmentPathway(), 5000);
+    expect(maxRelativeDrift).toBeLessThan(RELATIVE_TOLERANCE);
+  });
+
+  it('actually builds a gradient, so the test above is asserting something', () => {
+    // GUARD THE GUARD. If the pump never outruns the symport, H_out stays at
+    // zero, nothing is ever transported against a gradient, and the test above
+    // passes while covering none of what it claims to cover.
+    const state = createCompartmentPathway();
+    const { pools } = state;
+    for (let t = 0; t < 5000; t += 1) tick(state);
+
+    expect(pools.get('H_out')).toBeGreaterThan(0);
+    // Matter crossed inward, and it was locked away at the sink.
+    expect(pools.get('S_in') + pools.get('M_in')).toBeGreaterThan(0);
+    expect(pools.get('W_in')).toBeGreaterThan(0);
+    // And the outside pool went down by what came in, which is the transport
+    // stated as a fact about two pools rather than about one.
+    expect(pools.get('S_out')).toBeLessThan(3000);
+  });
+
+  it('holds across 200 randomized configurations', () => {
+    const rng = createPrng(20260824);
+    let worst = 0;
+
+    for (let run = 0; run < 200; run += 1) {
+      const initial: Partial<Record<CompartmentPoolId, number>> = {};
+      for (const id of COMPARTMENT_POOL_IDS) {
+        initial[id] = rng.next() < 0.15 ? 0 : rng.next() * 2000;
+      }
+      // Something has to be on one side of the boundary or nothing ever moves.
+      if ((initial.H_in ?? 0) + (initial.H_out ?? 0) === 0) initial.H_in = 1 + rng.next() * 20;
+
+      const vmax: Partial<Record<CompartmentReactionId, number>> = {};
+      const km: Partial<Record<CompartmentReactionId, number>> = {};
+      for (const id of COMPARTMENT_REACTION_IDS) {
+        vmax[id] = COMPARTMENT_VMAX[id] * (0.01 + rng.next() * 100);
+        km[id] = COMPARTMENT_KM[id] * (0.01 + rng.next() * 10);
+      }
+
+      const state = createCompartmentPathway({ initial, vmax, km, seed: 1 + run });
+      const { maxRelativeDrift } = runAndMeasure(state, 500);
+
+      if (maxRelativeDrift > worst) worst = maxRelativeDrift;
+      expect(
+        maxRelativeDrift,
+        `run ${run}: ${JSON.stringify({ initial, vmax, km })}`,
+      ).toBeLessThan(RELATIVE_TOLERANCE);
+    }
+
+    console.log(`  worst drift across a compartment boundary: ${worst.toExponential(3)}`);
+  });
+
+  /**
+   * THE VIOLATION THE TEST EXISTS TO CATCH, SEEN.
+   *
+   * Three leak shapes, three different mistakes. Each is asserted to fail by a
+   * wide margin rather than merely to fail, because the value of the number is
+   * that it sits in the six-order gap the tolerance argument at the top of this
+   * file describes: float noise is at 1e-13 and a real leak is at 1e-3 or worse.
+   * A leak that landed near the tolerance would mean the tolerance is wrong.
+   */
+  const LEAKS: readonly (readonly [Exclude<CompartmentLeak, 'none'>, string])[] = [
+    ['pump', 'transport that destroys on crossing, 1 in and 0.9 out'],
+    ['symport', 'transport that consumes the carried unit and never puts it down'],
+    ['sink', 'a product weight that does not match what went into it'],
+  ];
+
+  it.each(LEAKS)('catches %s: %s', (leak) => {
+    const { maxRelativeDrift } = runAndMeasure(createCompartmentPathway({ leak }), 500);
+    console.log(`  leak '${leak}' drifts ${maxRelativeDrift.toExponential(3)} relative`);
+    expect(maxRelativeDrift).toBeGreaterThan(RELATIVE_TOLERANCE);
+    // Six orders above the tolerance rather than a hair over it.
+    expect(maxRelativeDrift).toBeGreaterThan(1e-3);
+  });
+
+  it('is clean on the same run with the leak switched off, so the leak is the cause', () => {
+    // The three cases above would also fail if the fixture were broken in some
+    // other way. Same seed, same tick count, leak 'none': clean. So the only
+    // difference between passing and failing is the one coefficient.
+    const { maxRelativeDrift } = runAndMeasure(createCompartmentPathway({ leak: 'none' }), 500);
+    expect(maxRelativeDrift).toBeLessThan(RELATIVE_TOLERANCE);
   });
 });
