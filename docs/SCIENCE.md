@@ -1,6 +1,6 @@
 # Science
 
-Last updated: 2026-08-06
+Last updated: 2026-08-24
 
 Biological ground truth for the project. Every quantitative claim in player-facing text traces back to this document.
 
@@ -394,17 +394,59 @@ The game presents the transition without committing to which came first, and say
 
 Timing generally: the endosymbiosis is usually placed around two billion years ago, with wide error bars.
 
+## Oxygen is the terminal electron acceptor, and every number in this part sits downstream of it
+
+Added 2026-08-24, promoted rather than discovered. The claim was already in this document, four paragraphs into "Oxidative phosphorylation and chemiosmosis" below, and it is given its own section because it is the single fact the whole of act 3 rests on and a reader should not have to reach the middle of another section to find it.
+
+Oxygen accepts the spent electrons at the end of the chain and is reduced to water at complex IV. That is its only role. It is not a substrate of the TCA cycle, it is not consumed by ATP synthase, and it contributes no atom to ATP.
+
+What follows from that is a dependency rather than a detail. Without a terminal acceptor the chain backs up, the quinone pool stays reduced, no complex pumps, the matrix NADH pool cannot be reoxidised, and pyruvate oxidation and the TCA cycle stop behind it for the same reason glycolysis stops behind an unreoxidised cytosolic NADH pool in act 1. **It is the NAD+ wall again, one compartment inward.** That symmetry is real and it is the best thing this act inherits from the first one.
+
+The consequence for the project is stated here because it is a fact about biology rather than a fact about a build. **Aerobic respiration cannot be modelled at all at an environmental oxygen level of zero, and the process that raises that level is act 2's.** See Part 3, "The Great Oxidation Event".
+
+## Pyruvate transport into the matrix
+
+Added 2026-08-24. Absent from this document before that date, which was a gap rather than a disclosed simplification: it is the first step of act 3 and the first thing the new compartment does.
+
+Two membranes, two mechanisms, and only the second one is a barrier.
+
+The outer mitochondrial membrane carries porins, non-selective channels that pass metabolites up to roughly 5 kDa. Pyruvate crosses it with no dedicated carrier and no cost, which is why the intermembrane space is often described as continuous with the cytosol for small molecules.
+
+The inner membrane is the real boundary. It is impermeable to ions and to nearly every metabolite, and that impermeability is the property the whole of chemiosmosis rests on: a gradient can only exist across a membrane that leaks slowly. Pyruvate crosses it on the mitochondrial pyruvate carrier, whose molecular identity was open for roughly forty years after the transport activity was characterised and was settled in 2012 by two groups independently, as a heterocomplex of the proteins MPC1 and MPC2.
+
+**The carrier is a proton symport.** One pyruvate enters with one proton, moving down the gradient the electron transport chain is building.
+
+That fact is worth more to this game than its share of the biochemistry, and it is the reason this section exists rather than being folded into the one below. The first unlock of act 3 spends the proton gradient at a point in the act where the player has no way to make one. The cost is not an invention and it is not a balance decision: it falls out of the stoichiometry of a real carrier.
+
 ## Pyruvate oxidation
+
+Expanded 2026-08-24. This section was four lines. The stoichiometry it gave was correct and is retained unchanged below.
 
 The link reaction, in the mitochondrial matrix. The pyruvate dehydrogenase complex converts pyruvate to acetyl-CoA.
 
 Per pyruvate: 1 NADH, 1 CO2, 1 acetyl-CoA. Two pyruvate per glucose, so 2 NADH.
 
+    pyruvate + CoA + NAD+  ->  acetyl-CoA + CO2 + NADH + H+
+
 Irreversible in animals. This is the commitment point past which carbon cannot return to glucose, which matters for gluconeogenesis in act 4.
+
+Three enzymes, not one. The complex is a physical assembly of pyruvate dehydrogenase itself, dihydrolipoyl transacetylase and dihydrolipoyl dehydrogenase, present in dozens of copies each, and it uses five cofactors: thiamine pyrophosphate, lipoamide, coenzyme A, FAD and NAD+. The FAD and the lipoamide are prosthetic and stay bound, and the substrate is passed between active sites on a swinging lipoyl arm rather than released into solution. It is the textbook case of substrate channelling, and it is exactly the spatial structure Part 1 says this model ignores.
+
+Regulated by phosphorylation, which is a different mechanism from the allosteric control that governs glycolysis. A dedicated kinase switches the complex off and a phosphatase switches it back on, and the kinase is stimulated by the products, acetyl-CoA and NADH. High acetyl-CoA and high NADH mean the matrix is already supplied, so the cell stops committing pyruvate.
+
+### The link back to act 1, which is worth making in-game
+
+Act 1 already decarboxylates pyruvate. Pyruvate decarboxylase, added to this document on 2026-08-06 for the ethanol branch, takes the same carbon off the same molecule and is thiamine pyrophosphate dependent in the same way, and the two enzymes are genuinely related in mechanism.
+
+**What differs is what happens to the two carbons that are left.** Pyruvate decarboxylase releases them as acetaldehyde, an ordinary aldehyde the cell then reduces to ethanol purely to get its NAD+ back, and the bond energy is thrown away. The pyruvate dehydrogenase complex oxidises them onto coenzyme A as a thioester, which is a high-energy bond, and captures the electrons as NADH at the same time. Same decarboxylation, same cofactor family, one of them discards what the other banks.
+
+That is the cleanest available statement of what act 3 changes, and it is a comparison between two things the player has personally bought rather than an assertion about biochemistry in general.
 
 ## TCA cycle
 
-Mitochondrial matrix. Eight steps.
+Expanded 2026-08-24 with the eight steps named. The per-turn totals given before that date were correct and are unchanged.
+
+Mitochondrial matrix. Eight steps, and it is a cycle rather than a path: the acceptor molecule at the start is regenerated at the end, so it is catalytic and is not consumed.
 
 Per turn:
 - 3 NADH
@@ -414,9 +456,34 @@ Per turn:
 
 Two turns per glucose, so 6 NADH, 2 FADH2, 2 ATP equivalents.
 
+### The eight steps
+
+Named because act 3 unlocks the cycle as one unit and then decomposes it, so the decomposition has to be sourced before it is built.
+
+    1  citrate synthase                 acetyl-CoA + oxaloacetate + H2O -> citrate + CoA
+    2  aconitase                        citrate -> isocitrate
+    3  isocitrate dehydrogenase         isocitrate + NAD+ -> alpha-ketoglutarate + CO2 + NADH
+    4  alpha-ketoglutarate dehydrogenase
+                                        alpha-ketoglutarate + CoA + NAD+
+                                          -> succinyl-CoA + CO2 + NADH
+    5  succinyl-CoA synthetase          succinyl-CoA + GDP + Pi -> succinate + CoA + GTP
+    6  succinate dehydrogenase          succinate + FAD -> fumarate + FADH2
+    7  fumarase                         fumarate + H2O -> malate
+    8  malate dehydrogenase             malate + NAD+ -> oxaloacetate + NADH
+
+Four facts in that table are load-bearing for the act and none of them is obvious from the totals.
+
+**The two carbons that leave are not the two that arrived.** Decarboxylation happens at steps 3 and 4, and isotope labelling shows the carbons released on a given turn come from the oxaloacetate rather than from the acetyl group just delivered. The cycle is carbon-conserving over a turn either way, which is what the model needs, but a claim that the acetyl carbons are the ones exhaled is wrong and is a common one.
+
+**Step 6 is a respiratory complex.** Succinate dehydrogenase is complex II of the electron transport chain, and it is the only membrane-bound enzyme of the cycle and the only point where the two systems are the same protein. Its FAD is covalently bound rather than free in solution, and its electrons go into the quinone pool directly. This is why FADH2 never appears as a diffusible pool in a careful account.
+
+**Step 5 is the cycle's only substrate-level phosphorylation**, which makes it the one step that is chemically the same kind of event as the ATP-making steps of glycolysis. Everything else the cycle produces is reducing power, and the roughly 30 figure is almost entirely earned later.
+
+**Step 4 is an assembly of the same design as the pyruvate dehydrogenase complex**, with the same five cofactors and the same swinging arm, and the two share a subunit. A game that sells them as unrelated upgrades is missing a real relationship.
+
 Regulated at citrate synthase, isocitrate dehydrogenase and alpha-ketoglutarate dehydrogenase, all responsive to the cell's energy state.
 
-The cycle is amphibolic. Intermediates feed biosynthesis as well as energy production, which is the hook for amino acid catabolism in act 4.
+The cycle is amphibolic. Intermediates feed biosynthesis as well as energy production, which is the hook for amino acid catabolism in act 4. Drawing intermediates off is only possible because they can be topped back up, and the reaction that does the topping up is pyruvate carboxylase. See Part 2, "Carbon dioxide, and whether anything in this game consumes it".
 
 ## Oxidative phosphorylation and chemiosmosis
 
@@ -428,19 +495,81 @@ The result is an electrochemical proton gradient. ATP synthase, complex V, allow
 
 Peter Mitchell proposed the chemiosmotic mechanism in 1961 and received the Nobel Prize in 1978. It was considered implausible for years, which is worth mentioning.
 
-Oxygen is the terminal electron acceptor. Its only role is accepting spent electrons at the end of the chain. Without it the chain backs up, NADH cannot be reoxidized and the entire system stops. Every one of those roughly 30 ATP depends on that final step.
+The gradient has two components and the distinction matters for anything that tries to draw it. Protons carry both charge and concentration, so the stored energy is a membrane potential plus a pH difference. In mitochondria the potential is the larger share, at roughly 150 to 180 mV, and the pH difference across the inner membrane is smaller, at roughly 0.5 to 1 unit. **A picture that shows only a difference in how many protons are on each side is showing the smaller half of the quantity.**
+
+### Complex by complex, and what each one pumps
+
+Added 2026-08-24. The document said which complexes pump and did not say how much, and the how much is what the act's economy is made of.
+
+    complex I     NADH dehydrogenase
+                  NADH + H+ + Q  ->  NAD+ + QH2
+                  4 H+ pumped per 2 electrons
+
+    complex II    succinate dehydrogenase, and TCA step 6
+                  succinate + Q  ->  fumarate + QH2
+                  0 H+ pumped. This is the entire reason FADH2 is worth less
+
+    complex III   cytochrome bc1
+                  QH2 + 2 cytochrome c oxidised  ->  Q + 2 cytochrome c reduced
+                  4 H+ appear in the intermembrane space per 2 electrons,
+                  through the Q cycle. Two are pumped and two are released
+                  from QH2 on the intermembrane side
+
+    complex IV    cytochrome c oxidase
+                  4 cytochrome c reduced + O2 + 8 H+ (matrix)
+                    ->  4 cytochrome c oxidised + 2 H2O + 4 H+ (intermembrane)
+                  2 H+ pumped per 2 electrons, and 2 more consumed from the
+                  matrix in making water
+
+Totals per carrier, which is the number the yield is computed from: **10 protons to the intermembrane space per NADH** oxidised at complex I, and **6 per FADH2** entering at complex II. The difference of 4 is complex I, and it is the whole of the difference between the two shuttles below.
+
+Complex IV is worth one extra sentence because it is where the protons stop being conserved as free protons. Four of them are consumed per O2 in making two water molecules, so they leave the matrix pool into a product rather than crossing back. A model that tracks protons as a conserved quantity has to give water somewhere to be, in exactly the way act 1's ethanol branch had to give carbon dioxide a pool for carbon to balance. See Part 2, "Carbon dioxide, and whether anything in this game consumes it".
+
+## ATP synthase, and how many protons an ATP costs
+
+Added 2026-08-24. This is the least settled stoichiometry in the whole of aerobic respiration and it is the main reason the yield below is a range rather than a number.
+
+The enzyme is a rotary motor in two parts. F0 sits in the membrane and turns as protons pass through it. F1 projects into the matrix and holds three catalytic sites, which change conformation as the central stalk rotates past them, releasing one ATP each per full turn. Mitchell proposed the coupling and Boyer proposed the rotation, and Walker's crystal structure confirmed it; Boyer and Walker shared the 1997 Nobel Prize with Skou.
+
+**Three ATP per revolution, and the protons per revolution are set by the number of c subunits in the rotor ring.** So the protons per ATP is the c number divided by 3, and the c number is not universal. Bovine mitochondria have 8, giving 2.7 protons per ATP. Yeast mitochondria have 10, giving 3.3. Chloroplast and bacterial rings run from 10 to 15. **There is no reason for this to be an integer and it is not one.**
+
+There is a second cost on top of it. ATP made in the matrix has to reach the cytosol, and the adenine nucleotide translocase exchanges matrix ATP for cytosolic ADP while the phosphate carrier brings in phosphate with a proton. Together those cost roughly one further proton per ATP exported. The figure usually quoted for a complete cycle, synthesis plus export, is about 4 protons per cytosolic ATP.
+
+That is where 2.5 comes from: 10 protons per NADH divided by 4 protons per exported ATP. It is a rounded consequence of two quantities that are themselves uncertain, and not a measured constant.
+
+## The two NADH shuttles, and why their yields differ
+
+Expanded 2026-08-24. The yields given before that date were correct and are unchanged. What is added is the mechanism, the reason the difference exists, and the fact that a real cell does not choose one.
+
+The inner membrane has no NADH carrier. Cytosolic NADH, which is the 2 per glucose that glycolysis makes at the GAPDH step, cannot cross it. Only the electrons cross, and there are two routes.
+
+**The malate-aspartate shuttle.** Cytosolic malate dehydrogenase reduces oxaloacetate to malate using the cytosolic NADH. Malate crosses on the malate to alpha-ketoglutarate carrier, and matrix malate dehydrogenase runs the same reaction backwards, regenerating NADH inside the matrix. The oxaloacetate cannot cross back, so it is transaminated to aspartate, returned on the glutamate to aspartate carrier, and transaminated back. Four transport events and two transaminations, and the net effect is that one cytosolic NADH becomes one matrix NADH.
+
+Matrix NADH enters at complex I, so it is worth 10 protons and about 2.5 ATP. Total per glucose roughly 32.
+
+**The glycerol phosphate shuttle.** Cytosolic glycerol-3-phosphate dehydrogenase reduces dihydroxyacetone phosphate to glycerol-3-phosphate using the cytosolic NADH. A second glycerol-3-phosphate dehydrogenase sits on the outer face of the inner membrane with an FAD prosthetic group, oxidises it back to dihydroxyacetone phosphate, and passes the electrons straight into the quinone pool.
+
+The quinone pool is downstream of complex I, so those electrons never pass through it and 4 protons are never pumped. 6 protons, about 1.5 ATP. Total per glucose roughly 30.
+
+### Why this is a real tradeoff and not a strictly worse option
+
+The two are not ranked, and this is the part that licenses offering them as a choice.
+
+The malate-aspartate shuttle is fully reversible. Every step is an equilibrium and the direction it runs is set by the ratio of NADH to NAD+ on each side, so it moves electrons inward only while the cytosol is more reduced than the matrix. Under high respiratory load the matrix pool is already reduced and the shuttle slows or reverses. **It is the higher-yielding route and it is the one that fails under pressure.**
+
+The glycerol phosphate shuttle is effectively irreversible, because the second step drops the electrons onto an FAD at a potential they cannot climb back from. It runs at the same rate regardless of the matrix redox state. **It is the lower-yielding route and it is the one that keeps working when glycolytic flux is high.**
+
+That is what the older shorthand of "speed against yield" was pointing at, and it is more precisely stated as insensitivity to redox back-pressure against yield.
+
+### A real cell does not pick one
+
+Both shuttles are present in most tissues and the balance between them shifts rather than being set. The malate-aspartate shuttle predominates in liver, heart and kidney. The glycerol phosphate shuttle is prominent in skeletal muscle and brown adipose tissue, and it is the dominant route in insect flight muscle, which is the classic case precisely because that tissue sustains the highest glycolytic flux in the animal kingdom.
+
+**So a permanent, exclusive commitment to one shuttle is not a thing biology does**, and any game that makes the choice irreversible is departing from the science rather than modelling it. That departure may still be worth making for design reasons; it is recorded here that it would be one. docs/PROGRESSION.md holds the open question and the answer belongs there rather than in this document.
 
 ## ATP yield: state the range
 
 Older textbooks give 36 to 38 ATP per glucose using integer P/O ratios of 3 for NADH and 2 for FADH2. Those integer values were revised on experimental grounds. Current values are approximately 2.5 ATP per NADH and 1.5 per FADH2, giving roughly 30 to 32 ATP per glucose. Published estimates range from about 29 to 32 depending on assumptions, including the number of c subunits in the ATP synthase rotor.
-
-The remaining 2 ATP of spread comes from shuttle choice. Cytosolic NADH from glycolysis cannot cross the inner mitochondrial membrane directly.
-
-The malate-aspartate shuttle regenerates NADH inside the matrix, which enters at complex I, yielding about 2.5 ATP per cytosolic NADH. Total roughly 32.
-
-The glycerol phosphate shuttle transfers electrons to FAD, producing FADH2, which enters at complex II and bypasses one pumping site, yielding about 1.5 ATP. Total roughly 30.
-
-This is why act 3 offers the shuttle as a real choice with a real tradeoff. Speed against yield.
 
 Accounting per glucose, using modern ratios and the malate-aspartate shuttle:
 - Glycolysis: 2 ATP direct, 2 NADH
@@ -451,11 +580,35 @@ Accounting per glucose, using modern ratios and the malate-aspartate shuttle:
 - 2 FADH2 at 1.5 = 3
 - Sum: 32
 
+Substituting the glycerol phosphate shuttle moves the 2 glycolytic NADH from 2.5 to 1.5 each, so the sum is 30.
+
 The game should show both totals and explain the discrepancy rather than picking one silently. Note also that these are theoretical maxima. Real cells lose output to proton leak and transport costs, so actual yield is lower still.
+
+### The range, and the five reasons for it
+
+Consolidated 2026-08-24. This subsection exists because act 3 makes the game's largest quantitative claim and the honest form of that claim is a range with reasons rather than a number with a caveat. Nothing here is new science; it is the same facts gathered into one place so that a player-facing surface can render them.
+
+**The band this document supports is 29 to 32 ATP per glucose**, with 30 and 32 as the two figures the shuttle choice picks between, and with everything below pushing the realised value toward and past the bottom of it. The obsolete figure is 36 to 38 and it is still in circulation.
+
+The five reasons the number is not a number:
+
+1. **Shuttle choice, worth exactly 2.** Malate-aspartate gives 32 and glycerol phosphate gives 30, by the mechanism in the section above. This is the only one of the five the player controls, and it is the reason a game can make the uncertainty interactive rather than only stating it.
+
+2. **The c-ring stoichiometry of ATP synthase, which is not an integer and is not universal.** Protons per ATP is the c number over 3, the c number is 8 in bovine mitochondria and 10 in yeast, and the commonly used figure of 4 protons per exported ATP is a rounding of that plus the transport cost. This is the assumption Part 7 item 2 names and it is the largest single source of spread.
+
+3. **The P/O ratios of 2.5 and 1.5 are themselves rounded consensus values**, not measurements with tight error bars. They replaced the integers 3 and 2 on experimental grounds, and the replacement was a correction of a false precision rather than the establishment of a new one.
+
+4. **Transport costs are real and are frequently left out.** The adenine nucleotide translocase, the phosphate carrier and the mitochondrial pyruvate carrier all consume the gradient. Pyruvate import in particular is one proton per pyruvate and therefore 2 per glucose, and an accounting that omits it is overstating the yield.
+
+5. **Proton leak.** The inner membrane is not perfectly impermeable and some protons return without passing through ATP synthase. In resting tissue this is a substantial fraction of respiration rather than a rounding error, and in brown adipose tissue it is deliberately maximised by uncoupling protein 1, which is the case that proves the gradient and the ATP are separable quantities.
+
+Reasons 2 and 3 are disagreements about what the maximum is. Reasons 4 and 5 are the gap between the maximum and what a cell actually gets. **Both belong in the honest statement and they are different kinds of uncertainty**, which is the distinction a contested-science surface has to preserve to be worth building.
 
 ## The multiplier
 
 Fermentation gives 2 ATP per glucose. Aerobic respiration gives roughly 30. That is about fifteen times, and it is the emotional payoff of act 3.
+
+The figure is a ratio of two numbers with different confidences, and that is worth keeping straight. **The 2 is exact**, fixed by the stoichiometry of glycolysis and asserted in act 1 to nine decimal places. The roughly 30 is the range above. So the multiplier is roughly 15 to 16 against the theoretical maximum and lower in a real cell, and the honest short form is "about fifteen times" rather than any figure with a decimal point in it.
 
 The corollary is worth stating in-game: tissues that depend heavily on oxygen retain only a small fraction of their normal ATP production when deprived of it. This is why oxygen deprivation kills quickly.
 
@@ -623,7 +776,7 @@ Nitrogen fixation and methanogenesis are both metabolically important and both a
 Surface these in-game. They demonstrate that the science is live rather than finished.
 
 1. Whether mitochondria came early and drove eukaryotic complexity or arrived after a host that was already complex. Actively disputed, with recent papers on both sides.
-2. The exact ATP yield per glucose. Depends on assumptions that are not fully settled, including ATP synthase rotor stoichiometry.
+2. The exact ATP yield per glucose. Depends on assumptions that are not fully settled, including ATP synthase rotor stoichiometry. Expanded 2026-08-24: the band is 29 to 32 and there are five separate reasons for the spread, two of which are disagreements about the theoretical maximum and two of which are the gap between that maximum and what a cell realises. See Part 4, "The range, and the five reasons for it". **This is the one entry on this list that the game states at the moment it makes its largest quantitative claim**, rather than filing away in an about screen.
 3. The precise duration and pace of the Great Oxidation Event.
 4. When oxygenic photosynthesis originated. Revised 2026-07-28. The earlier wording here assumed the gap between its origin and atmospheric accumulation was itself established and that only the explanation was open. That was too confident. The 2.7 Ga figure that supported it rests on biomarkers since shown to be younger contamination, and the origin date is unresolved across a range of several hundred million years. See Part 6 stop 3.
 5. The origin of glycolysis itself, which predates the last universal common ancestor and has no accessible fossil record.
@@ -660,6 +813,23 @@ Endosymbiosis:
 
 Chemiosmosis:
 - Mitchell, P. Coupling of phosphorylation to electron and hydrogen transfer by a chemi-osmotic type of mechanism. Nature, 1961
+
+Act 3 pathway detail, Part 4, added 2026-08-24:
+- Lehninger Principles of Biochemistry, 8th edition, and Berg, Tymoczko and Stryer, Biochemistry, 9th edition. Both are already at the head of this list and both are the load-bearing sources for the eight TCA steps and their enzymes, the pyruvate dehydrogenase complex's three enzymes and five cofactors, the per-complex proton counts of 4, 0, 4 and 2, the totals of 10 per NADH and 6 per FADH2, and the mechanism of both shuttles. Repeated here because a reader chasing act 3 should not have to infer which general reference carries it
+- Bricker, D. K. et al. A mitochondrial pyruvate carrier required for pyruvate uptake in yeast, Drosophila, and humans. Science, 337(6090), 96 to 100, 2012. https://doi.org/10.1126/science.1218099
+- Herzig, S. et al. Identification and functional expression of the mitochondrial pyruvate carrier. Science, 337(6090), 93 to 96, 2012. The second of the two independent 2012 identifications. https://doi.org/10.1126/science.1218530. Together these two are the source for MPC1 and MPC2 and for the carrier being a proton symport
+- Watt, I. N., Montgomery, M. G., Runswick, M. J., Leslie, A. G. W. and Walker, J. E. Bioenergetic cost of making adenosine triphosphate in animal mitochondria. PNAS, 107(39), 16823 to 16827, 2010. Source for the bovine c8 ring and therefore for 2.7 protons per ATP synthesised. https://doi.org/10.1073/pnas.1011099107
+- Boyer, P. D. The ATP synthase, a splendid molecular machine. Annual Review of Biochemistry, 66, 717 to 749, 1997. Source for the binding change mechanism and three ATP per revolution
+- Abrahams, J. P., Leslie, A. G. W., Lutter, R. and Walker, J. E. Structure at 2.8 Å resolution of F1-ATPase from bovine heart mitochondria. Nature, 370, 621 to 628, 1994. The structure that confirmed the rotation
+- Nicholls, D. G. and Ferguson, S. J. Bioenergetics, 4th edition, 2013. Source for the membrane potential of roughly 150 to 180 mV being the larger component of the protonmotive force, for the pH difference of roughly 0.5 to 1 unit, and for proton leak being a substantial fraction of resting respiration
+- Brand, M. D. and Nicholls, D. G. Assessing mitochondrial dysfunction in cells. Biochemical Journal, 435(2), 297 to 312, 2011. Source for proton leak as a quantified component of respiration rather than an aside. https://doi.org/10.1042/BJ20110162
+- Klingenberg, M. The ADP and ATP transport in mitochondria and its carrier. Biochimica et Biophysica Acta, 1778(10), 1978 to 2021, 2008. Source for the adenine nucleotide translocase exchange and its contribution to the cost of an exported ATP
+- Sazanov, L. A. A giant molecular proton pump: structure and mechanism of respiratory complex I. Nature Reviews Molecular Cell Biology, 16, 375 to 388, 2015. Source for the 4 protons per 2 electrons at complex I. https://doi.org/10.1038/nrm3997
+- Crofts, A. R. The cytochrome bc1 complex: function in the context of structure. Annual Review of Physiology, 66, 689 to 733, 2004. Source for the Q cycle and for the 4 protons appearing on the intermembrane side per QH2
+- Wikström, M. and Hummer, G. Stoichiometry of proton translocation by respiratory complex I and its mechanism. PNAS, 109(12), 4431 to 4436, 2012. Cited for the proton stoichiometries being an active measurement question rather than settled constants, which is reason 2 in the yield range
+- Cederbaum, A. I., Lieber, C. S., Beattie, D. S. and Rubin, E. Characterization of shuttle mechanisms for the transport of reducing equivalents into mitochondria. Archives of Biochemistry and Biophysics, 158(2), 763 to 781, 1973. Source for the two shuttles operating together rather than exclusively
+- Sacktor, B. Biochemistry of insect flight, in Insect Biochemistry and Function, 1975. Source for the glycerol phosphate shuttle dominating in insect flight muscle. Editor and exact pagination not verified
+- Cannon, B. and Nedergaard, J. Brown adipose tissue: function and physiological significance. Physiological Reviews, 84(1), 277 to 359, 2004. Source for uncoupling protein 1 deliberately dissipating the gradient, which is the case that separates gradient from ATP
 
 Oxidative damage mechanisms and enzyme targets, Part 3:
 - Imlay, J. A. The molecular mechanisms and physiological consequences of oxidative stress: lessons from a model bacterium. Nature Reviews Microbiology, 11(7), 443 to 454, 2013. The canonical review. Establishes [4Fe-4S] dehydratases and mononuclear iron enzymes as the two primary target classes. https://doi.org/10.1038/nrmicro3032
@@ -745,5 +915,7 @@ Pyruvate carboxylase and anaplerosis, Part 5, added 2026-08-06:
 Verification status. Entries marked "not verified" have a confirmed title, journal, year and where given a URL, but the author list was not independently checked during the 2026-07-28 sourcing pass. Do not cite those author names in player-facing text without checking them. Nothing in this section was invented; unverified fields were stripped rather than guessed.
 
 Verification status of the 2026-08-06 additions, stated separately because the pass was a different kind. The claims added on that date are textbook and review-level biochemistry rather than contested primary results, and every one of them is carried by the Lehninger and Berg references already at the head of this list. The named journal articles are given because a reader chasing the bacterial and control-analysis specifics should be sent somewhere better than a textbook, and where an author list was not independently checked the entry says so. **No URL was added in this pass**, because a guessed URL is worse than an absent one and none was confirmed. Nothing was invented.
+
+Verification status of the 2026-08-24 additions, stated separately again because the pass had a different shape from both earlier ones. Part 4 gained the act 3 pathway detail: pyruvate transport, the pyruvate dehydrogenase complex in full, the eight TCA steps, the electron transport chain complex by complex with its proton counts, ATP synthase and its c-ring, both shuttles and their mechanisms, and the yield range with its five reasons. **Almost all of it is textbook stoichiometry and topology**, carried by the Lehninger and Berg references at the head of this list, and the named journal articles are given where a reader should be sent somewhere better than a textbook or where the claim is a specific measurement rather than general knowledge. Two entries have unverified fields and say so. **No number in this pass came from a game requirement.** The proton counts, the c-ring values and the yield band were written before any act 3 constant existed, which is the ordering CLAUDE.md hard rule 1 depends on and the reason this stage came first.
 
 Citation discipline: every player-facing numeric claim needs a pointer into this section. If a number cannot be sourced, it does not ship.

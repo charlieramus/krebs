@@ -134,7 +134,131 @@ list with its compartment convention.
 
 ## Stage 1 Report
 
-_Pending._
+**ACCEPT. Taken 2026-08-24 by Charlie. Act 3 goes next and it ships against a placeholder oxygen level.**
+
+Recorded in `NOW.md` before any other edit in this stage, because the log's own gate says stage 1 does not start until it is there. It replaces the Status block's opening sentence, the "Next, in order" item 1 heading, and both places the decision was carried as open. **The two-exit block is struck through rather than deleted**, on the standing argument that a decision with its alternatives erased reads as an inevitability.
+
+**The grounds, and they are not the value-ordering argument.** The design doc puts act 3 first because it carries the headline claim and should exist earliest. That argument was never settled against the counter-argument that act 2 explains why any of it happened, and this stage did not settle it either. **What decided it is that FLIP had nothing to run into.** `docs/PROGRESSION.md` still lists act 2's shape as an open question for the prototype, `NOW.md` item 3 already said in as many words that writing an act 2 row today would be inventing content in a state file, and `UPDATELOGV14.md` is seven stages of act 3. So the exits were not symmetric: ACCEPT buys one knowingly wrong constant and one rebalance, and FLIP buys a decision that could not be acted on, which is the one outcome neither exit was priced for.
+
+**What ACCEPT does not license, written down at the moment it was taken rather than later.** It does not withdraw the reading `docs/PROGRESSION.md` exists to protect. Oxygen was a mass extinction before it was fuel, and until act 2 exists this game presents aerobic respiration as the next rung on a ladder. That is a known cost of the order and not a defect V14 can fix. This log's own "After These Stages" section already says so and it stays true.
+
+### The placeholder, and why it is deliberately not a row
+
+`ACT3_O2_ENV_PLACEHOLDER`, and **the name is doing work.** Step 1 says a number that is knowingly wrong and labelled as such is fine and one that is knowingly wrong and looks like the others is not. `ACT3_O2_ENV_INITIAL` would have looked exactly like `ACT1_GLUCOSE_ENV_INITIAL`. The warning is in the identifier so that it survives a reader who never opens `docs/ECONOMY.md`.
+
+**The row is written in full and it is not in the divergence table, and this is the one deviation in the stage that changes what was delivered.** The stage says this stage owns the constant and its row. It also says, first line of the fenced block, no TypeScript. Those two cannot both be honoured, because `src/ui/__tests__/divergenceTable.test.ts` has a test called "has no row naming a constant that no longer exists" and a third test asserting the document's stated per-file counts against the live modules. **A table row for a constant that does not exist yet fails the suite on the stage that wrote it.** Verified by reading the guard rather than by trying it: the orphan check matches on `` | `NAME` | ``, anchored to a table cell, so prose naming the constant in backticks is not caught and a row is.
+
+So the row's content ships in this stage and its table cell ships in stage 4, which is the stage that mints act 3's tuned scalars and which step 6 already makes responsible for every one of their rows. `docs/ECONOMY.md` gains a section, **"The placeholder oxygen level"**, carrying the real behaviour cited to Part 3, what the game does instead, and the plain-words paragraph step 1 asks for:
+
+> *Act 2 has not been built. This number stands in for a rising oxygen level that act 2 is the act that produces, and nothing in act 3 makes it go up or down. It is not a measurement, it is not tuned against anything real, and it is not a simplification of a process the game models somewhere else. It is a value chosen so that act 3 can be played before the act that explains where oxygen came from exists.*
+
+**The second reason outlives the first and is the better one.** Forty-eight rows say "we chose this and here is why". This one says "we do not know this and act 2 will". A reader skimming a column of identical-looking rows would not catch the difference, which is the failure the table exists to prevent. When it joins the table in stage 4 it keeps the section and the row cites back to it.
+
+The three stated counts in `docs/ECONOMY.md` are untouched at 24, 23 and 1 for a total of 48, because no constant was added. Stage 4 moves them.
+
+### What went into docs/SCIENCE.md
+
+Part 4 goes from 88 lines to roughly 260. Everything that was there is retained; the two sections that were already correct on stoichiometry, "Origin of mitochondria" and "Contested: early or late mitochondria", are untouched. Step 2's six items, in order, with what each one was before:
+
+**Pyruvate transport across a membrane. Absent, now a section.** Two membranes and only one is a barrier: porins pass pyruvate across the outer membrane free, and the inner membrane needs the mitochondrial pyruvate carrier, whose identity was open for roughly forty years and was settled in 2012 by two groups independently as an MPC1 and MPC2 heterocomplex. **It is a proton symport, one pyruvate in with one proton.** That is the fact worth having found: the first unlock of act 3 spends the gradient at a point where the player cannot make one, and the cost falls out of a real carrier's stoichiometry rather than out of a designer adding it.
+
+**The pyruvate dehydrogenase complex. Four lines, now a section with the link the stage asked for.** Three enzymes and five cofactors, a swinging lipoyl arm, substrate channelling, and regulation by phosphorylation rather than by the allostery act 1 uses. **The link to V10's ethanol branch is real and it is a comparison between two things the player has personally bought.** Pyruvate decarboxylase and this complex take the same carbon off the same molecule and are both thiamine pyrophosphate dependent. What differs is the two carbons left over: the decarboxylase releases them as acetaldehyde and the cell reduces it to ethanol purely to recover NAD+, throwing the bond energy away, while the complex oxidises them onto coenzyme A as a thioester and banks the electrons as NADH. **Same decarboxylation, one discards what the other banks**, which is the cleanest available statement of what act 3 changes.
+
+**The TCA cycle, as one unit and then decomposed. Totals only, now the eight steps** with enzyme, substrates and products per step. Four things in that table are load-bearing and none is visible from the totals: the two carbons that leave on a turn come from the oxaloacetate rather than from the acetyl group just delivered, step 6 **is** complex II and is the only place the cycle and the chain are the same protein, step 5 is the cycle's only substrate-level phosphorylation so almost all of the roughly 30 is earned later, and step 4 is the same assembly design as the pyruvate dehydrogenase complex and shares a subunit with it.
+
+**The electron transport chain, complex by complex, and what each pumps. Which complexes pump was there and how much was not**, and how much is what the act's economy is made of. 4 protons at complex I per 2 electrons, 0 at complex II, 4 appearing in the intermembrane space at complex III through the Q cycle, 2 pumped at complex IV with 2 more consumed from the matrix in making water. **Totals of 10 per NADH and 6 per FADH2, and the difference of 4 is complex I, which is the whole of the difference between the two shuttles.**
+
+**Complex IV produced the finding this stage did not go looking for.** Four protons per O2 leave the matrix pool into water rather than crossing back, and ATP synthase consumes one per ATP. **So a conserved proton total falls on the first tick unless water has a pool**, which is V10's carbon dioxide problem with a different atom: carbon stayed conserved through decarboxylation because `co2` is a real pool with the carbon still in it. `h2o_mtx` is that pool for protons. Reserved below and handed to stage 2 with the weight table.
+
+**ATP synthase and protons per ATP. Absent, now a section, and it is the least settled stoichiometry in aerobic respiration.** Three ATP per revolution and the protons per revolution are the c-ring subunit count, so protons per ATP is c over 3 and **c is not universal**: 8 in bovine mitochondria giving 2.7, 10 in yeast giving 3.3, 10 to 15 in bacteria and chloroplasts. There is no reason for it to be an integer and it is not one. Add roughly one further proton for export through the adenine nucleotide translocase and the phosphate carrier and the usual figure is about 4 per cytosolic ATP. **That is where 2.5 comes from: 10 over 4. It is a rounded consequence of two uncertain quantities rather than a measured constant.**
+
+**Both shuttles and why their yields differ. Yields were there, mechanism was not.** Malate-aspartate in full, four transport events and two transaminations, netting one cytosolic NADH into one matrix NADH, entering at complex I at 10 protons. Glycerol phosphate in full, two dehydrogenases with the second FAD-linked on the outer face of the inner membrane, dropping electrons straight into the quinone pool downstream of complex I, 6 protons.
+
+Also added: the gradient has two components and **the membrane potential at roughly 150 to 180 mV is the larger one**, against a pH difference of roughly 0.5 to 1 unit. Recorded because stage 2 has to draw a gradient, and a picture showing only how many protons sit on each side is showing the smaller half of the quantity.
+
+Sixteen source entries added under a new "Act 3 pathway detail, Part 4" block, with a verification-status paragraph in the same shape as the 2026-07-28 and 2026-08-06 passes. Two entries have unverified fields and say so. **No number in the pass came from a game requirement**, and the proton counts, c-ring values and yield band were all written before any act 3 constant existed, which is the ordering hard rule 1 depends on and the reason this stage came first.
+
+### The yield range, and the five reasons
+
+Step 3 warned that a single number here would be a problem. **It was not a single number**: the document already said roughly 30 to 32 with published estimates from about 29 to 32. So the work was consolidation rather than correction, and what was missing is that the reasons were scattered across three sections and one of them was absent.
+
+**The band is 29 to 32, with 30 and 32 the two figures the shuttle picks between**, against an obsolete and still-circulating 36 to 38. The new subsection "The range, and the five reasons for it" is the content stage 6 renders:
+
+```
+  1  shuttle choice                worth exactly 2. The only one the player
+                                   controls, and the reason the beat can be
+                                   interactive rather than stated
+  2  ATP synthase c-ring           not an integer, not universal. 8 in bovine,
+                                   10 in yeast, 10 to 15 in bacteria. The
+                                   largest single source of spread
+  3  P/O ratios of 2.5 and 1.5     themselves rounded consensus, replacing the
+                                   integers 3 and 2. A correction of a false
+                                   precision, not a new one
+  4  transport costs               translocase, phosphate carrier and the
+                                   pyruvate carrier all spend the gradient.
+                                   Pyruvate import alone is 2 per glucose
+  5  proton leak                   the membrane is not perfectly tight. In
+                                   brown fat it is maximised on purpose by
+                                   UCP1, which is the case proving gradient
+                                   and ATP are separable
+```
+
+**Reasons 2 and 3 are disagreements about what the maximum is. Reasons 4 and 5 are the gap between that maximum and what a cell gets.** Those are two different kinds of uncertainty and a contested-science surface that flattens them into "scientists disagree" has lost the interesting half. Written into the document as such, so stage 6 inherits the distinction rather than having to find it.
+
+The multiplier section gained one paragraph on the same theme: **the 2 is exact** and asserted to nine decimal places since V2, the roughly 30 is the band above, so the honest short form is "about fifteen times" and never a figure with a decimal point in it.
+
+### The shuttle question: SWITCHABLE
+
+`docs/PROGRESSION.md`'s open question, answered here as step 5 asks. Stage 7 records it in that document; this stage puts the biology that licenses it into `docs/SCIENCE.md` and the design reasoning here, which keeps hard rule 2's line intact.
+
+**The deciding argument is that permanent is biologically wrong, and that was not one of the two arguments the stage offered.** Step 5 framed it as structural difference against uninformed choice. Both are real and neither settles it. What settles it is that **both shuttles are present in most tissues at once and the balance between them shifts rather than being set**: malate-aspartate predominates in liver, heart and kidney, glycerol phosphate in skeletal muscle and brown adipose tissue, and it is dominant in insect flight muscle precisely because that tissue runs the highest glycolytic flux in the animal kingdom. A cell does not pick one. A game that makes the choice irreversible is departing from the science rather than modelling it.
+
+**Three arguments agree with that and one of them corrects the stage's own framing.** `docs/PROGRESSION.md` says the game has exactly one hard transition, endosymbiosis, since multicellularity was cut on 2026-07-27. **A permanent shuttle would be a second irreversible decision**, so the stage's "the game has one irreversible decision already" reads as an argument against permanence and not for it. Act 4's theme is regulation and its list item 4 is metabolic flexibility with automatic switching, so a switchable shuttle is the first instance of act 4's theme rather than a loose end. And a permanent uninformed choice is a trap, which stage 5 says in its own step 1.
+
+**Switchable does not mean the choice is free, and the tradeoff is sourced rather than invented.** Malate-aspartate is fully reversible and every step is an equilibrium, so it moves electrons inward only while the cytosol is more reduced than the matrix, and it slows or reverses under high respiratory load. Glycerol phosphate is effectively irreversible because the second step drops the electrons onto an FAD at a potential they cannot climb back from, so it runs regardless of the matrix redox state. **The higher-yielding route is the one that fails under pressure and the lower-yielding one is the one that keeps working.** That is what the document's older shorthand of "speed against yield" was pointing at, and it is now stated as insensitivity to redox back-pressure against yield.
+
+That reading is what makes both branches non-dominated, which is V5's rule about purchasable configurations, and it means neither is a trap even before the switch exists. **`progression.shuttleChoice` keeps its documented values and its meaning**: it names the route currently running, not the route permanently taken, and that reading was already available in the field as written.
+
+### The permanent id list, and the collision in it
+
+Written into `docs/SAVE_SCHEMA.md` Part 3, which is the document that owns id permanence, rather than into this log, because a list of contract surface in an ephemeral build doc is a list nobody will find in five months.
+
+**The convention. A pool id is `species` or `species_compartment`, and no suffix means the cytosol.** Compartments are `env`, `cyt`, `ims`, `imm`, `mtx`. The unsuffixed case is a dated exception rather than a second rule: act 1's thirteen ids shipped in V4 and cannot be renamed, so `glucose`, `pyruvate`, `nad`, `atp` and the rest keep bare names forever. **`glucose_env` is the precedent this generalises** and it is the reason the convention is an underscore suffix rather than anything else. Every pool minted from V14 onward carries an explicit suffix including cytosolic ones, so the shuttle's cytosolic malate is `malate_cyt`. One sentence decodes the whole set.
+
+**The collision, and it is the reason step 6 was worth doing before stage 4 rather than during it.** `g3p` is act 1's **glyceraldehyde-3-phosphate**, minted in V2 and shipped in the committed V4 fixture. The glycerol phosphate shuttle runs on **glycerol-3-phosphate**, a different molecule routinely abbreviated G3P in the literature. Three carbons and one phosphate each, two steps apart in the same pathway, and one of them is already permanent. **The shuttle's metabolite is `glycerol3p_cyt` and it is never `g3p` under any suffix.** Written into the document rather than left to be noticed, because the failure mode is a conservation test that passes while the economy is quietly wrong, which is the exact hazard `src/content/act1/pools.ts` already warns about for redox weights.
+
+Thirty-one pool ids reserved across the five compartments, and twelve unlock ids plus two ladder families. Three things about the list are worth pulling out of it:
+
+**`nad_mtx` and `nadh_mtx` are a separate pool from cytosolic `nad` and `nadh`, and that separation is not an implementation detail.** Two shuttles exist because those are two pools rather than one. Merging them would delete the reason act 3 has a choice in it.
+
+**`h2o_mtx` is reserved for the reason found at complex IV** and `co2_mtx` is reserved with its question left open, because it is exactly the question stage 4 step 3 asks and stage 2's convention decides. The deciding rule is written down: a compartment suffix earns its place when location changes what a species can react with. Carbon dioxide crosses both membranes freely with no carrier, so the physical case is weak, **and act 4's pyruvate carboxylase is a matrix enzyme that consumes it**, so the answer may differ between act 3 and act 4. Better known before the id is minted than after.
+
+**The two shuttle unlock ids are not the two `shuttleChoice` values.** `shuttle-malate-aspartate` records that a route was bought; `"malate-aspartate"` records which one is running. Under a switchable shuttle a player owns both ids while the field names one, and a design that conflates them cannot express that. Stated in the document because the switchable answer above makes it load-bearing.
+
+**Nothing in the list forces a schema bump**, on Part 1's existing reasoning. The expected bump is still act 2's, and stage 3 may force an earlier one if the transition snapshot needs a slot.
+
+**One thing the list is careful not to claim.** Part 3 gained a sentence making explicit what V10 demonstrated: **an id is permanent from the moment something ships with it and not before.** V10 stage 1 named three enzyme ids, V10 stage 4 measured that two of the three enzymes could not be sold at all, and dropping them cost nothing because no build had written one. These thirty-one are reservations. Stages 2 to 5 decide which are minted.
+
+### Deviations
+
+**Step 4's premise is wrong and the step was done anyway.** It says oxygen as the terminal electron acceptor "is currently implicit". It is not: the sentence "Oxygen is the terminal electron acceptor. Its only role is accepting spent electrons at the end of the chain" has been in Part 4 since the document was written. What was true is that it sat four paragraphs into another section, which for the fact the entire ordering decision turns on is the wrong place. **Promoted to its own section rather than added**, and the section says it is a promotion rather than a discovery so nobody reads it as new sourcing.
+
+Promoting it surfaced something worth keeping. Without a terminal acceptor the chain backs up, the matrix NADH pool cannot be reoxidised, and pyruvate oxidation and the TCA cycle stop behind it **for exactly the reason glycolysis stops behind an unreoxidised cytosolic NADH pool in act 1**. It is the NAD+ wall again, one compartment inward. That symmetry is real and it is the best thing act 3 inherits from act 1.
+
+**Step 1's row is a section, per the reasoning above.** The only other deviation.
+
+### Verify
+
+Stage 1's Verify line is documentary and all three clauses hold: step 2's six items are covered with citations, the yield range is established with its five reasons, and the shuttle question is answered. Because the edits touch four files that guards parse, the suite was run as well rather than assumed.
+
+```
+  npm run typecheck    exit 0
+  npm test             61 files, 1011 tests, 0 failed, 21.65s
+```
+
+**1011 is unmoved from V13 and that is the result rather than the absence of one.** This stage adds no test because it adds no behaviour. What it had to not break is the four guards that parse `docs/SCIENCE.md`: `teaching.test.tsx` asserts every cited Part resolves to a real `# Part N:` heading, `provenance.test.tsx` asserts the same for every badge, `disclosure.test.tsx` quotes the required disclosure blockquote word for word, and `timeline.test.tsx` checks the Parts the timeline cites. **No Part was added, removed or renumbered and the disclosure blockquote was not touched**, which is why a 170-line expansion of Part 4 moved nothing. `divergenceTable.test.ts` passes because the placeholder is prose rather than a table cell and the three stated counts are unchanged.
+
+Files changed: `docs/SCIENCE.md`, `docs/SAVE_SCHEMA.md`, `docs/ECONOMY.md`, `NOW.md`. No TypeScript, as the stage requires.
 
 ---
 

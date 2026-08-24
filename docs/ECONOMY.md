@@ -1,6 +1,6 @@
 # Economy
 
-Last updated: 2026-08-06
+Last updated: 2026-08-24
 
 Tuned game numbers and the divergence table.
 
@@ -124,6 +124,36 @@ Twenty-three numbers. Nine are DEPARTURE and fourteen are UNSOURCED, and the spl
 | Id | Value | Where | The real behaviour | What the game does instead | Why | Introduced |
 | --- | --- | --- | --- | --- | --- | --- |
 | S1 | 30000 | `AUTOSAVE_INTERVAL_MS` | | Milliseconds between autosaves | A judgement about tolerable loss reasoned from the pacing measurement rather than a measurement in itself. The worst case for a write interrupted at any step is the work since the last successful one, so the interval is the unit of loss. Purchases save immediately and independently of this timer, because losing a purchase is the loss a player notices, which makes 30 seconds really the granularity of losing progress **toward** the next purchase | V4 stage 5 |
+
+---
+
+# The placeholder oxygen level
+
+Added 2026-08-24 by UPDATELOGV14.md stage 1, which is the stage that recorded the act ordering decision. **This is the one entry in this document that is knowingly standing in for something**, and it is written out here rather than dropped into the table above because a row that looks like the other forty-eight is exactly what it must not be.
+
+## The decision it comes from
+
+The design in `docs/designs/game-spine-and-four-acts.md` schedules act 3 ahead of act 2, and act 3's payoff is yield per glucose going from 2 to roughly 30. That needs oxygen as the terminal electron acceptor, docs/SCIENCE.md Part 4 states the dependency in its own section, and **act 2 is the act that raises the oxygen level.** `src/save/schema.ts` reserves `environment.oxygenLevel`, act 1 writes it as a literal 0, and the comment beside it says that is not a placeholder because act 1 really is anaerobic.
+
+**ACCEPT was taken on 2026-08-24 by Charlie.** Act 3 goes next and ships against a placeholder. NOW.md carries the decision and the grounds.
+
+## The row, held out of the table until the constant exists
+
+`ACT3_O2_ENV_PLACEHOLDER`, in `src/content/act3/tuning.ts`, DEPARTURE.
+
+**The real behaviour.** Atmospheric oxygen rose substantially around 2.4 to 2.45 billion years ago, over a transition sources place anywhere from relatively rapid to spanning 2.4 to 2.0 billion years ago, and it rose because cyanobacteria made it and chemical sinks stopped absorbing it. docs/SCIENCE.md Part 3, "The Great Oxidation Event". Oxygen is a level that changes over time under a process, and docs/SIMULATION.md Part 3 already holds the written constraint for the schedule that will produce it.
+
+**What the game does instead.** A single constant, fixed for the whole of act 3, standing where a schedule should be.
+
+**Why, in plain words and without softening.** *Act 2 has not been built. This number stands in for a rising oxygen level that act 2 is the act that produces, and nothing in act 3 makes it go up or down. It is not a measurement, it is not tuned against anything real, and it is not a simplification of a process the game models somewhere else. It is a value chosen so that act 3 can be played before the act that explains where oxygen came from exists.* **Every balance figure in act 3 is derived against it and every one of them is provisional**, which is a debt act 2 collects rather than a caveat this document files away.
+
+## Why it is not in the table above
+
+Two reasons and the first is mechanical.
+
+`src/ui/__tests__/divergenceTable.test.ts` fails the build on a row naming a constant that does not exist, which is the check that stops the table describing an economy the game does not have. **Stage 1 of UPDATELOGV14.md is a documentation stage that writes no TypeScript**, so the constant cannot exist yet, and a table row for it would fail the suite on the stage that wrote it. Stage 4 mints act 3's tuned scalars and the row moves into the table there, at which point the counts at the head of this document move with it.
+
+The second reason is the better one and it outlives the first. **A number that is knowingly wrong and looks like the others is the failure this whole table exists to prevent.** Forty-eight rows say "we chose this and here is why". This one says "we do not know this and act 2 will". Those are different claims and a reader skimming a column of identical-looking rows would not catch the difference. When it joins the table it keeps this section, and the row cites back to it.
 
 ---
 
